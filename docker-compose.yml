@@ -1,21 +1,32 @@
 version: '3.8'
+
 services:
   db:
     image: mysql:8.0
+    restart: always
     environment:
       MYSQL_ROOT_PASSWORD: hyperion_root_pass
       MYSQL_DATABASE: hyperion_db
     ports:
-      - "3306:3306"
+      - "3307:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost", "-uroot", "-phyperion_root_pass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   backend:
     build: ./backend
     ports:
       - "8000:8000"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
-      DATABASE_URL: mysql+pymysql://root:hyperion_root_pass@db/hyperion_db
+      # Ajustado para usar root y el nombre de DB correcto
+      DATABASE_URL: mysql+pymysql://root:hyperion_root_pass@db:3306/hyperion_db
 
   frontend:
     build: ./frontend
@@ -23,3 +34,6 @@ services:
       - "8501:8501"
     depends_on:
       - backend
+
+volumes:
+  db_data:
