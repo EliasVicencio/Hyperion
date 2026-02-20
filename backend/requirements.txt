@@ -1,8 +1,6 @@
 fastapi
 uvicorn
 psutil
-pyotp
-bandit
 sqlalchemy
-pymysql
-cryptography
+psycopg2-binary
+loguru

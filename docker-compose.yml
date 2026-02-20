@@ -1,19 +1,19 @@
-version: '3.8'
-
 services:
   db:
-    image: mysql:8.0
+    image: postgres:15
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: hyperion_root_pass
-      MYSQL_DATABASE: hyperion_db
+      POSTGRES_USER: hyperion_user
+      POSTGRES_PASSWORD: hyperion_password
+      POSTGRES_DB: hyperion_db
     ports:
-      - "3307:3306"
+      - "5432:5432"
     volumes:
-      - db_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
+    # ESTO ES LO QUE FALTABA:
     healthcheck:
-      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost", "-uroot", "-phyperion_root_pass"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U hyperion_user -d hyperion_db"]
+      interval: 5s
       timeout: 5s
       retries: 5
 
@@ -25,8 +25,9 @@ services:
       db:
         condition: service_healthy
     environment:
-      # Ajustado para usar root y el nombre de DB correcto
-      DATABASE_URL: mysql+pymysql://root:hyperion_root_pass@db:3306/hyperion_db
+      DATABASE_URL: postgresql://hyperion_user:hyperion_password@db:5432/hyperion_db
+    volumes:
+      - ./backend/logs:/app/logs
 
   frontend:
     build: ./frontend
@@ -36,4 +37,4 @@ services:
       - backend
 
 volumes:
-  db_data:
+  postgres_data:
