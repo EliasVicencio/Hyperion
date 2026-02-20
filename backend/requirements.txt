@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+psutil
+pyotp
+bandit
+sqlalchemy
+pymysql
+cryptography
