@@ -1,19 +1,24 @@
-FROM python:3.11-slim
+# Usa una imagen de Python oficial
+FROM python:3.10-slim
 
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
-WORKDIR /app
-
-# Instalamos dependencias para PostgreSQL (sustituye a las de mysql)
+# Instala dependencias del sistema para psycopg2 (necesario para Postgres)
 RUN apt-get update && apt-get install -y \
-    gcc \
     libpq-dev \
+    gcc \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Crea y define el directorio de trabajo
+WORKDIR /app
+
+# Copia los archivos de requerimientos e instala
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# COPIA TODO EL CONTENIDO de la carpeta backend al contenedor
 COPY . .
 
+# EXPLICACIÓN DEL ERROR: 
+# Si tu archivo se llama main.py, el comando debe decir main:app
+# Si usas app.py, debe decir app:app
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

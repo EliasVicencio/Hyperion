@@ -1,16 +1,19 @@
-FROM python:3.11-slim
+FROM python:3.9-slim
 
+# Usamos /app que es el estándar
 WORKDIR /app
 
-# Streamlit necesita algunas herramientas básicas
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+# Copiamos solo el requirements primero (para que sea más rápido)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Instalamos solo lo necesario para el front
-RUN pip install streamlit requests
-
+# COPIAMOS TODO lo de la carpeta frontend al contenedor
 COPY . .
+
+# Verificamos qué archivos hay dentro (esto saldrá en el log para ayudarte)
+RUN ls -la
 
 EXPOSE 8501
 
-# Comando para arrancar el Dashboard
-CMD ["streamlit", "run", "dashboard.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# Forzamos la ruta absoluta para que no se pierda
+CMD ["streamlit", "run", "/app/main.py", "--server.port=8501", "--server.address=0.0.0.0"]

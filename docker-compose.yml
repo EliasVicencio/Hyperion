@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   db:
     image: postgres:15
@@ -10,29 +12,26 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    # ESTO ES LO QUE FALTABA:
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hyperion_user -d hyperion_db"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
 
   backend:
     build: ./backend
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://hyperion_user:hyperion_password@db:5432/hyperion_db
     ports:
       - "8000:8000"
     depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      DATABASE_URL: postgresql://hyperion_user:hyperion_password@db:5432/hyperion_db
+      - db
     volumes:
-      - ./backend/logs:/app/logs
+      - ./backend:/app  # Esto permite que los cambios de código se vean sin reconstruir todo
 
   frontend:
     build: ./frontend
+    restart: always
     ports:
       - "8501:8501"
+    environment:
+      BACKEND_URL: http://backend:8000
     depends_on:
       - backend
 
