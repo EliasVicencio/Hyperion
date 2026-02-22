@@ -1,85 +1,156 @@
 import streamlit as st
 import requests
-import time
 import os
 
-# 1. Configuración de la página
-st.set_page_config(page_title="Proyecto Hyperion", page_icon="🚀")
+# 1. Esta URL la usa el CÓDIGO de Streamlit para hablar con el Backend (Interno Docker)
+BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:8000")
 
-# 2. Obtener la URL del backend desde las variables de entorno de Docker
-# Si no existe, usa localhost por defecto para pruebas locales
-BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+# 2. Esta URL la usa TU NAVEGADOR (Chrome/Edge) para abrir el Dashboard (Externo)
+BACKEND_URL_EXTERNA = "http://localhost:8000" 
+
+st.set_page_config(page_title="Hyperion Security", page_icon="🛡️", layout="centered")
+
+# --- ESTADO DE SESIÓN ---
+if "token" not in st.session_state:
+    st.session_state.token = None
+if "requires_2fa" not in st.session_state:
+    st.session_state.requires_2fa = False
+if "temp_email" not in st.session_state:
+    st.session_state.temp_email = None
 
 st.title("🛡️ Sistema Hyperion")
-st.subheader("Panel de Control del Proyecto")
+st.sidebar.image("https://cdn-icons-png.flaticon.com/512/702/702003.png", width=100)
+menu = ["Acceso", "Configurar 2FA", "Dashboard de Auditoría"]
+choice = st.sidebar.selectbox("Navegación", menu)
 
-# 3. Sidebar para navegación
-menu = ["Inicio", "Estado del Sistema", "Consultar Datos", "Prueba de Latencia"]
-choice = st.sidebar.selectbox("Menú de Navegación", menu)
-
-if choice == "Inicio":
-    st.write("Bienvenido al sistema de gestión de base de datos Hyperion.")
-    st.info("Utilice el menú lateral para navegar por las distintas secciones.")
-
-elif choice == "Estado del Sistema":
-    st.write("### Verificando conexión con el Backend...")
+# --- MÓDULO 1: ACCESO (LOGIN Y REGISTRO) ---
+if choice == "Acceso":
+    st.info("Bienvenido. Inicie sesión o cree una cuenta nueva para acceder a la red.")
     
-    try:
-        # Intentamos conectar con la ruta /health que creamos en el backend
-        response = requests.get(f"{BACKEND_URL}/health", timeout=5)
-        
-        if response.status_code == 200:
-            data = response.json()
-            st.success(f"✅ Backend Conectado: {data.get('status')}")
-            st.json(data)
-        else:
-            st.error(f"❌ El Backend respondió con error: {response.status_code}")
+    # Creamos pestañas visuales para que no se pierda
+    tab_login, tab_register = st.tabs(["🔑 Iniciar Sesión", "📝 Crear Cuenta Nueva"])
+
+    with tab_register:
+        st.subheader("Formulario de Registro")
+        with st.form("registro_form"):
+            reg_email = st.text_input("Correo Electrónico")
+            reg_pass = st.text_input("Contraseña", type="password")
+            reg_role = st.selectbox("Rol", ["employee", "admin", "guest"])
+            submit_reg = st.form_submit_button("Registrar Usuario")
             
-    except requests.exceptions.ConnectionError:
-        st.error("❌ No se pudo establecer conexión con el Backend.")
-        st.warning(f"Dirección intentada: {BACKEND_URL}")
-
-elif choice == "Consultar Datos":
-    st.write("### Consulta de Antecedentes")
-    # Aquí puedes agregar formularios para insertar o consultar datos
-    nombre = st.text_input("Ingrese nombre para buscar:")
-    if st.button("Buscar"):
-        st.write(f"Buscando a {nombre} en la base de datos PostgreSQL...")
-        # Aquí harías un requests.get() a tu API
-
-# Sección de "Prueba de Latencia":
-elif choice == "Prueba de Latencia":
-    st.header("⏱️ Monitor de Latencia Hyperion")
-    st.write("Medición de respuesta: **Frontend ↔ Backend ↔ PostgreSQL**")
-
-    # Botón para disparar la prueba
-    if st.button("Ejecutar Test de Velocidad"):
-        with st.spinner('Midiendo tiempos...'):
-            try:
-                # 1. Medimos latencia de red (Frontend -> Backend)
-                t1 = time.time()
-                res_back = requests.get(f"{BACKEND_URL}/health")
-                t2 = time.time()
-                latencia_red = (t2 - t1) * 1000
-
-                # 2. Medimos latencia de base de datos (Backend -> DB)
-                res_db = requests.get(f"{BACKEND_URL}/latencia-db")
-                datos_db = res_db.json()
-                latencia_db = datos_db.get("latencia_ms", 0)
-
-                # Mostramos los resultados en columnas
-                col1, col2 = st.columns(2)
-                col1.metric("Latencia Red", f"{latencia_red:.2f} ms", delta_color="inverse")
-                col2.metric("Latencia DB (Postgres)", f"{latencia_db:.2f} ms", delta_color="inverse")
-
-                # Semáforo de estado
-                if latencia_db < 50:
-                    st.success("🟢 Rendimiento Óptimo: PostgreSQL está respondiendo instantáneamente.")
+            if submit_reg:
+                if reg_email and reg_pass:
+                    res = requests.post(f"{BACKEND_URL}/auth/register", 
+                                       json={"email": reg_email, "password": reg_pass, "role": reg_role})
+                    if res.status_code == 200:
+                        st.success("✅ ¡Cuenta creada con éxito! Ahora puedes ir a la pestaña de 'Iniciar Sesión'.")
+                    else:
+                        st.error(f"❌ Error: {res.json().get('detail')}")
                 else:
-                    st.warning("🟡 Rendimiento Moderado: Revisa la carga de los contenedores.")
+                    st.warning("Por favor rellena todos los campos.")
 
-            except Exception as e:
-                st.error(f"Error en la prueba: {e}")
+    with tab_login:
+        if not st.session_state.requires_2fa:
+            st.subheader("Login de Seguridad")
+            with st.form("login_form"):
+                email = st.text_input("Email")
+                password = st.text_input("Contraseña", type="password")
+                submit_log = st.form_submit_button("Entrar")
+                
+                if submit_log:
+                    res = requests.post(f"{BACKEND_URL}/auth/login", data={"username": email, "password": password})
+                    if res.status_code == 200:
+                        data = res.json()
+                        if data.get("requires_2fa"):
+                            st.session_state.requires_2fa = True
+                            st.session_state.temp_email = email
+                            st.rerun()
+                        else:
+                            st.session_state.token = data["access_token"]
+                            st.success("✅ Acceso concedido")
+                    else:
+                        st.error("Credenciales incorrectas")
+        else:
+            # PANTALLA DE SEGUNDO FACTOR
+            st.warning(f"🔒 Verificación 2FA: {st.session_state.temp_email}")
+            otp_code = st.text_input("Introduce el código de 6 dígitos de tu móvil", maxlength=6)
+            if st.button("Verificar Identidad"):
+                res = requests.post(f"{BACKEND_URL}/auth/login/verify-2fa", 
+                                   json={"email": st.session_state.temp_email, "code": otp_code})
+                if res.status_code == 200:
+                    st.session_state.token = res.json()["access_token"]
+                    st.session_state.requires_2fa = False
+                    st.success("✅ Verificación exitosa. Bienvenido al sistema.")
+                else:
+                    st.error("Código 2FA incorrecto o expirado")
 
-    st.divider()
-    st.caption("Contexto Sprint: Comparativa de rendimiento tras migración desde MySQL.")
+# --- MÓDULO 2: CONFIGURAR 2FA (IGUAL QUE ANTES) ---
+elif choice == "Configurar 2FA":
+    if not st.session_state.token:
+        st.error("❌ Área Restringida. Debes iniciar sesión primero.")
+    else:
+        st.subheader("🔐 Panel de Seguridad 2FA")
+        # ... (aquí va el código de setup y activate que ya teníamos)
+        st.write("Sigue los pasos para blindar tu cuenta.")
+        if st.button("Generar Secreto"):
+            headers = {"Authorization": f"Bearer {st.session_state.token}"}
+            res = requests.post(f"{BACKEND_URL}/auth/2fa/setup", headers=headers)
+            setup_data = res.json()
+            
+            # En lugar de st.json(res.json()), ponemos algo más visual:
+            st.success("✅ ¡Secreto generado con éxito!")
+            st.code(setup_data['secret'], language=None)
+            st.info("👆 Copia este código y añádelo manualmente en tu app Google Authenticator.")
+
+# --- MÓDULO 3: DASHBOARD ---
+elif choice == "Dashboard de Auditoría":
+    st.header("📊 Centro de Operaciones")
+
+    # Si no hay token, mostramos el error de área restringida (Imagen 4)
+    if "token" not in st.session_state or st.session_state.token is None:
+        st.error("❌ **Área Restringida. Debes iniciar sesión primero.**")
+        st.info("El acceso a las métricas de red requiere un Token de Auditor activo.")
+    else:
+        # Si hay token, mostramos la interfaz nivel 2FA (Imagen 2)
+        st.success("✅ **Credenciales de Auditoría Validadas**")
+        
+        st.subheader("🚀 Acceso al Panel de Control")
+        st.write("Sigue los pasos para abrir la consola de monitoreo:")
+
+        # URL SEGURA CON TOKEN (Para evitar el error de la imagen 8)
+        url_segura = f"http://localhost:8000/dashboard?token={st.session_state.token}"
+
+        # Contenedor de seguridad idéntico al del 2FA
+        st.markdown(f"""
+            <div style="
+                background-color: #111827; 
+                padding: 25px; 
+                border-radius: 12px; 
+                border: 1px solid #374151; 
+                text-align: center;
+                margin-top: 10px;
+            ">
+                <p style="color: #9CA3AF; font-size: 14px; margin-bottom: 20px;">
+                    Cifrado de sesión activo: <span style="color: #60A5FA;">RSA-4096 / JWT</span>
+                </p>
+                <a href="{url_segura}" target="_blank" style="text-decoration: none;">
+                    <div style="
+                        background-color: #1F2937; 
+                        color: #60A5FA; 
+                        padding: 15px; 
+                        border-radius: 8px; 
+                        border: 1px solid #4B5563; 
+                        cursor: pointer; 
+                        font-weight: bold;
+                        transition: 0.3s;
+                        text-transform: uppercase;
+                        letter-spacing: 1px;
+                    ">
+                        🛰️ Lanzar Dashboard de Seguridad
+                    </div>
+                </a>
+            </div>
+        """, unsafe_allow_html=True)
+
+        st.divider()
+        st.caption("Acceso vinculado al ID de sesión: " + str(st.session_state.token[:10]) + "...")

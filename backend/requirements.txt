@@ -7,3 +7,8 @@ email-validator
 passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
 loguru
+python-jose[cryptography]
+python-multipart
+pyotp
+qrcode[pil]
+jinja2

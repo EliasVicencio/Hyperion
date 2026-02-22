@@ -15,6 +15,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+RUN pip install fastapi uvicorn sqlalchemy psycopg2-binary loguru python-jose[cryptography] passlib[bcrypt] pyotp qrcode[pil] jinja2
+
 # COPIA TODO EL CONTENIDO de la carpeta backend al contenedor
 COPY . .
 
