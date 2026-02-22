@@ -6,3 +6,52 @@
 {"text": "2026-02-22 04:18:21.182 | WARNING  | main:log_audit:47 - {'email': 'admin@hyperion.com', 'success': False, 'reason': 'Login fallido', 'timestamp': '2026-02-22T04:18:21.182923'}\n", "record": {"elapsed": {"repr": "0:00:59.014550", "seconds": 59.01455}, "exception": null, "extra": {}, "file": {"name": "main.py", "path": "/app/main.py"}, "function": "log_audit", "level": {"icon": "⚠️", "name": "WARNING", "no": 30}, "line": 47, "message": "{'email': 'admin@hyperion.com', 'success': False, 'reason': 'Login fallido', 'timestamp': '2026-02-22T04:18:21.182923'}", "module": "main", "name": "main", "process": {"id": 1, "name": "MainProcess"}, "thread": {"id": 124823548196544, "name": "AnyIO worker thread"}, "time": {"repr": "2026-02-22 04:18:21.182955+00:00", "timestamp": 1771733901.182955}}}
 {"text": "2026-02-22 04:18:25.281 | WARNING  | main:log_audit:47 - {'email': 'admin@hyperion.com', 'success': False, 'reason': 'Login fallido', 'timestamp': '2026-02-22T04:18:25.281236'}\n", "record": {"elapsed": {"repr": "0:01:03.112857", "seconds": 63.112857}, "exception": null, "extra": {}, "file": {"name": "main.py", "path": "/app/main.py"}, "function": "log_audit", "level": {"icon": "⚠️", "name": "WARNING", "no": 30}, "line": 47, "message": "{'email': 'admin@hyperion.com', 'success': False, 'reason': 'Login fallido', 'timestamp': '2026-02-22T04:18:25.281236'}", "module": "main", "name": "main", "process": {"id": 1, "name": "MainProcess"}, "thread": {"id": 124823548196544, "name": "AnyIO worker thread"}, "time": {"repr": "2026-02-22 04:18:25.281262+00:00", "timestamp": 1771733905.281262}}}
 {"text": "2026-02-22 04:27:13.888 | INFO     | main:log_audit:47 - {'email': 'user@example.com', 'success': True, 'reason': 'Registro exitoso', 'timestamp': '2026-02-22T04:27:13.888038'}\n", "record": {"elapsed": {"repr": "0:04:06.753398", "seconds": 246.753398}, "exception": null, "extra": {}, "file": {"name": "main.py", "path": "/app/main.py"}, "function": "log_audit", "level": {"icon": "ℹ️", "name": "INFO", "no": 20}, "line": 47, "message": "{'email': 'user@example.com', 'success': True, 'reason': 'Registro exitoso', 'timestamp': '2026-02-22T04:27:13.888038'}", "module": "main", "name": "main", "process": {"id": 1, "name": "MainProcess"}, "thread": {"id": 123281451513536, "name": "AnyIO worker thread"}, "time": {"repr": "2026-02-22 04:27:13.888070+00:00", "timestamp": 1771734433.88807}}}
+{"email": "ceo@hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:54:45.682575"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:55:07.830638"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:55:08.960872"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:55:09.439282"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:55:09.614436"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:55:09.762485"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:55:09.918298"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:55:10.073195"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:55:10.228812"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:55:10.388559"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:55:10.536078"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:56:36.262921"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:56:37.297520"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:56:38.338351"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:56:42.357198"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:56:42.824077"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:56:43.274935"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:56:43.900968"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:56:44.064185"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:56:44.215931"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:56:44.362886"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:56:44.508308"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:56:44.723420"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:56:44.898732"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:56:45.045012"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:56:45.127200"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:56:45.283782"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:56:45.456998"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:56:45.614743"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:56:45.775811"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:57:05.559734"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:57:06.070570"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:57:06.322984"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:57:06.486463"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:57:06.641479"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:57:06.794709"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:57:07.151640"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:57:07.365396"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:57:07.516611"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:57:07.771455"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de admin (Sin bloqueo)", "timestamp": "2026-02-22T17:57:07.942244"}
+{"email": "ceo@admin.hyperion.com", "ip": "172.18.0.4", "success": false, "reason": "Fallo de Admin (Sin bloqueo de IP)", "timestamp": "2026-02-22T18:02:40.908973"}
+{"email": "ceo@admin.hyperion.com", "ip": "172.18.0.4", "success": false, "reason": "Fallo de Admin (Sin bloqueo de IP)", "timestamp": "2026-02-22T18:02:42.652934"}
+{"email": "ceo@admin.hyperion.com", "ip": "172.18.0.4", "success": false, "reason": "Fallo de Admin (Sin bloqueo de IP)", "timestamp": "2026-02-22T18:02:43.410601"}
+{"email": "ceo@admin.hyperion.com", "ip": "172.18.0.4", "success": false, "reason": "Fallo de Admin (Sin bloqueo de IP)", "timestamp": "2026-02-22T18:02:43.895574"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de Admin (Sin bloqueo de IP)", "timestamp": "2026-02-22T18:05:38.036279"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de Admin (Sin bloqueo de IP)", "timestamp": "2026-02-22T18:05:44.252872"}
+{"email": "ceo@admin.hyperion.cl", "ip": "172.18.0.4", "success": false, "reason": "Fallo de Admin (Sin bloqueo de IP)", "timestamp": "2026-02-22T18:05:45.560342"}
+{"email": "ceo@admin.hyperion.com", "ip": "172.18.0.4", "success": false, "reason": "Fallo de Admin (Sin bloqueo de IP)", "timestamp": "2026-02-22T18:09:14.596434"}

@@ -2,49 +2,148 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Hyperion Security Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hyperion - Monitor de Seguridad</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .pulse { animation: pulse-red 2s infinite; }
+    </style>
 </head>
-<body class="bg-slate-900 text-white p-8">
-    <h1 class="text-3xl font-bold mb-8 text-blue-400">🛡️ Hyperion Security Ops</h1>
-    
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
-            <p class="text-slate-400">Usuarios Conectados</p>
-            <p id="total-users" class="text-5xl font-bold text-green-400">0</p>
-        </div>
-        <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
-            <p class="text-slate-400">Alertas de Seguridad</p>
-            <p id="failed-attempts" class="text-5xl font-bold text-red-500">0</p>
-        </div>
-        <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
-            <p class="text-slate-400">Estado del Sistema</p>
-            <p class="text-2xl font-bold text-blue-400">OPERATIVO</p>
-        </div>
-    </div>
+<body class="bg-slate-900 text-slate-100 p-4 md:p-8 font-sans">
+    <div class="max-w-6xl mx-auto">
+        <header class="flex justify-between items-center mb-10 border-b border-slate-700 pb-6">
+            <div>
+                <h1 class="text-3xl font-extrabold text-blue-500 tracking-tight">🛡️ HYPERION REAL-TIME</h1>
+                <p class="text-slate-400 text-sm mt-1">Panel de Control de Amenazas Perimetrales</p>
+            </div>
+            <div id="system-status" class="bg-green-500/10 text-green-500 px-4 py-2 rounded-lg border border-green-500/20 text-xs font-bold tracking-widest uppercase">
+                ● SISTEMA ACTIVO
+            </div>
+        </header>
 
-    <div class="bg-slate-800 p-6 rounded-xl border border-slate-700">
-        <h2 class="text-xl font-bold mb-4">Emails con actividad reciente:</h2>
-        <ul id="user-list" class="list-disc ml-6 text-slate-300"></ul>
+        <main class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl transition hover:border-slate-500">
+                <h3 class="text-slate-500 text-xs font-black uppercase tracking-wider mb-2">Intentos Fallidos Totales</h3>
+                <p id="total-attempts" class="text-5xl font-black text-white">0</p>
+            </div>
+            <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl transition hover:border-slate-500">
+                <h3 class="text-slate-500 text-xs font-black uppercase tracking-wider mb-2">IPs bajo Restricción</h3>
+                <p id="watched-ips" class="text-5xl font-black text-blue-500">0</p>
+            </div>
+        </main>
+
+        <section class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-2xl">
+            <div class="bg-slate-700/50 p-4 border-b border-slate-700">
+                <h2 class="text-sm font-bold text-slate-300 uppercase tracking-widest">Registro de Actividad Sospechosa</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-800 text-slate-400 text-xs uppercase">
+                        <tr>
+                            <th class="p-4">Dirección IP</th>
+                            <th class="p-4 text-center">Intentos</th>
+                            <th class="p-4">Estado Actual</th>
+                            <th class="p-4">Bloqueado Hasta</th>
+                            <th class="p-4 text-center">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="log-table" class="divide-y divide-slate-700/50">
+                        </tbody>
+                </table>
+            </div>
+        </section>
+
+        <footer class="mt-8 text-center text-slate-600 text-[10px] uppercase tracking-widest">
+            Hyperion Security Engine v3.0 - Protocolo de Respuesta Inmediata
+        </footer>
     </div>
 
     <script>
-        async function updateDashboard() {
-            const res = await fetch('/dashboard/stats');
-            const data = await res.json();
-            document.getElementById('total-users').innerText = data.total_usuarios_en_red;
-            document.getElementById('failed-attempts').innerText = data.alertas_seguridad_bloqueadas;
+        // Extraer token de la URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+
+        // FUNCIÓN PARA ELIMINAR IP (DESBLOQUEAR)
+        async function deleteIP(ip) {
+            if(!confirm(`¿Confirmar desbloqueo manual de la IP: ${ip}?`)) return;
             
-            const list = document.getElementById('user-list');
-            list.innerHTML = '';
-            data.usuarios_conectados_recientemente.forEach(user => {
-                const li = document.createElement('li');
-                li.innerText = user;
-                list.appendChild(li);
-            });
+            try {
+                const res = await fetch(`/api/clear-ip/${ip}?token=${token}`, { 
+                    method: 'DELETE' 
+                });
+                if (res.ok) {
+                    // Feedback visual rápido antes del próximo refresco
+                    update(); 
+                } else {
+                    alert("No tienes permisos suficientes para esta acción.");
+                }
+            } catch (e) {
+                console.error("Error al intentar desbloquear:", e);
+            }
         }
-        setInterval(updateDashboard, 5000); // Se actualiza cada 5 seg
-        updateDashboard();
+
+        // FUNCIÓN DE ACTUALIZACIÓN DE DATOS
+        async function update() {
+            if (!token) {
+                document.body.innerHTML = "<div class='flex h-screen items-center justify-center bg-slate-950 text-red-500 font-bold'>ERROR: SESIÓN NO INICIADA</div>";
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/security-status?token=${token}`);
+                if (!res.ok) throw new Error("Unauthorized");
+                
+                const data = await res.json();
+                
+                document.getElementById('total-attempts').innerText = data.total_attempts;
+                document.getElementById('watched-ips').innerText = data.blocked_ips.length;
+
+                const body = document.getElementById('log-table');
+                
+                if (data.blocked_ips.length === 0) {
+                    body.innerHTML = '<tr><td colspan="5" class="p-12 text-center text-slate-500 italic text-base">🛡️ Perímetro Seguro: No se detectan anomalías</td></tr>';
+                    return;
+                }
+
+                body.innerHTML = ''; 
+                data.blocked_ips.forEach(item => {
+                    const isB = item.status === 'BLOQUEADO';
+                    const rowClass = isB ? 'bg-red-500/5' : 'hover:bg-slate-700/30';
+                    const badgeClass = isB ? 'bg-red-500/20 text-red-400 border-red-500/50 pulse' : 'bg-yellow-500/20 text-yellow-500 border-yellow-500/50';
+                    
+                    body.innerHTML += `
+                        <tr class="${rowClass} transition-all duration-300">
+                            <td class="p-4 font-mono font-bold text-blue-400">${item.ip}</td>
+                            <td class="p-4 text-center font-medium">${item.attempts}</td>
+                            <td class="p-4">
+                                <span class="${badgeClass} border px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter">
+                                    ${item.status}
+                                </span>
+                            </td>
+                            <td class="p-4 text-slate-400 font-mono text-xs">${item.until}</td>
+                            <td class="p-4 text-center">
+                                <button onclick="deleteIP('${item.ip}')" 
+                                    class="bg-slate-700 hover:bg-red-600 p-2 rounded-lg transition-all group shadow-sm"
+                                    title="Desbloquear IP">
+                                    <span class="group-hover:scale-110 block">🗑️</span>
+                                </button>
+                            </td>
+                        </tr>`;
+                });
+            } catch (e) {
+                document.getElementById('system-status').innerText = "🚫 SESIÓN CADUCADA";
+                document.getElementById('system-status').classList.replace('text-green-500', 'text-red-500');
+            }
+        }
+
+        // Intervalo de actualización (3 segundos)
+        setInterval(update, 3000);
+        update(); // Ejecución inicial
     </script>
 </body>
 </html>
