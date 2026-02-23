@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hyperion - Monitor de Seguridad</title>
+    <link rel="icon" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f6e1.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @keyframes pulse-red {
@@ -15,6 +16,8 @@
     </style>
 </head>
 <body class="bg-slate-900 text-slate-100 p-4 md:p-8 font-sans">
+    <a href="http://localhost:8501" class="fixed top-4 right-4 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs py-2 px-4 rounded-full border border-slate-700 transition-all z-50">
+    ⬅ Volver a Hyperion Ops</a>
     <div class="max-w-6xl mx-auto">
         <header class="flex justify-between items-center mb-10 border-b border-slate-700 pb-6">
             <div>
@@ -39,7 +42,7 @@
 
         <section class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-2xl">
             <div class="bg-slate-700/50 p-4 border-b border-slate-700">
-                <h2 class="text-sm font-bold text-slate-300 uppercase tracking-widest">Registro de Actividad Sospechosa</h2>
+                <h2 class="text-sm font-bold text-slate-300 uppercase tracking-widest text-center md:text-left">🚫 Registro de Actividad Sospechosa</h2>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm">
@@ -52,9 +55,17 @@
                             <th class="p-4 text-center">Acción</th>
                         </tr>
                     </thead>
-                    <tbody id="log-table" class="divide-y divide-slate-700/50">
-                        </tbody>
+                    <tbody id="log-table" class="divide-y divide-slate-700/50"></tbody>
                 </table>
+            </div>
+        </section>
+
+        <section class="mt-10 bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-2xl">
+            <div class="bg-indigo-900/30 p-4 border-b border-slate-700">
+                <h2 class="text-sm font-bold text-indigo-300 uppercase tracking-widest text-center md:text-left">🔍 Auditoría de Código (Bandit + GitHub)</h2>
+            </div>
+            <div id="scan-container" class="p-6 grid grid-cols-1 gap-4 text-xs">
+                <p class="text-slate-500 italic text-center">Esperando primer Webhook de GitHub...</p>
             </div>
         </section>
 
@@ -64,86 +75,88 @@
     </div>
 
     <script>
-        // Extraer token de la URL
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
 
-        // FUNCIÓN PARA ELIMINAR IP (DESBLOQUEAR)
         async function deleteIP(ip) {
             if(!confirm(`¿Confirmar desbloqueo manual de la IP: ${ip}?`)) return;
-            
             try {
-                const res = await fetch(`/api/clear-ip/${ip}?token=${token}`, { 
-                    method: 'DELETE' 
-                });
-                if (res.ok) {
-                    // Feedback visual rápido antes del próximo refresco
-                    update(); 
-                } else {
-                    alert("No tienes permisos suficientes para esta acción.");
-                }
-            } catch (e) {
-                console.error("Error al intentar desbloquear:", e);
-            }
+                const res = await fetch(`/api/clear-ip/${ip}?token=${token}`, { method: 'DELETE' });
+                if (res.ok) update(); 
+                else alert("Error de permisos.");
+            } catch (e) { console.error(e); }
         }
 
-        // FUNCIÓN DE ACTUALIZACIÓN DE DATOS
         async function update() {
             if (!token) {
-                document.body.innerHTML = "<div class='flex h-screen items-center justify-center bg-slate-950 text-red-500 font-bold'>ERROR: SESIÓN NO INICIADA</div>";
+                document.body.innerHTML = "<div class='h-screen flex items-center justify-center bg-slate-950 text-red-500 font-bold uppercase tracking-tighter'>Error: Sesión no válida</div>";
                 return;
             }
 
             try {
+                // 1. ACTUALIZAR IPS Y MÉTRICAS
                 const res = await fetch(`/api/security-status?token=${token}`);
-                if (!res.ok) throw new Error("Unauthorized");
-                
                 const data = await res.json();
                 
                 document.getElementById('total-attempts').innerText = data.total_attempts;
                 document.getElementById('watched-ips').innerText = data.blocked_ips.length;
 
                 const body = document.getElementById('log-table');
-                
                 if (data.blocked_ips.length === 0) {
-                    body.innerHTML = '<tr><td colspan="5" class="p-12 text-center text-slate-500 italic text-base">🛡️ Perímetro Seguro: No se detectan anomalías</td></tr>';
-                    return;
+                    body.innerHTML = '<tr><td colspan="5" class="p-12 text-center text-slate-500 italic text-base">🛡️ Perímetro Seguro</td></tr>';
+                } else {
+                    body.innerHTML = ''; 
+                    data.blocked_ips.forEach(item => {
+                        const isB = item.status === 'BLOQUEADO';
+                        body.innerHTML += `
+                            <tr class="${isB ? 'bg-red-500/5' : ''} transition-all duration-300">
+                                <td class="p-4 font-mono font-bold text-blue-400">${item.ip}</td>
+                                <td class="p-4 text-center">${item.attempts}</td>
+                                <td class="p-4 text-xs"><span class="${isB ? 'bg-red-500/20 text-red-400 border-red-500/50 pulse' : 'bg-yellow-500/20 text-yellow-500 border-yellow-500/50'} border px-3 py-1 rounded-full font-black uppercase tracking-tighter">${item.status}</span></td>
+                                <td class="p-4 text-slate-400 font-mono text-xs">${item.until}</td>
+                                <td class="p-4 text-center">
+                                    <button onclick="deleteIP('${item.ip}')" class="bg-slate-700 hover:bg-red-600 p-2 rounded-lg transition-all">🗑️</button>
+                                </td>
+                            </tr>`;
+                    });
                 }
 
-                body.innerHTML = ''; 
-                data.blocked_ips.forEach(item => {
-                    const isB = item.status === 'BLOQUEADO';
-                    const rowClass = isB ? 'bg-red-500/5' : 'hover:bg-slate-700/30';
-                    const badgeClass = isB ? 'bg-red-500/20 text-red-400 border-red-500/50 pulse' : 'bg-yellow-500/20 text-yellow-500 border-yellow-500/50';
-                    
-                    body.innerHTML += `
-                        <tr class="${rowClass} transition-all duration-300">
-                            <td class="p-4 font-mono font-bold text-blue-400">${item.ip}</td>
-                            <td class="p-4 text-center font-medium">${item.attempts}</td>
-                            <td class="p-4">
-                                <span class="${badgeClass} border px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter">
-                                    ${item.status}
-                                </span>
-                            </td>
-                            <td class="p-4 text-slate-400 font-mono text-xs">${item.until}</td>
-                            <td class="p-4 text-center">
-                                <button onclick="deleteIP('${item.ip}')" 
-                                    class="bg-slate-700 hover:bg-red-600 p-2 rounded-lg transition-all group shadow-sm"
-                                    title="Desbloquear IP">
-                                    <span class="group-hover:scale-110 block">🗑️</span>
-                                </button>
-                            </td>
-                        </tr>`;
-                });
+                // 2. ACTUALIZAR AUDITORÍA DE CÓDIGO (BANDIT)
+                const scanRes = await fetch(`/api/scan-results?token=${token}`);
+                const scans = await scanRes.json();
+                const scanContainer = document.getElementById('scan-container');
+                
+                if (scans.length > 0) {
+                    scanContainer.innerHTML = '';
+                    scans.forEach(s => {
+                        const hasIssues = s.issues_found > 0;
+                        const statusColor = hasIssues ? 'border-red-500/50 bg-red-500/10' : 'border-green-500/50 bg-green-500/10';
+                        const textStatus = hasIssues ? 'text-red-500 font-black' : 'text-green-500 font-bold';
+                        
+                        scanContainer.innerHTML += `
+                            <div class="border ${statusColor} p-4 rounded-xl flex flex-col md:flex-row justify-between items-center gap-2 transition hover:scale-[1.01]">
+                                <div class="flex items-center gap-3">
+                                    <div class="bg-slate-700 p-2 rounded text-lg uppercase">${hasIssues ? '⚠️' : '✅'}</div>
+                                    <div>
+                                        <p class="font-bold text-slate-200">${s.repo}</p>
+                                        <p class="text-[10px] text-slate-500 uppercase">${s.date}</p>
+                                    </div>
+                                </div>
+                                <div class="${textStatus} tracking-widest">
+                                    ${s.issues_found} VULNERABILIDADES DETECTADAS
+                                </div>
+                            </div>`;
+                    });
+                }
+
             } catch (e) {
                 document.getElementById('system-status').innerText = "🚫 SESIÓN CADUCADA";
                 document.getElementById('system-status').classList.replace('text-green-500', 'text-red-500');
             }
         }
 
-        // Intervalo de actualización (3 segundos)
         setInterval(update, 3000);
-        update(); // Ejecución inicial
+        update();
     </script>
 </body>
 </html>

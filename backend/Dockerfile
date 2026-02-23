@@ -14,8 +14,10 @@ WORKDIR /app
 # Copia los archivos de requerimientos e instala
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install bandit
+RUN pip install bandit pyotp
 
-RUN pip install fastapi uvicorn sqlalchemy psycopg2-binary loguru python-jose[cryptography] passlib[bcrypt] pyotp qrcode[pil] jinja2
+RUN pip install fastapi uvicorn sqlalchemy psycopg2-binary loguru python-jose[cryptography] passlib[bcrypt] pyotp qrcode[pil] jinja2 psutil
 
 # COPIA TODO EL CONTENIDO de la carpeta backend al contenedor
 COPY . .
