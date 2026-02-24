@@ -1,0 +1,5 @@
+# Ignorar secretos
+.env
+__pycache__/
+*.pyc
+users.json

@@ -1,56 +1,70 @@
 import streamlit as st
 import requests
 import os
+import time
+import pandas as pd
 
+# --- CONFIGURACIÓN DE RED ---
+# 'backend' es el nombre del servicio en docker-compose
 BACKEND_INTERNAL = os.getenv("BACKEND_URL", "http://backend:8000")
 BACKEND_EXTERNAL = "http://localhost:8000"
-
-# --- NUEVA CONSTANTE PARA TOTP ---
 TOTP_SECRET = "JBSWY3DPEHPK3PXP" 
 
 st.set_page_config(page_title="Hyperion Ops", layout="wide")
 
-# Inicialización de estados
+# --- INICIALIZACIÓN DE ESTADOS ---
 if "token" not in st.session_state: st.session_state.token = None
 if "requires_2fa" not in st.session_state: st.session_state.requires_2fa = False
 if "temp_email" not in st.session_state: st.session_state.temp_email = ""
+if "role" not in st.session_state: st.session_state.role = "empleado"
 
+# --- SIDEBAR / NAVEGACIÓN ---
 st.sidebar.title("🛡️ Hyperion System")
-menu = ["Acceso", "Configurar 2FA", "Dashboard de Auditoría", "Central de Vigilancia"]
+
+# Definición de menú según rol y estado de autenticación
+if st.session_state.token:
+    menu = ["Acceso", "Central de Vigilancia"]
+    if st.session_state.role == "admin":
+        menu.insert(1, "Configurar 2FA")
+        menu.insert(2, "Dashboard de Auditoría")
+else:
+    menu = ["Acceso"]
+
 choice = st.sidebar.selectbox("Navegación", menu)
 
+# --- VISTA: ACCESO (LOGIN Y REGISTRO) ---
 if choice == "Acceso":
-    # --- CENTRADO DEL FORMULARIO ---
     col1, col2, col3 = st.columns([1, 2, 1])
-    
     with col2:
         st.markdown("<h1 style='text-align: center;'>🔐 Control de Acceso</h1>", unsafe_allow_html=True)
         
+        # PASO 2: Verificación 2FA
         if st.session_state.requires_2fa:
             st.warning("Verificación de Dos Pasos Requerida")
-            
-            # --- SECCIÓN DE VINCULACIÓN ACTUALIZADA ---
-            with st.expander("📱 Vincular Google Authenticator / Authy", expanded=True):
-                st.write("Escanea este QR con tu aplicación de seguridad:")
-                # Usamos la constante TOTP_SECRET para que coincida con el backend
+            with st.expander("📱 Vincular App de Seguridad", expanded=True):
                 qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=otpauth://totp/Hyperion:{st.session_state.temp_email}?secret={TOTP_SECRET}&issuer=Hyperion"
                 st.image(qr_url)
                 st.code(f"Código Secreto: {TOTP_SECRET}", language="text")
-                st.caption("Si no puedes escanear el QR, ingresa el código secreto manualmente en la app.")
             
-            # Texto actualizado para indicar que acepta ambos
-            otp = st.text_input("Ingresa el código de tu App (o auxilio: 123456)", max_chars=6)
-            
+            otp = st.text_input("Ingresa el código de tu App", max_chars=6)
             if st.button("Verificar y Entrar", use_container_width=True):
-                res = requests.post(f"{BACKEND_INTERNAL}/auth/login/verify-2fa", json={"email": st.session_state.temp_email, "code": otp})
-                if res.status_code == 200:
-                    st.session_state.token = res.json()["access_token"]
-                    st.session_state.requires_2fa = False
-                    st.success("Acceso Concedido")
-                    st.rerun()
-                else:
-                    st.error("Código OTP incorrecto o expirado")
+                try:
+                    res = requests.post(f"{BACKEND_INTERNAL}/auth/login/verify-2fa", 
+                                     json={"email": st.session_state.temp_email, "code": otp})
+                    if res.status_code == 200:
+                        datos = res.json()
+                        st.session_state.token = datos["access_token"]
+                        st.session_state.role = datos.get("role", "empleado")
+                        st.session_state.requires_2fa = False
+                        st.success(f"Bienvenido. Nivel de acceso: {st.session_state.role.upper()}")
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.error("Código OTP incorrecto")
+                except:
+                    st.error("Error de conexión con el backend")
 
+        # PASO 1: Login o Registro
         elif not st.session_state.token:
             tab_login, tab_reg = st.tabs(["Iniciar Sesión", "Registrar Operador"])
             
@@ -64,107 +78,135 @@ if choice == "Acceso":
                         st.session_state.temp_email = user
                         st.rerun()
                     else:
-                        st.error(res.json().get("detail", "Error de conexión"))
+                        st.error("Credenciales incorrectas o IP bloqueada")
             
             with tab_reg:
                 new_user = st.text_input("Nuevo Usuario")
                 new_pass = st.text_input("Nueva Clave", type="password")
+                rol_sel = st.selectbox("Nivel de Acceso", ["admin", "empleado"])
                 if st.button("Crear Cuenta", use_container_width=True):
-                    res = requests.post(f"{BACKEND_INTERNAL}/auth/register", json={"email": new_user, "password": new_pass})
+                    res = requests.post(f"{BACKEND_INTERNAL}/auth/register", 
+                                     json={"email": new_user, "password": new_pass, "role": rol_sel})
                     if res.status_code == 200:
-                        st.success("Operador registrado con éxito")
+                        st.success(f"Operador {rol_sel} registrado")
                     else:
                         st.error("Error al registrar")
+        
         else:
             st.balloons()
-            st.success(f"Sesión activa como: {st.session_state.temp_email}")
+            st.info(f"Sesión activa: {st.session_state.temp_email} | Rol: {st.session_state.role.upper()}")
             if st.button("Cerrar Sesión Segura", use_container_width=True):
                 st.session_state.token = None
+                st.session_state.role = "empleado"
                 st.rerun()
 
+# --- VISTA: CONFIGURAR 2FA (SOLO ADMIN) ---
+elif choice == "Configurar 2FA":
+    st.title("🔐 Gestión de Protocolos 2FA")
+    if st.session_state.role != "admin":
+        st.error("🚫 Acceso denegado.")
+    else:
+        st.info(f"**Secreto Maestro Actual:** `{TOTP_SECRET}`")
+        user_to_reset = st.text_input("Correo del operador a resetear")
+        if st.button("Habilitar Nueva Vinculación"):
+            st.success(f"Acceso para {user_to_reset} reiniciado (Simulado)")
+
+# --- VISTA: DASHBOARD DE AUDITORÍA (SOLO ADMIN) ---
 elif choice == "Dashboard de Auditoría":
-    st.markdown("<h1 style='text-align: center;'>🛡️ Dashboard de Seguridad</h1>", unsafe_allow_html=True)
-    
-    # --- NUEVA DESCRIPCIÓN SOLICITADA ---
-    st.markdown("""
-        <p style='text-align: center; color: #94a3b8; font-size: 1.1rem; margin-bottom: 2rem;'>
-        En este apartado podrás ingresar al dashboard completo para gestionar la seguridad de tu empresa.
-        </p>
-    """, unsafe_allow_html=True)
-    
-    if not st.session_state.token:
-        st.error("🚫 Acceso restringido. Por favor, inicie sesión.")
+    st.title("📜 Centro de Control y Auditoría")
+    if st.session_state.role != "admin":
+        st.error("🚫 Acceso denegado.")
     else:
-        # --- BOTÓN REDISEÑADO (MÁS PEQUEÑO Y ESTILIZADO) ---
-        col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1]) # Columnas para centrar y achicar
+        tab_audit, tab_users, tab_engine = st.tabs(["📜 Historial Inmutable", "👥 Usuarios", "⚙️ Motor"])
         
-        with col_btn2:
+        with tab_audit:
+            res = requests.get(f"{BACKEND_INTERNAL}/admin/audit", params={"token": st.session_state.token})
+            if res.status_code == 200:
+                logs = res.json()
+                if logs:
+                    # Verificación de integridad simple
+                    is_valid = True
+                    for i in range(1, len(logs)):
+                        if logs[i]["hash_prev"] != logs[i-1]["hash_this"]:
+                            is_valid = False
+                    
+                    if is_valid: st.success(f"✅ INTEGRIDAD GARANTIZADA ({len(logs)} bloques)")
+                    else: st.error("🚨 ALERTA: Cadena de custodia alterada")
+                    
+                    df = pd.DataFrame(logs)
+                    st.dataframe(df[['timestamp', 'actor', 'action', 'hash_this']], use_container_width=True)
+                else:
+                    st.info("Sin registros de auditoría.")
+            else:
+                st.error("Error al obtener logs.")
+
+        with tab_users:
+            res = requests.get(f"{BACKEND_INTERNAL}/admin/users", params={"token": st.session_state.token})
+            if res.status_code == 200:
+                st.dataframe(res.json(), use_container_width=True)
+
+        with tab_engine:
+            st.subheader("⚙️ Infraestructura de Control")
+            st.info("Este acceso directo abre el Panel de Control Hyperion en una nueva instancia segura.")
+            
+            # Definimos la URL
             url = f"{BACKEND_EXTERNAL}/dashboard?token={st.session_state.token}"
-            st.markdown(f'''
+            
+            # Botón con estilo mejorado
+            st.markdown(f"""
                 <a href="{url}" target="_blank" style="text-decoration: none;">
-                    <button style="
-                        width: 100%;
-                        background-color: #2563eb;
-                        color: white;
-                        padding: 10px 20px;
-                        border: none;
-                        border-radius: 8px;
+                    <div style="
+                        background-color: #262730;
+                        color: #ffffff;
+                        padding: 15px;
+                        text-align: center;
+                        border-radius: 10px;
+                        border: 1px solid #464b5d;
+                        font-weight: bold;
+                        transition: 0.3s;
                         cursor: pointer;
-                        font-weight: 600;
-                        font-size: 14px;
-                        transition: background-color 0.3s;
-                    " onmouseover="this.style.backgroundColor='#1d4ed8'" onmouseout="this.style.backgroundColor='#2563eb'">
-                        INGRESAR AL PANEL
-                    </button>
+                        margin-top: 10px;">
+                        🚀 ABRIR PANEL DE CONTROL EXTERNO
+                    </div>
                 </a>
-            ''', unsafe_allow_html=True)
+                <p style="text-align: center; font-size: 0.8em; color: #808495; margin-top: 10px;">
+                    Protocolo de túnel activo: {BACKEND_EXTERNAL}
+                </p>
+            """, unsafe_allow_html=True)
 
-
-# Central de vigilancia
+# --- VISTA: CENTRAL DE VIGILANCIA (TODOS LOS LOGUEADOS) ---
 elif choice == "Central de Vigilancia":
-    st.markdown("<h1 style='text-align: center;'>👁️ Hyperion: Central de Vigilancia</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #94a3b8;'>Monitor de latencia y rendimiento de recursos en tiempo real.</p>", unsafe_allow_html=True)
-
+    st.title("👁️ Central de Vigilancia")
     if not st.session_state.token:
-        st.error("🚫 Acceso restringido. Por favor, inicie sesión.")
+        st.error("Acceso restringido.")
     else:
-        # Contenedores para métricas en tiempo real
         col_m1, col_m2, col_m3 = st.columns(3)
         cpu_stat = col_m1.empty()
         ram_stat = col_m2.empty()
         disk_stat = col_m3.empty()
         
-        chart_container = st.empty()
-        
-        # Simulación de historial para el gráfico (usando session_state para que persista)
         if "metrics_history" not in st.session_state:
             st.session_state.metrics_history = {"cpu": [], "ram": []}
 
-        # Loop de actualización en tiempo real
-        for _ in range(20): # Se actualizará 20 veces antes de detenerse (o usa while True)
+        # Bucle de actualización (10 ciclos)
+        for _ in range(10):
             try:
-                res = requests.get(f"{BACKEND_INTERNAL}/api/system-metrics?token={st.session_state.token}")
-                data = res.json()
-                
-                # Actualizar indicadores numéricos
-                cpu_stat.metric("Uso de CPU", f"{data['cpu']}%")
-                ram_stat.metric("Memoria RAM", f"{data['ram']}%")
-                disk_stat.metric("Espacio en Disco", f"{data['disk']}%")
-                
-                # Actualizar historial para el gráfico
-                st.session_state.metrics_history["cpu"].append(data['cpu'])
-                st.session_state.metrics_history["ram"].append(data['ram'])
-                
-                # Mantener solo los últimos 30 puntos
-                if len(st.session_state.metrics_history["cpu"]) > 30:
-                    st.session_state.metrics_history["cpu"].pop(0)
-                    st.session_state.metrics_history["ram"].pop(0)
-                
-                # Dibujar gráfico
-                chart_container.line_chart(st.session_state.metrics_history)
-                
-                import time
-                time.sleep(2) # Actualización cada 2 segundos
+                res = requests.get(f"{BACKEND_INTERNAL}/api/system-metrics", params={"token": st.session_state.token})
+                if res.status_code == 200:
+                    data = res.json()
+                    cpu_stat.metric("CPU", f"{data['cpu']}%")
+                    ram_stat.metric("RAM", f"{data['ram']}%")
+                    disk_stat.metric("Disco", f"{data['disk']}%")
+                    
+                    st.session_state.metrics_history["cpu"].append(data['cpu'])
+                    st.session_state.metrics_history["ram"].append(data['ram'])
+                    # Mantener solo los últimos 20 datos
+                    if len(st.session_state.metrics_history["cpu"]) > 20:
+                        st.session_state.metrics_history["cpu"].pop(0)
+                        st.session_state.metrics_history["ram"].pop(0)
+                    
+                    st.line_chart(st.session_state.metrics_history)
+                time.sleep(2)
             except:
-                st.error("Conexión perdida con el motor de vigilancia.")
+                st.error("Error obteniendo métricas")
                 break

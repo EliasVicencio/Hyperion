@@ -1,14 +1,6 @@
 {
     "ceo@admin.hyperion.com": {
-        "password": "$2b$12$TdZdmB95bsVRe5WzQv0nXuamqhMBgeQw2xncEGJ0hXyhHNLyHkwsG",
-        "role": "admin"
-    },
-    "ceo@admin.hyperion.cl": {
-        "password": "$2b$12$Q8GDTLTOPUvl5syZwCwdVOWe1Zh6pS8syPJS/L5TDzToesbV/QsXe",
-        "role": "admin"
-    },
-    "usuario@hyperion.com": {
-        "password": "$2b$12$Lc.Pp55dhwJYq5LA7GmOte6T4xoMfFUNkaOrx2kTisMnz5IvbggHu",
+        "password": "$2b$12$EY10lkJsVNrjvKV9buIgoO9f3y79L7Nim5fECL02LT1ru8mFSksR6",
         "role": "admin"
     }
 }

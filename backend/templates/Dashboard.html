@@ -13,36 +13,50 @@
             100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
         }
         .pulse { animation: pulse-red 2s infinite; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-100 p-4 md:p-8 font-sans">
-    <a href="http://localhost:8501" class="fixed top-4 right-4 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs py-2 px-4 rounded-full border border-slate-700 transition-all z-50">
-    ⬅ Volver a Hyperion Ops</a>
+    
     <div class="max-w-6xl mx-auto">
         <header class="flex justify-between items-center mb-10 border-b border-slate-700 pb-6">
             <div>
                 <h1 class="text-3xl font-extrabold text-blue-500 tracking-tight">🛡️ HYPERION REAL-TIME</h1>
                 <p class="text-slate-400 text-sm mt-1">Panel de Control de Amenazas Perimetrales</p>
             </div>
-            <div id="system-status" class="bg-green-500/10 text-green-500 px-4 py-2 rounded-lg border border-green-500/20 text-xs font-bold tracking-widest uppercase">
-                ● SISTEMA ACTIVO
+            <div id="system-status" class="bg-yellow-500/10 text-yellow-500 px-4 py-2 rounded-lg border border-yellow-500/20 text-xs font-bold tracking-widest uppercase">
+                ● CONECTANDO...
             </div>
         </header>
 
         <main class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
             <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl transition hover:border-slate-500">
                 <h3 class="text-slate-500 text-xs font-black uppercase tracking-wider mb-2">Intentos Fallidos Totales</h3>
-                <p id="total-attempts" class="text-5xl font-black text-white">0</p>
+                <p id="total-attempts" class="text-5xl font-black text-white">--</p>
             </div>
             <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl transition hover:border-slate-500">
                 <h3 class="text-slate-500 text-xs font-black uppercase tracking-wider mb-2">IPs bajo Restricción</h3>
-                <p id="watched-ips" class="text-5xl font-black text-blue-500">0</p>
+                <p id="watched-ips" class="text-5xl font-black text-blue-500">--</p>
             </div>
         </main>
 
+        <section class="mb-10 bg-slate-800 rounded-2xl border border-red-900/30 overflow-hidden shadow-2xl">
+            <div class="bg-red-950/20 p-4 border-b border-slate-700 flex items-center gap-2">
+                <span class="text-red-500 animate-pulse">🔔</span>
+                <h2 class="text-sm font-bold text-red-400 uppercase tracking-widest">Alertas del Sistema (Logs)</h2>
+            </div>
+            <div id="alerts-container" class="p-4 space-y-2 max-h-48 overflow-y-auto">
+                <p class="text-slate-500 text-xs italic text-center py-4">Sincronizando logs...</p>
+            </div>
+        </section>
+
         <section class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-2xl">
             <div class="bg-slate-700/50 p-4 border-b border-slate-700">
-                <h2 class="text-sm font-bold text-slate-300 uppercase tracking-widest text-center md:text-left">🚫 Registro de Actividad Sospechosa</h2>
+                <h2 class="text-sm font-bold text-slate-300 uppercase tracking-widest">🚫 Registro de Actividad Sospechosa</h2>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm">
@@ -55,47 +69,52 @@
                             <th class="p-4 text-center">Acción</th>
                         </tr>
                     </thead>
-                    <tbody id="log-table" class="divide-y divide-slate-700/50"></tbody>
+                    <tbody id="log-table" class="divide-y divide-slate-700/50">
+                        <tr><td colspan="5" class="p-8 text-center text-slate-600">Cargando datos perimetrales...</td></tr>
+                    </tbody>
                 </table>
             </div>
         </section>
 
         <section class="mt-10 bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-2xl">
             <div class="bg-indigo-900/30 p-4 border-b border-slate-700">
-                <h2 class="text-sm font-bold text-indigo-300 uppercase tracking-widest text-center md:text-left">🔍 Auditoría de Código (Bandit + GitHub)</h2>
+                <h2 class="text-sm font-bold text-indigo-300 uppercase tracking-widest text-center md:text-left">🔍 Auditoría de Código (Bandit)</h2>
             </div>
             <div id="scan-container" class="p-6 grid grid-cols-1 gap-4 text-xs">
-                <p class="text-slate-500 italic text-center">Esperando primer Webhook de GitHub...</p>
+                <p class="text-slate-500 italic text-center">Iniciando escáner de seguridad...</p>
             </div>
         </section>
 
-        <footer class="mt-8 text-center text-slate-600 text-[10px] uppercase tracking-widest">
-            Hyperion Security Engine v3.0 - Protocolo de Respuesta Inmediata
+        <footer class="mt-8 text-center text-slate-600 text-[10px] uppercase tracking-widest pb-10">
+            Hyperion Security Engine v3.0 - Dashboard Externo
         </footer>
     </div>
 
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
+        
+        // Detecta si estás en local o red externa automáticamente
+        const BASE_URL = window.location.origin; 
 
         async function deleteIP(ip) {
-            if(!confirm(`¿Confirmar desbloqueo manual de la IP: ${ip}?`)) return;
+            if(!confirm(`¿Desbloquear IP: ${ip}?`)) return;
             try {
-                const res = await fetch(`/api/clear-ip/${ip}?token=${token}`, { method: 'DELETE' });
+                const res = await fetch(`${BASE_URL}/api/clear-ip/${ip}?token=${token}`, { method: 'DELETE' });
                 if (res.ok) update(); 
-                else alert("Error de permisos.");
-            } catch (e) { console.error(e); }
+            } catch (e) { console.error("Error al borrar IP:", e); }
         }
 
         async function update() {
             if (!token) {
-                document.body.innerHTML = "<div class='h-screen flex items-center justify-center bg-slate-950 text-red-500 font-bold uppercase tracking-tighter'>Error: Sesión no válida</div>";
+                document.body.innerHTML = "<div class='h-screen flex items-center justify-center bg-slate-950 text-red-500 font-bold uppercase tracking-tighter'>TOKEN DE ACCESO REQUERIDO</div>";
                 return;
             }
 
             try {
-                // 1. ACTUALIZAR IPS Y MÉTRICAS
-                const res = await fetch(`/api/security-status?token=${token}`);
+                // 1. IPs Y MÉTRICAS
+                const res = await fetch(`${BASE_URL}/api/security-status?token=${token}`);
+                if (!res.ok) throw new Error("Unauthorized or server error");
                 const data = await res.json();
                 
                 document.getElementById('total-attempts').innerText = data.total_attempts;
@@ -103,58 +122,73 @@
 
                 const body = document.getElementById('log-table');
                 if (data.blocked_ips.length === 0) {
-                    body.innerHTML = '<tr><td colspan="5" class="p-12 text-center text-slate-500 italic text-base">🛡️ Perímetro Seguro</td></tr>';
+                    body.innerHTML = '<tr><td colspan="5" class="p-12 text-center text-slate-500 italic">🛡️ Perímetro Seguro - Sin amenazas detectadas</td></tr>';
                 } else {
                     body.innerHTML = ''; 
                     data.blocked_ips.forEach(item => {
                         const isB = item.status === 'BLOQUEADO';
                         body.innerHTML += `
-                            <tr class="${isB ? 'bg-red-500/5' : ''} transition-all duration-300">
+                            <tr class="${isB ? 'bg-red-500/5' : ''} fade-in">
                                 <td class="p-4 font-mono font-bold text-blue-400">${item.ip}</td>
-                                <td class="p-4 text-center">${item.attempts}</td>
-                                <td class="p-4 text-xs"><span class="${isB ? 'bg-red-500/20 text-red-400 border-red-500/50 pulse' : 'bg-yellow-500/20 text-yellow-500 border-yellow-500/50'} border px-3 py-1 rounded-full font-black uppercase tracking-tighter">${item.status}</span></td>
+                                <td class="p-4 text-center font-bold">${item.attempts}</td>
+                                <td class="p-4 text-xs">
+                                    <span class="${isB ? 'bg-red-500/20 text-red-400 border-red-500/50 pulse' : 'bg-yellow-500/20 text-yellow-500 border-yellow-500/50'} border px-3 py-1 rounded-full font-black uppercase tracking-tighter">
+                                        ${item.status}
+                                    </span>
+                                </td>
                                 <td class="p-4 text-slate-400 font-mono text-xs">${item.until}</td>
                                 <td class="p-4 text-center">
-                                    <button onclick="deleteIP('${item.ip}')" class="bg-slate-700 hover:bg-red-600 p-2 rounded-lg transition-all">🗑️</button>
+                                    <button onclick="deleteIP('${item.ip}')" class="bg-slate-700 hover:bg-red-600 p-2 rounded-lg transition-all shadow-lg">🗑️</button>
                                 </td>
                             </tr>`;
                     });
                 }
 
-                // 2. ACTUALIZAR AUDITORÍA DE CÓDIGO (BANDIT)
-                const scanRes = await fetch(`/api/scan-results?token=${token}`);
+                // 2. AUDITORÍA BANDIT
+                const scanRes = await fetch(`${BASE_URL}/api/scan-results?token=${token}`);
                 const scans = await scanRes.json();
                 const scanContainer = document.getElementById('scan-container');
-                
-                if (scans.length > 0) {
+                if (scans && scans.length > 0) {
                     scanContainer.innerHTML = '';
                     scans.forEach(s => {
                         const hasIssues = s.issues_found > 0;
-                        const statusColor = hasIssues ? 'border-red-500/50 bg-red-500/10' : 'border-green-500/50 bg-green-500/10';
-                        const textStatus = hasIssues ? 'text-red-500 font-black' : 'text-green-500 font-bold';
-                        
                         scanContainer.innerHTML += `
-                            <div class="border ${statusColor} p-4 rounded-xl flex flex-col md:flex-row justify-between items-center gap-2 transition hover:scale-[1.01]">
-                                <div class="flex items-center gap-3">
-                                    <div class="bg-slate-700 p-2 rounded text-lg uppercase">${hasIssues ? '⚠️' : '✅'}</div>
-                                    <div>
-                                        <p class="font-bold text-slate-200">${s.repo}</p>
-                                        <p class="text-[10px] text-slate-500 uppercase">${s.date}</p>
-                                    </div>
-                                </div>
-                                <div class="${textStatus} tracking-widest">
-                                    ${s.issues_found} VULNERABILIDADES DETECTADAS
-                                </div>
+                            <div class="border ${hasIssues ? 'border-red-500/50 bg-red-500/10' : 'border-green-500/50 bg-green-500/10'} p-4 rounded-xl flex justify-between items-center fade-in">
+                                <div><p class="font-bold text-slate-200">${s.repo}</p><p class="text-[10px] text-slate-500">${s.date}</p></div>
+                                <div class="${hasIssues ? 'text-red-500 font-black' : 'text-green-500 font-bold'}">${s.issues_found} VULNERABILIDADES</div>
                             </div>`;
                     });
                 }
 
+                // 3. LOG DE ALERTAS
+                const smsRes = await fetch(`${BASE_URL}/api/sms-history?token=${token}`);
+                const smsData = await smsRes.json();
+                const alertsContainer = document.getElementById('alerts-container');
+                if (smsData && smsData.length > 0) {
+                    alertsContainer.innerHTML = '';
+                    smsData.forEach(sms => {
+                        alertsContainer.innerHTML += `
+                            <div class="bg-red-500/10 border-l-2 border-red-500 p-2 text-[11px] flex justify-between items-center fade-in">
+                                <span><b class="text-red-400 uppercase mr-2">Amenaza:</b> ${sms.msg}</span>
+                                <span class="text-slate-500 font-mono text-[9px]">${sms.time}</span>
+                            </div>`;
+                    });
+                }
+
+                // Actualizar estado de conexión
+                const statusLabel = document.getElementById('system-status');
+                statusLabel.innerText = "● SISTEMA ACTIVO";
+                statusLabel.className = "bg-green-500/10 text-green-500 px-4 py-2 rounded-lg border border-green-500/20 text-xs font-bold tracking-widest uppercase";
+
             } catch (e) {
-                document.getElementById('system-status').innerText = "🚫 SESIÓN CADUCADA";
-                document.getElementById('system-status').classList.replace('text-green-500', 'text-red-500');
+                const statusLabel = document.getElementById('system-status');
+                statusLabel.innerText = "🚫 FALLO DE ENLACE";
+                statusLabel.className = "bg-red-500/10 text-red-500 px-4 py-2 rounded-lg border border-red-500/20 text-xs font-bold tracking-widest uppercase pulse";
+                console.error("Link Error:", e);
             }
         }
 
+        // Ejecución inicial y bucle
         setInterval(update, 3000);
         update();
     </script>

@@ -1,39 +1,41 @@
 version: '3.8'
 
 services:
-  db:
-    image: postgres:15
-    restart: always
-    environment:
-      POSTGRES_USER: hyperion_user
-      POSTGRES_PASSWORD: hyperion_password
-      POSTGRES_DB: hyperion_db
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
   backend:
-    build: ./backend
-    restart: always
-    environment:
-      DATABASE_URL: postgresql://hyperion_user:hyperion_password@db:5432/hyperion_db
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: hyperion_backend
+    restart: always # Si la máquina se reinicia, Hyperion revive solo
+    env_file: .env   # Carga automática de secretos
     ports:
       - "8000:8000"
-    depends_on:
-      - db
     volumes:
-      - ./backend:/app  # Esto permite que los cambios de código se vean sin reconstruir todo
+      - ./backend:/app
+    networks:
+      - hyperion_net
+    healthcheck:
+      # Usamos python para verificar que el puerto 8000 esté abierto
+      test: ["CMD", "python", "-c", "import socket; s = socket.socket(); s.connect(('localhost', 8000))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   frontend:
     build: ./frontend
+    container_name: hyperion_dashboard
     restart: always
     ports:
       - "8501:8501"
     environment:
-      BACKEND_URL: http://backend:8000
+      - BACKEND_URL=http://backend:8000
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy # Solo arranca si el backend pasó el test de arriba
+    networks:
+      - hyperion_net
 
-volumes:
-  postgres_data:
+networks:
+  hyperion_net:
+    driver: bridge # Crea una red privada aislada para los contenedores
