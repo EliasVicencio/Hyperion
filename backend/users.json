@@ -1,6 +1,24 @@
 {
     "ceo@admin.hyperion.com": {
         "password": "$2b$12$EY10lkJsVNrjvKV9buIgoO9f3y79L7Nim5fECL02LT1ru8mFSksR6",
-        "role": "admin"
+        "role": "admin",
+        "backup_codes": [
+            "$2b$12$DirTXe90h78uuhXOAep92uP6hEpp0AEKIM7fJ3dHPC/Xaq57VoH3e",
+            "$2b$12$mq2pH3/RFuvvNA/CZcg/Lura90r5iNuySdZJSGDOrJTjNYH.YW.AK",
+            "$2b$12$xuEauWfh0ShBdqDsDa1IDufNWc.m2K9KxAD9RuGoBBLZmGkENd.EW",
+            "$2b$12$di0tDFFlgOJ6A31QHTvpeeEGokL55w42zO74WP4m7UglQmSTB9mb2",
+            "$2b$12$ka5oAn32ngwFoqPoLRgIT.aNCjL2UQ9VBMlO91wtcYYBVy6ya3jS2"
+        ]
+    },
+    "ceo@admin.hyperion.cl": {
+        "password": "$2b$12$DjUTLiKkawcTKySVsgbc0OpqGcAc2A8l2JfaOHYMJr/gLThqW5LGW",
+        "role": "admin",
+        "backup_codes": [
+            "$2b$12$htQb.YOYoe8QCdHurfTKw.5GONAXcb2P5jquQaTEFvNnSOcxlEt.y",
+            "$2b$12$TuD5THnXREXajpwRxJd4E.k.Fzf./6UQ6SGQtF5GQXL7fuXEYGLK6",
+            "$2b$12$DRe1BN1zvNBx.iCgmQCTgOAgI0RHfWTXESkj9sSX9w2W7WFLEFO1q",
+            "$2b$12$kuzKrDLWzrY0lW.rQ7HbP.vkTrcXSIZbKBgfCnKShlsYchNxuqzTe",
+            "$2b$12$ZCrnOa3vDw3N8/g.Cg4v6.K8BvvxmpWuK5mxgKJXlWb6mQsDHdBE."
+        ]
     }
 }

@@ -12,7 +12,13 @@
             70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
             100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
         }
+        @keyframes pulse-yellow {
+            0% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(234, 179, 8, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0); }
+        }
         .pulse { animation: pulse-red 2s infinite; }
+        .pulse-emergency { animation: pulse-yellow 2s infinite; }
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #1e293b; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
@@ -54,6 +60,10 @@
             </div>
         </section>
 
+        <button onclick="checkIntegrity()" class="mb-4 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-widest transition-all shadow-lg flex items-center gap-2">
+    🛡️ Verificar Integridad de Logs
+        </button>
+
         <section class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-2xl">
             <div class="bg-slate-700/50 p-4 border-b border-slate-700">
                 <h2 class="text-sm font-bold text-slate-300 uppercase tracking-widest">🚫 Registro de Actividad Sospechosa</h2>
@@ -76,9 +86,27 @@
             </div>
         </section>
 
-        <section class="mt-10 bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-2xl">
+        <section class="mt-10 mb-10 bg-slate-800 rounded-2xl border border-blue-900/30 overflow-hidden shadow-2xl fade-in">
+            <div class="bg-blue-950/20 p-4 border-b border-slate-700 flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <span class="text-blue-500">🔑</span>
+                    <h2 class="text-sm font-bold text-blue-400 uppercase tracking-widest">Acceso de Emergencia (2FA Backup)</h2>
+                </div>
+            </div>
+            <div class="p-6 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div>
+                    <p class="text-slate-300 text-sm font-medium">Generar nuevos códigos de respaldo</p>
+                    <p class="text-slate-500 text-xs mt-1">Al descargar el .txt, los códigos anteriores dejarán de funcionar.</p>
+                </div>
+                <button onclick="downloadBackups()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-bold text-xs uppercase tracking-widest transition-all shadow-lg active:scale-95 border border-blue-400/30">
+                    📥 Descargar .TXT
+                </button>
+            </div>
+        </section>
+
+        <section class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-2xl">
             <div class="bg-indigo-900/30 p-4 border-b border-slate-700">
-                <h2 class="text-sm font-bold text-indigo-300 uppercase tracking-widest text-center md:text-left">🔍 Auditoría de Código (Bandit)</h2>
+                <h2 class="text-sm font-bold text-indigo-300 uppercase tracking-widest">🔍 Auditoría de Código (Bandit)</h2>
             </div>
             <div id="scan-container" class="p-6 grid grid-cols-1 gap-4 text-xs">
                 <p class="text-slate-500 italic text-center">Iniciando escáner de seguridad...</p>
@@ -93,8 +121,6 @@
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
-        
-        // Detecta si estás en local o red externa automáticamente
         const BASE_URL = window.location.origin; 
 
         async function deleteIP(ip) {
@@ -105,6 +131,34 @@
             } catch (e) { console.error("Error al borrar IP:", e); }
         }
 
+        async function downloadBackups() {
+            let email = localStorage.getItem("user_email") || prompt("Ingresa el email para generar códigos:");
+            if (!email) return;
+
+            if (confirm("⚠️ Al generar nuevos códigos, los antiguos se invalidarán. ¿Continuar?")) {
+                try {
+                    const res = await fetch(`${BASE_URL}/api/download-backup-codes?email=${email}&token=${token}`);
+                    if (res.ok) {
+                        const blob = await res.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `backup_codes_${email}.txt`;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        
+                        // Forzamos actualización inmediata para ver la alerta
+                        setTimeout(update, 500); 
+                    } else {
+                        alert("Error al descargar códigos. Verifique permisos.");
+                    }
+                } catch (e) {
+                    console.error("Error en descarga:", e);
+                }
+            }
+        }
+
         async function update() {
             if (!token) {
                 document.body.innerHTML = "<div class='h-screen flex items-center justify-center bg-slate-950 text-red-500 font-bold uppercase tracking-tighter'>TOKEN DE ACCESO REQUERIDO</div>";
@@ -112,39 +166,67 @@
             }
 
             try {
-                // 1. IPs Y MÉTRICAS
+                // 1. IPs Y MÉTRICAS (La tabla que ya te funciona)
                 const res = await fetch(`${BASE_URL}/api/security-status?token=${token}`);
-                if (!res.ok) throw new Error("Unauthorized or server error");
                 const data = await res.json();
                 
-                document.getElementById('total-attempts').innerText = data.total_attempts;
-                document.getElementById('watched-ips').innerText = data.blocked_ips.length;
+                document.getElementById('total-attempts').innerText = data.total_attempts || 0;
+                document.getElementById('watched-ips').innerText = data.blocked_ips ? data.blocked_ips.length : 0;
 
                 const body = document.getElementById('log-table');
-                if (data.blocked_ips.length === 0) {
-                    body.innerHTML = '<tr><td colspan="5" class="p-12 text-center text-slate-500 italic">🛡️ Perímetro Seguro - Sin amenazas detectadas</td></tr>';
+                if (!data.blocked_ips || data.blocked_ips.length === 0) {
+                    body.innerHTML = '<tr><td colspan="5" class="p-12 text-center text-slate-500 italic">🛡️ Perímetro Seguro</td></tr>';
                 } else {
                     body.innerHTML = ''; 
                     data.blocked_ips.forEach(item => {
-                        const isB = item.status === 'BLOQUEADO';
                         body.innerHTML += `
-                            <tr class="${isB ? 'bg-red-500/5' : ''} fade-in">
+                            <tr class="bg-red-500/5 fade-in">
                                 <td class="p-4 font-mono font-bold text-blue-400">${item.ip}</td>
                                 <td class="p-4 text-center font-bold">${item.attempts}</td>
                                 <td class="p-4 text-xs">
-                                    <span class="${isB ? 'bg-red-500/20 text-red-400 border-red-500/50 pulse' : 'bg-yellow-500/20 text-yellow-500 border-yellow-500/50'} border px-3 py-1 rounded-full font-black uppercase tracking-tighter">
-                                        ${item.status}
+                                    <span class="bg-red-500/20 text-red-400 border border-red-500/50 px-3 py-1 rounded-full font-black uppercase tracking-tighter pulse">
+                                        ${item.status || 'BLOQUEADO'}
                                     </span>
                                 </td>
-                                <td class="p-4 text-slate-400 font-mono text-xs">${item.until}</td>
+                                <td class="p-4 text-slate-400 font-mono text-xs">${item.until || '--:--'}</td>
                                 <td class="p-4 text-center">
-                                    <button onclick="deleteIP('${item.ip}')" class="bg-slate-700 hover:bg-red-600 p-2 rounded-lg transition-all shadow-lg">🗑️</button>
+                                    <button onclick="deleteIP('${item.ip}')" class="bg-slate-700 hover:bg-red-600 p-2 rounded-lg transition-all">🗑️</button>
                                 </td>
                             </tr>`;
                     });
                 }
 
-                // 2. AUDITORÍA BANDIT
+                // 2. LOG DE ALERTAS (El que se quedaba trabado)
+                // He añadido una validación extra por si tu API devuelve 'history' en lugar de un array directo
+                const smsRes = await fetch(`${BASE_URL}/api/sms-history?token=${token}`);
+                let smsData = await smsRes.json();
+                
+                // Si smsData no es un array directamente, intentamos buscarlo dentro de la respuesta
+                if (!Array.isArray(smsData) && smsData.history) smsData = smsData.history;
+
+                const alertsContainer = document.getElementById('alerts-container');
+                
+                if (smsData && smsData.length > 0) {
+                    alertsContainer.innerHTML = ''; // Limpiamos el "Sincronizando..."
+                    smsData.forEach(sms => {
+                        const msgUpper = sms.msg.toUpperCase();
+                        const isEmergency = msgUpper.includes("EMERGENCIA") || msgUpper.includes("AVISO") || msgUpper.includes("BACKUP");
+
+                        const colorClass = isEmergency ? "border-yellow-500/50 bg-yellow-500/10" : "border-red-500/50 bg-red-500/10";
+                        const textClass = isEmergency ? "text-yellow-500 font-bold" : "text-red-400";
+                        const pulseClass = isEmergency ? "pulse-emergency" : "";
+
+                        alertsContainer.innerHTML += `
+                            <div class="${colorClass} ${pulseClass} border-l-4 p-2 text-[11px] flex justify-between items-center fade-in mb-1 rounded-r">
+                                <span><b class="${textClass} uppercase mr-2">${isEmergency ? '⚠️ AVISO:' : '🚨 AMENAZA:'}</b> ${sms.msg}</span>
+                                <span class="text-slate-500 font-mono text-[9px] bg-slate-900/50 px-2 py-0.5 rounded">${sms.time}</span>
+                            </div>`;
+                    });
+                } else {
+                    alertsContainer.innerHTML = '<p class="text-slate-600 text-xs text-center py-4 italic">No hay alertas recientes en el log.</p>';
+                }
+
+                // 3. AUDITORÍA BANDIT
                 const scanRes = await fetch(`${BASE_URL}/api/scan-results?token=${token}`);
                 const scans = await scanRes.json();
                 const scanContainer = document.getElementById('scan-container');
@@ -154,43 +236,38 @@
                         const hasIssues = s.issues_found > 0;
                         scanContainer.innerHTML += `
                             <div class="border ${hasIssues ? 'border-red-500/50 bg-red-500/10' : 'border-green-500/50 bg-green-500/10'} p-4 rounded-xl flex justify-between items-center fade-in">
-                                <div><p class="font-bold text-slate-200">${s.repo}</p><p class="text-[10px] text-slate-500">${s.date}</p></div>
+                                <div><p class="font-bold text-slate-200">${s.repo}</p></div>
                                 <div class="${hasIssues ? 'text-red-500 font-black' : 'text-green-500 font-bold'}">${s.issues_found} VULNERABILIDADES</div>
                             </div>`;
                     });
                 }
 
-                // 3. LOG DE ALERTAS
-                const smsRes = await fetch(`${BASE_URL}/api/sms-history?token=${token}`);
-                const smsData = await smsRes.json();
-                const alertsContainer = document.getElementById('alerts-container');
-                if (smsData && smsData.length > 0) {
-                    alertsContainer.innerHTML = '';
-                    smsData.forEach(sms => {
-                        alertsContainer.innerHTML += `
-                            <div class="bg-red-500/10 border-l-2 border-red-500 p-2 text-[11px] flex justify-between items-center fade-in">
-                                <span><b class="text-red-400 uppercase mr-2">Amenaza:</b> ${sms.msg}</span>
-                                <span class="text-slate-500 font-mono text-[9px]">${sms.time}</span>
-                            </div>`;
-                    });
-                }
-
-                // Actualizar estado de conexión
                 const statusLabel = document.getElementById('system-status');
                 statusLabel.innerText = "● SISTEMA ACTIVO";
                 statusLabel.className = "bg-green-500/10 text-green-500 px-4 py-2 rounded-lg border border-green-500/20 text-xs font-bold tracking-widest uppercase";
 
             } catch (e) {
+                console.error("Error en el ciclo de actualización:", e);
                 const statusLabel = document.getElementById('system-status');
-                statusLabel.innerText = "🚫 FALLO DE ENLACE";
+                statusLabel.innerText = "● ERROR DE CONEXIÓN";
                 statusLabel.className = "bg-red-500/10 text-red-500 px-4 py-2 rounded-lg border border-red-500/20 text-xs font-bold tracking-widest uppercase pulse";
-                console.error("Link Error:", e);
             }
         }
 
-        // Ejecución inicial y bucle
         setInterval(update, 3000);
         update();
+
+        async function checkIntegrity() {
+            const res = await fetch(`${BASE_URL}/admin/audit/verify?token=${token}`);
+            const data = await res.json();
+            
+            if (data.status === "SECURE") {
+                alert("✅ " + data.message);
+            } else {
+                alert("🚨 ¡ALERTA DE SEGURIDAD!: " + data.message);
+                update(); // Para que se vea la alerta roja arriba inmediatamente
+            }
+        }
     </script>
 </body>
 </html>

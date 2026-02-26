@@ -267,5 +267,266 @@
         "context": {},
         "hash_prev": "bde39da9bcc2c97d9d390b5c64dfd4e157821b59b80a933dc8512a1cac174738",
         "hash_this": "eaccd24d8b0ca3f8a14c729af39d8d2ced3ede89c9f03f5d51fb166cb3d61e2d"
+    },
+    {
+        "timestamp": "2026-02-26T03:26:57.180488Z",
+        "actor": "ceo@admin.hyperion.com",
+        "action": "BACKUP_CODES_GENERATED",
+        "target": null,
+        "context": {
+            "count": 5
+        },
+        "hash_prev": "eaccd24d8b0ca3f8a14c729af39d8d2ced3ede89c9f03f5d51fb166cb3d61e2d",
+        "hash_this": "0b6900928e1e413b3496fe8180a585bc60773c987ccc1ae1ead823df8e655ba1"
+    },
+    {
+        "timestamp": "2026-02-26T03:36:11.345762Z",
+        "actor": "ceo@admin.hyperion.com",
+        "action": "LOGIN_SUCCESS",
+        "target": null,
+        "context": {
+            "method": "2fa_app",
+            "role": "admin"
+        },
+        "hash_prev": "0b6900928e1e413b3496fe8180a585bc60773c987ccc1ae1ead823df8e655ba1",
+        "hash_this": "7adcc4bbe5e4ebd2c6120180b41a13225f324eae8ab40a5733df2b2029524f5f"
+    },
+    {
+        "timestamp": "2026-02-26T03:40:55.947339Z",
+        "actor": "ceo@admin.hyperion.com",
+        "action": "LOGIN_SUCCESS",
+        "target": null,
+        "context": {
+            "method": "2fa_app",
+            "role": "admin"
+        },
+        "hash_prev": "7adcc4bbe5e4ebd2c6120180b41a13225f324eae8ab40a5733df2b2029524f5f",
+        "hash_this": "e6a09ec3e96d9cdb70610c9102814143ab225f89f2ffd5c03551b46d8a31f58c"
+    },
+    {
+        "timestamp": "2026-02-26T03:41:52.955344Z",
+        "actor": "ceo@admin.hyperion.com",
+        "action": "BACKUP_CODES_DOWNLOADED",
+        "target": null,
+        "context": {
+            "ip": "internal_dashboard"
+        },
+        "hash_prev": "e6a09ec3e96d9cdb70610c9102814143ab225f89f2ffd5c03551b46d8a31f58c",
+        "hash_this": "f951a4f4b12a63ab848ef814deb948c2bbd5b828c3531adadb09c6b96f143679"
+    },
+    {
+        "timestamp": "2026-02-26T03:58:05.344457Z",
+        "actor": "SYSTEM",
+        "action": "USER_CREATED",
+        "target": "ceo@admin.hyperion.cl",
+        "context": {
+            "role": "admin"
+        },
+        "hash_prev": "f951a4f4b12a63ab848ef814deb948c2bbd5b828c3531adadb09c6b96f143679",
+        "hash_this": "2de0323cdc1a2fb87f944bac07b1ecd952a80094fc7e4064d15ac3e52fb5cac3"
+    },
+    {
+        "timestamp": "2026-02-26T04:09:41.024364Z",
+        "actor": "ceo@admin.hyperion.com",
+        "action": "LOGIN_SUCCESS",
+        "target": null,
+        "context": {
+            "method": "2fa_app",
+            "role": "admin"
+        },
+        "hash_prev": "2de0323cdc1a2fb87f944bac07b1ecd952a80094fc7e4064d15ac3e52fb5cac3",
+        "hash_this": "f5acc9f9c0aa88467876dbf6b806a31e5e4daef70df344f50bdaab05a092a4aa"
+    },
+    {
+        "timestamp": "2026-02-26T04:10:57.636406Z",
+        "actor": "admin@hyperion.com",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {},
+        "hash_prev": "f5acc9f9c0aa88467876dbf6b806a31e5e4daef70df344f50bdaab05a092a4aa",
+        "hash_this": "aca1dc5f7f7fcdeb7f378e6b3ebaa5a7264e7fa927758ab71a5b9f3ac77e75fe"
+    },
+    {
+        "timestamp": "2026-02-26T04:11:10.395875Z",
+        "actor": "admin@hyperion.com",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {},
+        "hash_prev": "aca1dc5f7f7fcdeb7f378e6b3ebaa5a7264e7fa927758ab71a5b9f3ac77e75fe",
+        "hash_this": "138d411093a467372d95926be1a445dbd5b24bdbea4e1668f78eb10981e5c12b"
+    },
+    {
+        "timestamp": "2026-02-26T04:11:10.583088Z",
+        "actor": "admin@hyperion.com",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {},
+        "hash_prev": "138d411093a467372d95926be1a445dbd5b24bdbea4e1668f78eb10981e5c12b",
+        "hash_this": "61332f13cd5fa05f326e1e72e76ab715330bc5bfbba3c324ed41c3c73a14f96c"
+    },
+    {
+        "timestamp": "2026-02-26T04:11:11.197731Z",
+        "actor": "SYSTEM",
+        "action": "IP_BLOCKED",
+        "target": "172.18.0.4",
+        "context": {
+            "reason": "Brute force detected"
+        },
+        "hash_prev": "61332f13cd5fa05f326e1e72e76ab715330bc5bfbba3c324ed41c3c73a14f96c",
+        "hash_this": "f0e65903af4229ee1a3b3db7c2112d1366cca316e9ff7c6544444641db2339fd"
+    },
+    {
+        "timestamp": "2026-02-26T04:20:43.528583Z",
+        "actor": "ceo@admin.hyperion.com",
+        "action": "BACKUP_CODES_DOWNLOADED",
+        "target": null,
+        "context": {
+            "ip": "internal_dashboard"
+        },
+        "hash_prev": "f0e65903af4229ee1a3b3db7c2112d1366cca316e9ff7c6544444641db2339fd",
+        "hash_this": "29adb38cf30540475f0396b2a95bae53599b21b2d7e1ed139b9d5bde278a19ea"
+    },
+    {
+        "timestamp": "2026-02-26T04:21:31.403255Z",
+        "actor": "SYSTEM",
+        "action": "IP_BLOCKED",
+        "target": "172.18.0.4",
+        "context": {
+            "reason": "Brute force detected"
+        },
+        "hash_prev": "29adb38cf30540475f0396b2a95bae53599b21b2d7e1ed139b9d5bde278a19ea",
+        "hash_this": "84fc45c2b5a2f398fe65ed75c6be2c87cc64dcf612a5cbfb9bc6ed1fc6526965"
+    },
+    {
+        "timestamp": "2026-02-26T04:25:50.326402Z",
+        "actor": "ceo@admin.hyperion.com",
+        "action": "LOGIN_SUCCESS",
+        "target": null,
+        "context": {
+            "method": "backup_code",
+            "role": "admin"
+        },
+        "hash_prev": "84fc45c2b5a2f398fe65ed75c6be2c87cc64dcf612a5cbfb9bc6ed1fc6526965",
+        "hash_this": "041707506057ed95409d38cbabd4fb64d05ad000136eb5ad49e1f50334a5fd2a"
+    },
+    {
+        "timestamp": "2026-02-26T04:31:52.203311Z",
+        "actor": "ceo@admin.hyperion.com",
+        "action": "LOGIN_SUCCESS",
+        "target": null,
+        "context": {
+            "method": "2fa_app",
+            "role": "admin",
+            "ip": "172.18.0.4"
+        },
+        "hash_prev": "041707506057ed95409d38cbabd4fb64d05ad000136eb5ad49e1f50334a5fd2a",
+        "hash_this": "9082dde1f9be5884c248cea887e37d8e92791e603902e59f434807ca5badf03d"
+    },
+    {
+        "timestamp": "2026-02-26T04:33:37.123619Z",
+        "actor": "ceo@admin.hyperion.com",
+        "action": "BACKUP_CODES_DOWNLOADED",
+        "target": "172.18.0.1",
+        "context": {
+            "action": "new_list_generated"
+        },
+        "hash_prev": "9082dde1f9be5884c248cea887e37d8e92791e603902e59f434807ca5badf03d",
+        "hash_this": "43b24d63973da54002f2ac64c0b151cc5cdff25c64b1114e787e50a564e1bdf3"
+    },
+    {
+        "timestamp": "2026-02-26T04:35:12.726915Z",
+        "actor": "ceo@admin.hyperion.com",
+        "action": "BACKUP_CODES_DOWNLOADED",
+        "target": "172.18.0.1",
+        "context": {
+            "action": "new_list_generated"
+        },
+        "hash_prev": "43b24d63973da54002f2ac64c0b151cc5cdff25c64b1114e787e50a564e1bdf3",
+        "hash_this": "3bdd48d04fc43574fc85118f79dc952c1c7a19819a278a90eebf5c7c3c9bf8f7"
+    },
+    {
+        "timestamp": "2026-02-26T04:40:00.251641Z",
+        "actor": "ceo@admin.hyperion.com",
+        "action": "LOGIN_SUCCESS",
+        "target": null,
+        "context": {
+            "method": "2fa_app",
+            "role": "admin",
+            "ip": "172.18.0.4"
+        },
+        "hash_prev": "3bdd48d04fc43574fc85118f79dc952c1c7a19819a278a90eebf5c7c3c9bf8f7",
+        "hash_this": "c85b5a0a00ab8326564363afc1fc102c5bc2fc864ee3805ef49002a2496a7321"
+    },
+    {
+        "timestamp": "2026-02-26T04:40:28.217370Z",
+        "actor": "ceo@admin.hyperion.com",
+        "action": "BACKUP_CODES_DOWNLOADED",
+        "target": "172.18.0.1",
+        "context": {
+            "action": "new_list_generated"
+        },
+        "hash_prev": "c85b5a0a00ab8326564363afc1fc102c5bc2fc864ee3805ef49002a2496a7321",
+        "hash_this": "2c67f75d2b633eea5f5ef7e2d24955e3cf7bf4e44d0afe8278522508eb7ebedf"
+    },
+    {
+        "timestamp": "2026-02-26T04:44:53.802546Z",
+        "actor": "ceo@admin.hyperion.com",
+        "action": "LOGIN_SUCCESS",
+        "target": null,
+        "context": {
+            "method": "2fa_app",
+            "role": "admin",
+            "ip": "172.18.0.4"
+        },
+        "hash_prev": "2c67f75d2b633eea5f5ef7e2d24955e3cf7bf4e44d0afe8278522508eb7ebedf",
+        "hash_this": "6d1f45243217df613eadf03bd3e82a7a34730aef6dfe2f31e10750e319942d86"
+    },
+    {
+        "timestamp": "2026-02-26T04:45:29.692296Z",
+        "actor": "ceo@admin.hyperion.com",
+        "action": "BACKUP_CODES_DOWNLOADED",
+        "target": "172.18.0.1",
+        "context": {
+            "action": "new_list_generated"
+        },
+        "hash_prev": "6d1f45243217df613eadf03bd3e82a7a34730aef6dfe2f31e10750e319942d86",
+        "hash_this": "c55976b730c70bc9e113a5a6910845ba4601c11e8333102e75a38b4a4c83a7fa"
+    },
+    {
+        "timestamp": "2026-02-26T04:55:10.305545Z",
+        "actor": "ceo@admin.hyperion.com",
+        "action": "LOGIN_SUCCESS",
+        "target": null,
+        "context": {
+            "method": "2fa_app",
+            "role": "admin",
+            "ip": "172.18.0.4"
+        },
+        "hash_prev": "c55976b730c70bc9e113a5a6910845ba4601c11e8333102e75a38b4a4c83a7fa",
+        "hash_this": "651db1634f44b60655c28792cfe289370ce052fa6ada08a500e2acb92c08665a"
+    },
+    {
+        "timestamp": "2026-02-26T04:55:43.813486Z",
+        "actor": "ceo@admin.hyperion.com",
+        "action": "BACKUP_CODES_DOWNLOADED",
+        "target": "172.18.0.1",
+        "context": {
+            "action": "new_list_generated"
+        },
+        "hash_prev": "651db1634f44b60655c28792cfe289370ce052fa6ada08a500e2acb92c08665a",
+        "hash_this": "dfac378fd8d74cae63cd467d743610d507f2da36eeb2a92349888334ca20bce6"
+    },
+    {
+        "timestamp": "2026-02-26T05:03:44.763424Z",
+        "actor": "ceo@admin.hyperion.com",
+        "action": "LOGIN_SUCCESS",
+        "target": null,
+        "context": {
+            "method": "2fa_app",
+            "role": "admin",
+            "ip": "172.18.0.4"
+        },
+        "hash_prev": "dfac378fd8d74cae63cd467d743610d507f2da36eeb2a92349888334ca20bce6",
+        "hash_this": "399926635f4cb6fee8913823813527eea13ed4d1cd0dd3b8912386772b51334f"
     }
 ]

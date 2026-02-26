@@ -12,7 +12,8 @@ RUN pip install --no-cache-dir \
     python-dotenv \
     bandit \
     python-multipart \
-    "bcrypt==4.0.1"
+    "bcrypt==4.0.1" \
+    redis
 
 COPY . .
 

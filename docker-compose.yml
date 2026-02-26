@@ -1,21 +1,37 @@
 version: '3.8'
 
 services:
+  # --- MOTOR DE PERSISTENCIA (Redis) ---
+  redis:
+    image: redis:alpine
+    container_name: hyperion_cache
+    restart: always
+    networks:
+      - hyperion_net
+    # No es estrictamente necesario mapear puertos afuera si solo el backend lo usa,
+    # pero lo dejamos para que puedas inspeccionarlo con Redis Insight si quieres.
+    ports:
+      - "6379:6379"
+
   backend:
     build: 
       context: ./backend
       dockerfile: Dockerfile
     container_name: hyperion_backend
-    restart: always # Si la máquina se reinicia, Hyperion revive solo
-    env_file: .env   # Carga automática de secretos
+    restart: always
+    env_file: .env
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/app
+    depends_on:
+      - redis # El backend necesita que Redis exista antes de arrancar
     networks:
       - hyperion_net
+    environment:
+      - REDIS_HOST=redis # Usamos el nombre del servicio como host
+      - REDIS_PORT=6379
     healthcheck:
-      # Usamos python para verificar que el puerto 8000 esté abierto
       test: ["CMD", "python", "-c", "import socket; s = socket.socket(); s.connect(('localhost', 8000))"]
       interval: 10s
       timeout: 5s
@@ -32,10 +48,10 @@ services:
       - BACKEND_URL=http://backend:8000
     depends_on:
       backend:
-        condition: service_healthy # Solo arranca si el backend pasó el test de arriba
+        condition: service_healthy
     networks:
       - hyperion_net
 
 networks:
   hyperion_net:
-    driver: bridge # Crea una red privada aislada para los contenedores
+    driver: bridge

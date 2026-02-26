@@ -14,12 +14,25 @@ from fastapi.middleware.cors import CORSMiddleware
 import subprocess  # <--- CRÍTICO PARA BANDIT
 from dotenv import load_dotenv
 import hashlib
+import secrets
+import string
+import redis
 
 # --- CARGAR VARIABLES DE ENTORNO ---
 load_dotenv()
 
 TOTP_SECRET = os.getenv("TOTP_SECRET", "JBSWY3DPEHPK3PXP") 
 TOKEN_MAESTRO = os.getenv("TOKEN_MAESTRO", "SESION_ADMIN_HYPERION")
+
+WHITELIST_IPS = ["127.0.0.1", "172.18.0.1"]
+
+# Conexión a Redis (ajusta 'localhost' si usas Docker)
+# En lugar de localhost, usamos el nombre del servicio de Docker
+r = redis.Redis(host='hyperion_cache', port=6379, decode_responses=True)
+
+# Límite de intentos antes del bloqueo
+MAX_ATTEMPTS = 3
+BLOCK_TIME_SECONDS = 300 # 5 minutos
 
 MAX_ATTEMPTS = 5
 ADMIN_IPS = ["127.0.0.1", "172.18.0.1", "localhost"]
@@ -150,6 +163,36 @@ def verify_audit_integrity():
 
     return True, "✅ Integridad de logs verificada: Sin alteraciones."
 
+def generate_backup_codes(count=5):
+    codes = []
+    for _ in range(count):
+        # Genera un código de 8 caracteres (letras y números)
+        code = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+        codes.append(code)
+    return codes
+
+def check_ip_rate_limit(ip: str):
+    if ip in WHITELIST_IPS:
+        return True, "Whitelist"
+    # 1. ¿Está la IP ya bloqueada?
+    if r.get(f"block:{ip}"):
+        return False, "IP Bloqueada temporalmente"
+
+    # 2. Incrementar intentos
+    attempts = r.incr(f"attempts:{ip}")
+    
+    # Si es el primer intento, le damos un tiempo de vida al contador (ej. 1 hora)
+    if attempts == 1:
+        r.expire(f"attempts:{ip}", 3600)
+
+    # 3. ¿Superó el límite?
+    if attempts >= MAX_ATTEMPTS:
+        r.setex(f"block:{ip}", BLOCK_TIME_SECONDS, "blocked")
+        log_audit("SYSTEM", "IP_BLOCKED", target=ip, context={"reason": "Brute force detected"})
+        return False, "Límite excedido. Bloqueado por 5 minutos."
+
+    return True, "OK"
+
 # --- ENDPOINTS DE AUTENTICACIÓN ---
 @app.post("/auth/register")
 async def register(data: dict):
@@ -165,6 +208,11 @@ async def register(data: dict):
 async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
     client_ip = request.client.host
     now = datetime.now()
+
+    # --- REDIS RATE LIMIT ---
+    is_allowed, msg = check_ip_rate_limit(client_ip)
+    if not is_allowed:
+        raise HTTPException(status_code=429, detail=msg) # 429 = Too Many Requests
     
     if client_ip in ip_blacklist:
         if ip_blacklist[client_ip]["blocked_until"] and now < ip_blacklist[client_ip]["blocked_until"]:
@@ -191,36 +239,130 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
         
     return {"access_token": TOKEN_MAESTRO, "requires_2fa": True}
 
+# --- REVISIÓN DE ENDPOINTS CLAVE ---
+
 @app.post("/auth/login/verify-2fa")
-async def verify_2fa(data: dict):
-    email, user_code = data.get("email"), data.get("code")
-    user_data = get_users().get(email, {})
+async def verify_2fa(request: Request, data: dict): # Añadimos request para capturar la IP
+    email = data.get("email")
+    user_code = str(data.get("code", "")).strip()
+    client_ip = request.client.host
+    
+    users = get_users()
+    user_data = users.get(email)
+
+    if not user_data:
+        log_audit("SYSTEM", "AUTH_ERROR", target=email, context={"reason": "User not found during 2FA", "ip": client_ip})
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    user_role = user_data.get("role", "empleado")
+    
+    # --- 1. INTENTO CON TOTP (Google Authenticator) ---
     totp = pyotp.TOTP(TOTP_SECRET)
-    if totp.verify(user_code) or user_code == "123456":
-        log_audit(email, "LOGIN_SUCCESS")
-        return {"access_token": TOKEN_MAESTRO, "role": user_data.get("role", "empleado")}
-    raise HTTPException(status_code=400)
+    if totp.verify(user_code, valid_window=1) or user_code == "123456":
+        log_audit(email, "LOGIN_SUCCESS", context={"method": "2fa_app", "role": user_role, "ip": client_ip})
+        return {"access_token": TOKEN_MAESTRO, "role": user_role}
+
+    # --- 2. INTENTO CON BACKUP CODES (Refinado para "Quemar" con seguridad) ---
+    backup_codes = user_data.get("backup_codes", [])
+    code_found = None
+
+    for stored_hash in backup_codes:
+        if pwd_context.verify(user_code, stored_hash):
+            code_found = stored_hash
+            break
+
+    if code_found:
+        # ¡QUEMAR EL CÓDIGO! (Eliminarlo de la lista)
+        backup_codes.remove(code_found)
+        user_data["backup_codes"] = backup_codes
+        save_users(users)
+        
+        log_audit(email, "BACKUP_CODE_USED", target=client_ip, context={"remaining": len(backup_codes)})
+        log_audit(email, "LOGIN_SUCCESS", context={"method": "backup_code", "role": user_role})
+        
+        return {"access_token": TOKEN_MAESTRO, "role": user_role}
+
+    # --- 3. SI NADA FUNCIONÓ ---
+    log_audit(email, "LOGIN_FAILED", target=client_ip, context={"reason": "Invalid 2FA code"})
+    raise HTTPException(status_code=400, detail="Código de verificación incorrecto")
+
+
+@app.get("/api/download-backup-codes")
+async def download_backup_codes(request: Request, email: str, token: str = None):
+    client_ip = request.client.host
+    
+    # 1. Validación de seguridad
+    if token != TOKEN_MAESTRO:
+        log_audit("UNKNOWN", "UNAUTHORIZED_DOWNLOAD_ATTEMPT", target=client_ip)
+        raise HTTPException(status_code=403, detail="Acceso denegado al perímetro")
+
+    users = get_users()
+    if email not in users:
+        raise HTTPException(status_code=404, detail="Usuario no reconocido")
+
+    # 2. Generación de códigos (usando secrets para criptografía segura)
+    plain_codes = [''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8)) for _ in range(5)]
+    
+    # 3. Guardar hasheados en la "DB" (users.json)
+    users[email]["backup_codes"] = [pwd_context.hash(c) for c in plain_codes]
+    save_users(users)
+    
+    # 4. Auditoría Inmutable (Para el log de auditoría interno)
+    log_audit(email, "BACKUP_CODES_DOWNLOADED", target=client_ip, context={"action": "new_list_generated"})
+
+    # 5. ALERTA VISUAL (Para que aparezca en el recuadro de arriba del Dashboard)
+    send_security_alert(f"DESCARGA DE CÓDIGOS: El usuario {email} ha regenerado sus claves de emergencia.")
+
+    # 6. Construcción del archivo para descarga inmediata
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    content = f"""🛡️ HYPERION SECURITY - CÓDIGOS DE EMERGENCIA
+==========================================
+USUARIO: {email} | IP: {client_ip}
+FECHA DE GENERACIÓN: {now}
+------------------------------------------
+1. {plain_codes[0]}
+2. {plain_codes[1]}
+3. {plain_codes[2]}
+4. {plain_codes[3]}
+5. {plain_codes[4]}
+------------------------------------------
+ADVERTENCIA: Cada código es de UN SOLO USO.
+Al usar uno, este quedará invalidado.
+=========================================="""
+
+    return PlainTextResponse(
+        content, 
+        headers={"Content-Disposition": f"attachment; filename=backup_codes_{email}.txt"}
+    )
 
 # --- 🚀 NUEVOS ENDPOINTS PARA EL DASHBOARD (CORRECCIÓN DE LOS 404) ---
 
 @app.get("/api/security-status")
 async def get_security_status(token: str = None):
-    """Sincroniza el Dashboard con los intentos fallidos reales"""
-    if token != TOKEN_MAESTRO: raise HTTPException(status_code=403)
-    
-    blocked_list = []
-    for ip, info in ip_blacklist.items():
-        status = "BLOQUEADO" if info["blocked_until"] and datetime.now() < info["blocked_until"] else "ADVERTENCIA"
-        blocked_list.append({
+    if token != TOKEN_MAESTRO:
+        raise HTTPException(status_code=403)
+
+    # 1. Buscamos todas las llaves de bloqueo en Redis
+    blocked_keys = r.keys("block:*")
+    blocked_ips_list = []
+
+    for key in blocked_keys:
+        ip = key.split(":")[1]
+        # Obtenemos cuánto tiempo le queda de bloqueo (TTL)
+        ttl = r.ttl(key) 
+        # Obtenemos cuántos intentos hizo antes de ser bloqueado
+        attempts = r.get(f"attempts:{ip}") or "MAX"
+        
+        blocked_ips_list.append({
             "ip": ip,
-            "attempts": info["attempts"],
-            "status": status,
-            "until": info["blocked_until"].strftime("%H:%M:%S") if info["blocked_until"] else "--"
+            "attempts": attempts,
+            "status": "BLOQUEADO",
+            "until": f"Expira en {ttl}s"
         })
-    
+
     return {
-        "total_attempts": sum(info["attempts"] for info in ip_blacklist.values()),
-        "blocked_ips": blocked_list
+        "total_attempts": sum([int(r.get(k) or 0) for k in r.keys("attempts:*")]),
+        "blocked_ips": blocked_ips_list
     }
 
 @app.get("/api/sms-history")
@@ -242,12 +384,15 @@ async def get_scan_results(token: str = None):
 
 @app.delete("/api/clear-ip/{ip}")
 async def clear_ip(ip: str, token: str = None):
-    """Permite al botón de la papelera del Dashboard desbloquear IPs"""
-    if token != TOKEN_MAESTRO: raise HTTPException(status_code=403)
-    if ip in ip_blacklist:
-        del ip_blacklist[ip]
-        return {"status": "borrado"}
-    raise HTTPException(status_code=404)
+    if token != TOKEN_MAESTRO:
+        raise HTTPException(status_code=403)
+
+    # Borramos tanto el bloqueo como el contador de intentos
+    r.delete(f"block:{ip}")
+    r.delete(f"attempts:{ip}")
+    
+    log_audit("ADMIN", "IP_UNBLOCKED_MANUALLY", target=ip)
+    return {"message": f"IP {ip} liberada del perímetro"}
 
 # --- ENDPOINTS ADMINISTRATIVOS ---
 
@@ -283,9 +428,85 @@ async def get_verify_logs(token: str = None):
     if token != TOKEN_MAESTRO: raise HTTPException(status_code=403)
     
     is_ok, message = verify_audit_integrity()
+    
     if not is_ok:
-        send_security_alert(message)
+        # Esto disparará la franja roja que acabamos de configurar
+        send_security_alert(f"CRÍTICO: {message}")
         return {"status": "CRITICAL", "message": message}
     
-    return {"status": "SECURE", "message": message}
+    return {"status": "SECURE", "message": "Integridad verificada. Cadena de bloques de logs intacta."}
     
+
+@app.post("/auth/generate-backup-codes")
+async def setup_backup_codes(data: dict):
+    email = data.get("email")
+    #token = data.get("token")
+    
+    #if token != TOKEN_MAESTRO: raise HTTPException(status_code=403)
+    
+    users = get_users()
+    if email not in users: raise HTTPException(status_code=404)
+
+    # 1. Generar códigos reales para mostrar al usuario UNA VEZ
+    plain_codes = generate_backup_codes()
+    
+    # 2. Guardar los códigos HASHEADOS (por seguridad)
+    hashed_codes = [pwd_context.hash(c) for c in plain_codes]
+    users[email]["backup_codes"] = hashed_codes
+    save_users(users)
+
+    # 3. AUDITORÍA INMUTABLE (El jefe vigila)
+    log_audit(email, "BACKUP_CODES_GENERATED", context={"count": len(plain_codes)})
+    
+    return {"backup_codes": plain_codes} # Solo se muestran esta vez
+
+from fastapi.responses import PlainTextResponse
+
+@app.get("/api/download-backup-codes")
+async def download_backup_codes(email: str, token: str = None):
+    # Verificación de seguridad (Token que usa tu Dashboard)
+    if token != TOKEN_MAESTRO:
+        raise HTTPException(status_code=403, detail="Acceso denegado al perímetro")
+
+    users = get_users()
+    if email not in users:
+        raise HTTPException(status_code=404, detail="Usuario no reconocido")
+
+    # Generación de los 5 códigos
+    import secrets
+    import string
+    plain_codes = [''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8)) for _ in range(5)]
+    
+    # Hashear y guardar (Seguridad Inmune)
+    users[email]["backup_codes"] = [pwd_context.hash(c) for c in plain_codes]
+    save_users(users)
+    
+    # LOG DE AUDITORÍA INMUTABLE
+    # Esto aparecerá en tu tabla de "Alertas del Sistema" en unos segundos
+    log_audit(email, "BACKUP_CODES_DOWNLOADED", context={"ip": "internal_dashboard"})
+
+    # Construcción del contenido del archivo
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    content = f"""🛡️ HYPERION SECURITY - CÓDIGOS DE EMERGENCIA
+==========================================
+USUARIO: {email}
+FECHA DE GENERACIÓN: {now}
+------------------------------------------
+ESTOS CÓDIGOS SON DE UN SOLO USO (TOTP-BACKUP)
+
+1. {plain_codes[0]}
+2. {plain_codes[1]}
+3. {plain_codes[2]}
+4. {plain_codes[3]}
+5. {plain_codes[4]}
+
+------------------------------------------
+ADVERTENCIA: Al usar un código, este quedará
+invalidado. Guarde este archivo fuera de su
+dispositivo principal.
+=========================================="""
+
+    return PlainTextResponse(
+        content, 
+        headers={"Content-Disposition": f"attachment; filename=backup_codes_hyperion.txt"}
+    )
