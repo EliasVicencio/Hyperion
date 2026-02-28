@@ -528,5 +528,218 @@
         },
         "hash_prev": "dfac378fd8d74cae63cd467d743610d507f2da36eeb2a92349888334ca20bce6",
         "hash_this": "399926635f4cb6fee8913823813527eea13ed4d1cd0dd3b8912386772b51334f"
+    },
+    {
+        "timestamp": "2026-02-28T01:04:32.500944Z",
+        "actor": "ceo@admin.hyperion.com",
+        "action": "LOGIN_SUCCESS",
+        "target": null,
+        "context": {
+            "method": "2fa_app",
+            "role": "admin",
+            "ip": "172.18.0.4"
+        },
+        "hash_prev": "399926635f4cb6fee8913823813527eea13ed4d1cd0dd3b8912386772b51334f",
+        "hash_this": "9cfe3b721d1d9eda805c7248a00fbd7573e7d6fe762657dd6d2fa275392b75fa"
+    },
+    {
+        "timestamp": "2026-02-28T01:09:25.154577Z",
+        "actor": "ceo@admin.hyperion.com",
+        "action": "LOGIN_SUCCESS",
+        "target": null,
+        "context": {
+            "method": "2fa_app",
+            "role": "admin",
+            "ip": "172.18.0.4"
+        },
+        "hash_prev": "9cfe3b721d1d9eda805c7248a00fbd7573e7d6fe762657dd6d2fa275392b75fa",
+        "hash_this": "fabe01fa6d0703af60e77cf2d3ff9861500ddf4a1eb9453d946265ecda408dc6"
+    },
+    {
+        "timestamp": "2026-02-28T01:12:22.608288Z",
+        "actor": "ceo@admin.hyperion.com",
+        "action": "LOGIN_SUCCESS",
+        "target": null,
+        "context": {
+            "method": "2fa_app",
+            "role": "admin",
+            "ip": "172.18.0.4"
+        },
+        "hash_prev": "fabe01fa6d0703af60e77cf2d3ff9861500ddf4a1eb9453d946265ecda408dc6",
+        "hash_this": "13031e3c127081bd0fc7df78fd58ced530364ba639ca1e5a122c49b489029c1c"
+    },
+    {
+        "timestamp": "2026-02-28T01:16:42.254025Z",
+        "actor": "ceo@admin.hyperion.com",
+        "action": "LOGIN_SUCCESS",
+        "target": null,
+        "context": {
+            "method": "2fa_app",
+            "role": "admin",
+            "ip": "172.18.0.4"
+        },
+        "hash_prev": "13031e3c127081bd0fc7df78fd58ced530364ba639ca1e5a122c49b489029c1c",
+        "hash_this": "cc197d6cb51f9294314f0aeb3b7fcae8faabc30e856b40cee8f15a97d6e4d441"
+    },
+    {
+        "timestamp": "2026-02-28T01:41:22.592827Z",
+        "actor": "ceo@admin.hyperion.com",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {}
+    },
+    {
+        "timestamp": "2026-02-28T01:41:23.597391Z",
+        "actor": "ceo@admin.hyperion.com",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {}
+    },
+    {
+        "timestamp": "2026-02-28T02:12:45.385715Z",
+        "actor": "usuario@hyperion.cl",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {}
+    },
+    {
+        "timestamp": "2026-02-28T02:12:46.024542Z",
+        "actor": "usuario@hyperion.cl",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {}
+    },
+    {
+        "timestamp": "2026-02-28T02:12:46.609964Z",
+        "actor": "usuario@hyperion.cl",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {}
+    },
+    {
+        "timestamp": "2026-02-28T02:12:47.164471Z",
+        "actor": "usuario@hyperion.cl",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {}
+    },
+    {
+        "timestamp": "2026-02-28T02:12:47.694680Z",
+        "actor": "usuario@hyperion.cl",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {}
+    },
+    {
+        "timestamp": "2026-02-28T02:12:48.127222Z",
+        "actor": "usuario@hyperion.cl",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {}
+    },
+    {
+        "timestamp": "2026-02-28T02:17:34.088646Z",
+        "actor": "usuario@hyperion.cl",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {}
+    },
+    {
+        "timestamp": "2026-02-28T02:17:34.780485Z",
+        "actor": "usuario@hyperion.cl",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {}
+    },
+    {
+        "timestamp": "2026-02-28T02:17:38.980544Z",
+        "actor": "usuario@hyperion.cl",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {}
+    },
+    {
+        "timestamp": "2026-02-28T02:17:39.344110Z",
+        "actor": "usuario@hyperion.cl",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {}
+    },
+    {
+        "timestamp": "2026-02-28T02:17:39.682670Z",
+        "actor": "usuario@hyperion.cl",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {}
+    },
+    {
+        "timestamp": "2026-02-28T02:22:19.648241Z",
+        "actor": "usuario@hyperion.cl",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {}
+    },
+    {
+        "timestamp": "2026-02-28T02:22:20.581534Z",
+        "actor": "usuario@hyperion.cl",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {}
+    },
+    {
+        "timestamp": "2026-02-28T02:22:21.258112Z",
+        "actor": "usuario@hyperion.cl",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {}
+    },
+    {
+        "timestamp": "2026-02-28T02:22:21.814494Z",
+        "actor": "usuario@hyperion.cl",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {}
+    },
+    {
+        "timestamp": "2026-02-28T02:22:22.397713Z",
+        "actor": "usuario@hyperion.cl",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {}
+    },
+    {
+        "timestamp": "2026-02-28T02:27:00.585829Z",
+        "actor": "usuario@hyperion.cl",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {}
+    },
+    {
+        "timestamp": "2026-02-28T02:27:01.291316Z",
+        "actor": "usuario@hyperion.cl",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {}
+    },
+    {
+        "timestamp": "2026-02-28T02:27:01.725039Z",
+        "actor": "usuario@hyperion.cl",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {}
+    },
+    {
+        "timestamp": "2026-02-28T02:27:02.170861Z",
+        "actor": "usuario@hyperion.cl",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {}
+    },
+    {
+        "timestamp": "2026-02-28T02:27:02.545400Z",
+        "actor": "usuario@hyperion.cl",
+        "action": "LOGIN_FAILED",
+        "target": "172.18.0.4",
+        "context": {}
     }
 ]

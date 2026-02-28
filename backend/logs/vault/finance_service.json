@@ -1,0 +1,29 @@
+[
+    {
+        "index": 0,
+        "timestamp": "2026-02-28T01:51:34.856022Z",
+        "source": "finance_service",
+        "event_type": "PAYMENT_BATCH_PROCESSED",
+        "actor": "system_bot",
+        "target": "ledger_2026",
+        "context": {
+            "amount": 55000,
+            "status": "approved"
+        },
+        "hash_prev": "0000000000000000000000000000000000000000000000000000000000000000",
+        "hash_this": "504fade122f66c09c1f9f2036187ca2957ff38909b4f8336ca3b37a116d02727"
+    },
+    {
+        "index": 1,
+        "timestamp": "2026-02-28T01:51:35.887918Z",
+        "source": "finance_service",
+        "event_type": "UNAUTHORIZED_ACCESS_ATTEMPT",
+        "actor": "unknown_user",
+        "target": "vault_alpha",
+        "context": {
+            "ip": "192.168.1.50"
+        },
+        "hash_prev": "504fade122f66c09c1f9f2036187ca2957ff38909b4f8336ca3b37a116d02727",
+        "hash_this": "0c1d36b97dd1d04b99dd152fd2c0770fdd4a79b71f1d923844045fe0b4c2d202"
+    }
+]

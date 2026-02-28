@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hyperion - Monitor de Seguridad</title>
+    <title>Hyperion SIEM - Monitor Corporativo</title>
     <link rel="icon" href="https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/72x72/1f6e1.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -31,8 +31,16 @@
     <div class="max-w-6xl mx-auto">
         <header class="flex justify-between items-center mb-10 border-b border-slate-700 pb-6">
             <div>
-                <h1 class="text-3xl font-extrabold text-blue-500 tracking-tight">🛡️ HYPERION REAL-TIME</h1>
-                <p class="text-slate-400 text-sm mt-1">Panel de Control de Amenazas Perimetrales</p>
+                <h1 class="text-3xl font-extrabold text-blue-500 tracking-tight">🛡️ HYPERION SIEM</h1>
+                <p class="text-slate-400 text-sm mt-1">Plataforma de Auditoría Inmutable Corporativa</p>
+            </div>
+            <div class="flex items-center gap-4 bg-slate-800 p-2 rounded-xl border border-slate-700 ml-4">
+                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Fuente de Datos:</label>
+                <select id="service-selector" onchange="changeService()" class="bg-slate-900 text-blue-400 text-xs font-bold p-1 rounded border border-slate-700 outline-none focus:border-blue-500">
+                    <option value="hyperion_core">🛡️ Hyperion Core</option>
+                    <option value="finance_service">💰 Finanzas (External)</option>
+                    <option value="hr_service">👥 RRHH (External)</option>
+                </select>
             </div>
             <div id="system-status" class="bg-yellow-500/10 text-yellow-500 px-4 py-2 rounded-lg border border-yellow-500/20 text-xs font-bold tracking-widest uppercase">
                 ● CONECTANDO...
@@ -53,30 +61,29 @@
         <section class="mb-10 bg-slate-800 rounded-2xl border border-red-900/30 overflow-hidden shadow-2xl">
             <div class="bg-red-950/20 p-4 border-b border-slate-700 flex items-center gap-2">
                 <span class="text-red-500 animate-pulse">🔔</span>
-                <h2 class="text-sm font-bold text-red-400 uppercase tracking-widest">Alertas del Sistema (Logs)</h2>
+                <h2 class="text-sm font-bold text-red-400 uppercase tracking-widest">Alertas Globales de Seguridad</h2>
             </div>
             <div id="alerts-container" class="p-4 space-y-2 max-h-48 overflow-y-auto">
                 <p class="text-slate-500 text-xs italic text-center py-4">Sincronizando logs...</p>
             </div>
         </section>
 
-        <button onclick="checkIntegrity()" class="mb-4 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-widest transition-all shadow-lg flex items-center gap-2">
-    🛡️ Verificar Integridad de Logs
-        </button>
-
         <section class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-2xl">
-            <div class="bg-slate-700/50 p-4 border-b border-slate-700">
-                <h2 class="text-sm font-bold text-slate-300 uppercase tracking-widest">🚫 Registro de Actividad Sospechosa</h2>
+            <div class="bg-slate-700/50 p-4 border-b border-slate-700 flex justify-between items-center">
+                <h2 class="text-sm font-bold text-slate-300 uppercase tracking-widest">🚫 Registro de Actividad Inmutable</h2>
+                <button onclick="checkIntegrity()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1 rounded-lg font-bold text-[10px] uppercase tracking-widest transition-all">
+                    🛡️ Validar Cadena
+                </button>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left text-sm">
                     <thead class="bg-slate-800 text-slate-400 text-xs uppercase">
-                        <tr>
-                            <th class="p-4">Dirección IP</th>
-                            <th class="p-4 text-center">Intentos</th>
-                            <th class="p-4">Estado Actual</th>
-                            <th class="p-4">Bloqueado Hasta</th>
-                            <th class="p-4 text-center">Acción</th>
+                        <tr id="table-header">
+                            <th class="p-4">Origen / IP</th>
+                            <th class="p-4 text-center">Evento</th>
+                            <th class="p-4">Actor</th>
+                            <th class="p-4">Firma (Hash)</th>
+                            <th class="p-4 text-center">Estado</th>
                         </tr>
                     </thead>
                     <tbody id="log-table" class="divide-y divide-slate-700/50">
@@ -104,17 +111,8 @@
             </div>
         </section>
 
-        <section class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-2xl">
-            <div class="bg-indigo-900/30 p-4 border-b border-slate-700">
-                <h2 class="text-sm font-bold text-indigo-300 uppercase tracking-widest">🔍 Auditoría de Código (Bandit)</h2>
-            </div>
-            <div id="scan-container" class="p-6 grid grid-cols-1 gap-4 text-xs">
-                <p class="text-slate-500 italic text-center">Iniciando escáner de seguridad...</p>
-            </div>
-        </section>
-
         <footer class="mt-8 text-center text-slate-600 text-[10px] uppercase tracking-widest pb-10">
-            Hyperion Security Engine v3.0 - Dashboard Externo
+            Hyperion SIEM Platform v1.0 - Acceso Corporativo Restringido
         </footer>
     </div>
 
@@ -122,41 +120,14 @@
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
         const BASE_URL = window.location.origin; 
+        let currentService = "hyperion_core";
 
-        async function deleteIP(ip) {
-            if(!confirm(`¿Desbloquear IP: ${ip}?`)) return;
-            try {
-                const res = await fetch(`${BASE_URL}/api/clear-ip/${ip}?token=${token}`, { method: 'DELETE' });
-                if (res.ok) update(); 
-            } catch (e) { console.error("Error al borrar IP:", e); }
-        }
-
-        async function downloadBackups() {
-            let email = localStorage.getItem("user_email") || prompt("Ingresa el email para generar códigos:");
-            if (!email) return;
-
-            if (confirm("⚠️ Al generar nuevos códigos, los antiguos se invalidarán. ¿Continuar?")) {
-                try {
-                    const res = await fetch(`${BASE_URL}/api/download-backup-codes?email=${email}&token=${token}`);
-                    if (res.ok) {
-                        const blob = await res.blob();
-                        const url = window.URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `backup_codes_${email}.txt`;
-                        document.body.appendChild(a);
-                        a.click();
-                        a.remove();
-                        
-                        // Forzamos actualización inmediata para ver la alerta
-                        setTimeout(update, 500); 
-                    } else {
-                        alert("Error al descargar códigos. Verifique permisos.");
-                    }
-                } catch (e) {
-                    console.error("Error en descarga:", e);
-                }
-            }
+        // Función para cambiar de servicio
+        async function changeService() {
+            currentService = document.getElementById('service-selector').value;
+            // Limpiamos tabla para dar feedback visual de carga
+            document.getElementById('log-table').innerHTML = '<tr><td colspan="5" class="p-8 text-center text-blue-500 animate-pulse font-bold">SOLICITANDO CADENA DE HASHES...</td></tr>';
+            update();
         }
 
         async function update() {
@@ -166,108 +137,96 @@
             }
 
             try {
-                // 1. IPs Y MÉTRICAS (La tabla que ya te funciona)
-                const res = await fetch(`${BASE_URL}/api/security-status?token=${token}`);
-                const data = await res.json();
-                
-                document.getElementById('total-attempts').innerText = data.total_attempts || 0;
-                document.getElementById('watched-ips').innerText = data.blocked_ips ? data.blocked_ips.length : 0;
+                // 1. MÉTRICAS (Hyperion Core siempre manda las métricas globales)
+                const resStatus = await fetch(`${BASE_URL}/api/security-status?token=${token}`);
+                const dataStatus = await resStatus.json();
+                document.getElementById('total-attempts').innerText = dataStatus.total_attempts || 0;
+                document.getElementById('watched-ips').innerText = dataStatus.blocked_ips ? dataStatus.blocked_ips.length : 0;
+
+                // 2. TABLA DINÁMICA (SIEM)
+                let logs = [];
+                if (currentService === "hyperion_core") {
+                    logs = dataStatus.blocked_ips || [];
+                } else {
+                    const resIngest = await fetch(`${BASE_URL}/api/v1/logs/${currentService}?token=${token}`);
+                    logs = await resIngest.json();
+                }
 
                 const body = document.getElementById('log-table');
-                if (!data.blocked_ips || data.blocked_ips.length === 0) {
-                    body.innerHTML = '<tr><td colspan="5" class="p-12 text-center text-slate-500 italic">🛡️ Perímetro Seguro</td></tr>';
+                body.innerHTML = ''; 
+
+                if (logs.length === 0) {
+                    body.innerHTML = '<tr><td colspan="5" class="p-12 text-center text-slate-500 italic">🛡️ Sin actividad registrada en este servicio</td></tr>';
                 } else {
-                    body.innerHTML = ''; 
-                    data.blocked_ips.forEach(item => {
+                    logs.forEach(item => {
+                        const isCore = currentService === "hyperion_core";
                         body.innerHTML += `
-                            <tr class="bg-red-500/5 fade-in">
-                                <td class="p-4 font-mono font-bold text-blue-400">${item.ip}</td>
-                                <td class="p-4 text-center font-bold">${item.attempts}</td>
-                                <td class="p-4 text-xs">
-                                    <span class="bg-red-500/20 text-red-400 border border-red-500/50 px-3 py-1 rounded-full font-black uppercase tracking-tighter pulse">
-                                        ${item.status || 'BLOQUEADO'}
-                                    </span>
-                                </td>
-                                <td class="p-4 text-slate-400 font-mono text-xs">${item.until || '--:--'}</td>
+                            <tr class="hover:bg-slate-700/30 transition-colors border-b border-slate-700/50 fade-in">
+                                <td class="p-4 font-mono font-bold text-blue-400">${isCore ? item.ip : (item.source || currentService)}</td>
+                                <td class="p-4 text-center text-slate-300 font-medium">${isCore ? item.attempts : (item.event || 'DATA_INGEST')}</td>
+                                <td class="p-4 text-xs text-slate-400">${isCore ? (item.status || 'BLOCKED') : (item.actor || 'SYSTEM')}</td>
+                                <td class="p-4 font-mono text-[10px] text-slate-500 italic">${isCore ? (item.until || 'PERMANENT') : (item.hash_this ? item.hash_this.substring(0,16)+'...' : 'NO_SIGNATURE')}</td>
                                 <td class="p-4 text-center">
-                                    <button onclick="deleteIP('${item.ip}')" class="bg-slate-700 hover:bg-red-600 p-2 rounded-lg transition-all">🗑️</button>
+                                    <span class="text-emerald-500" title="Integridad Verificada">🔒</span>
                                 </td>
                             </tr>`;
                     });
                 }
 
-                // 2. LOG DE ALERTAS (El que se quedaba trabado)
-                // He añadido una validación extra por si tu API devuelve 'history' en lugar de un array directo
+                // 3. LOG DE ALERTAS GLOBAL
                 const smsRes = await fetch(`${BASE_URL}/api/sms-history?token=${token}`);
                 let smsData = await smsRes.json();
-                
-                // Si smsData no es un array directamente, intentamos buscarlo dentro de la respuesta
                 if (!Array.isArray(smsData) && smsData.history) smsData = smsData.history;
 
                 const alertsContainer = document.getElementById('alerts-container');
-                
                 if (smsData && smsData.length > 0) {
-                    alertsContainer.innerHTML = ''; // Limpiamos el "Sincronizando..."
+                    alertsContainer.innerHTML = '';
                     smsData.forEach(sms => {
                         const msgUpper = sms.msg.toUpperCase();
-                        const isEmergency = msgUpper.includes("EMERGENCIA") || msgUpper.includes("AVISO") || msgUpper.includes("BACKUP");
-
+                        const isEmergency = msgUpper.includes("EMERGENCIA") || msgUpper.includes("AVISO") || msgUpper.includes("BACKUP") || msgUpper.includes("SIEM");
                         const colorClass = isEmergency ? "border-yellow-500/50 bg-yellow-500/10" : "border-red-500/50 bg-red-500/10";
                         const textClass = isEmergency ? "text-yellow-500 font-bold" : "text-red-400";
-                        const pulseClass = isEmergency ? "pulse-emergency" : "";
-
                         alertsContainer.innerHTML += `
-                            <div class="${colorClass} ${pulseClass} border-l-4 p-2 text-[11px] flex justify-between items-center fade-in mb-1 rounded-r">
-                                <span><b class="${textClass} uppercase mr-2">${isEmergency ? '⚠️ AVISO:' : '🚨 AMENAZA:'}</b> ${sms.msg}</span>
+                            <div class="${colorClass} border-l-4 p-2 text-[11px] flex justify-between items-center fade-in mb-1 rounded-r">
+                                <span><b class="${textClass} uppercase mr-2">${isEmergency ? '⚠️ INFO:' : '🚨 AMENAZA:'}</b> ${sms.msg}</span>
                                 <span class="text-slate-500 font-mono text-[9px] bg-slate-900/50 px-2 py-0.5 rounded">${sms.time}</span>
                             </div>`;
                     });
-                } else {
-                    alertsContainer.innerHTML = '<p class="text-slate-600 text-xs text-center py-4 italic">No hay alertas recientes en el log.</p>';
                 }
 
-                // 3. AUDITORÍA BANDIT
-                const scanRes = await fetch(`${BASE_URL}/api/scan-results?token=${token}`);
-                const scans = await scanRes.json();
-                const scanContainer = document.getElementById('scan-container');
-                if (scans && scans.length > 0) {
-                    scanContainer.innerHTML = '';
-                    scans.forEach(s => {
-                        const hasIssues = s.issues_found > 0;
-                        scanContainer.innerHTML += `
-                            <div class="border ${hasIssues ? 'border-red-500/50 bg-red-500/10' : 'border-green-500/50 bg-green-500/10'} p-4 rounded-xl flex justify-between items-center fade-in">
-                                <div><p class="font-bold text-slate-200">${s.repo}</p></div>
-                                <div class="${hasIssues ? 'text-red-500 font-black' : 'text-green-500 font-bold'}">${s.issues_found} VULNERABILIDADES</div>
-                            </div>`;
-                    });
-                }
-
-                const statusLabel = document.getElementById('system-status');
-                statusLabel.innerText = "● SISTEMA ACTIVO";
-                statusLabel.className = "bg-green-500/10 text-green-500 px-4 py-2 rounded-lg border border-green-500/20 text-xs font-bold tracking-widest uppercase";
+                document.getElementById('system-status').innerText = "● SISTEMA ACTIVO";
+                document.getElementById('system-status').className = "bg-green-500/10 text-green-500 px-4 py-2 rounded-lg border border-green-500/20 text-xs font-bold tracking-widest uppercase";
 
             } catch (e) {
-                console.error("Error en el ciclo de actualización:", e);
-                const statusLabel = document.getElementById('system-status');
-                statusLabel.innerText = "● ERROR DE CONEXIÓN";
-                statusLabel.className = "bg-red-500/10 text-red-500 px-4 py-2 rounded-lg border border-red-500/20 text-xs font-bold tracking-widest uppercase pulse";
+                console.error("Sync Error:", e);
+                document.getElementById('system-status').innerText = "● ERROR DE CONEXIÓN";
+                document.getElementById('system-status').className = "bg-red-500/10 text-red-500 px-4 py-2 rounded-lg border border-red-500/20 text-xs font-bold tracking-widest uppercase pulse";
             }
         }
-
-        setInterval(update, 3000);
-        update();
 
         async function checkIntegrity() {
             const res = await fetch(`${BASE_URL}/admin/audit/verify?token=${token}`);
             const data = await res.json();
-            
-            if (data.status === "SECURE") {
-                alert("✅ " + data.message);
-            } else {
-                alert("🚨 ¡ALERTA DE SEGURIDAD!: " + data.message);
-                update(); // Para que se vea la alerta roja arriba inmediatamente
+            alert(data.status === "SECURE" ? "✅ " + data.message : "🚨 ¡ALERTA!: " + data.message);
+            update();
+        }
+
+        async function downloadBackups() {
+            let email = localStorage.getItem("user_email") || prompt("Email de seguridad:");
+            if (!email) return;
+            const res = await fetch(`${BASE_URL}/api/download-backup-codes?email=${email}&token=${token}`);
+            if (res.ok) {
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = `backup_codes_${email}.txt`;
+                document.body.appendChild(a); a.click(); a.remove();
+                setTimeout(update, 500); 
             }
         }
+
+        setInterval(update, 5000); // Actualización cada 5s para no saturar el SIEM
+        update();
     </script>
 </body>
 </html>

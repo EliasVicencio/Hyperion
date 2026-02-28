@@ -1,0 +1,28 @@
+[
+    {
+        "index": 0,
+        "timestamp": "2026-02-28T01:51:36.907292Z",
+        "source": "hr_service",
+        "event_type": "SALARY_UPDATE",
+        "actor": "manager_ana",
+        "target": "employee_99",
+        "context": {
+            "increase": "5%"
+        },
+        "hash_prev": "0000000000000000000000000000000000000000000000000000000000000000",
+        "hash_this": "46adee8cf44ff05d8242b296808a4e9b3c413cd9a9377d62bb1d03c17fff340d"
+    },
+    {
+        "index": 1,
+        "timestamp": "2026-02-28T01:51:37.936704Z",
+        "source": "hr_service",
+        "event_type": "CONTRACT_SIGNED",
+        "actor": "legal_dept",
+        "target": "new_hire_jdoe",
+        "context": {
+            "doc_id": "PDF_992"
+        },
+        "hash_prev": "46adee8cf44ff05d8242b296808a4e9b3c413cd9a9377d62bb1d03c17fff340d",
+        "hash_this": "2780122adc65135a3cbd06239efb5dc7bb15051289783a8a5974460633f3c15a"
+    }
+]
