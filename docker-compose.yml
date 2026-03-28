@@ -1,18 +1,86 @@
 version: '3.8'
 
 services:
-  # --- MOTOR DE PERSISTENCIA (Redis) ---
+  # --- CAPA DE DATOS Y CACHÉ ---
   redis:
     image: redis:alpine
     container_name: hyperion_cache
     restart: always
     networks:
       - hyperion_net
-    # No es estrictamente necesario mapear puertos afuera si solo el backend lo usa,
-    # pero lo dejamos para que puedas inspeccionarlo con Redis Insight si quieres.
     ports:
       - "6379:6379"
 
+  postgres_db:
+    image: postgres:15-alpine
+    container_name: hyperion_db
+    restart: always
+    environment:
+      - POSTGRES_USER=${DB_USER:-admin}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-hyperion_secret}
+      - POSTGRES_DB=${DB_NAME:-hyperion_audit}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - hyperion_net
+    ports:
+      - "5432:5432"
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: hyperion_pgadmin
+    restart: always
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL:-admin@hyperion.com}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD:-admin_pass}
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres_db
+    networks:
+      - hyperion_net
+
+  # --- CAPA DE MENSAJERÍA (KAFKA) ---
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: hyperion_zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - hyperion_net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0 # Versión estable
+    container_name: hyperion_kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      # Esta es la línea que evita el error que te salió:
+      KAFKA_ENABLE_KRAFT: "false" 
+    networks:
+      - hyperion_net
+
+  worker:
+      build: ./backend
+      container_name: hyperion_worker
+      restart: always
+      command: python worker_ingestor.py
+      depends_on:
+        - kafka
+        - postgres_db
+      networks:
+        - hyperion_net
+
+  # --- CAPA DE APLICACIÓN ---
   backend:
     build: 
       context: ./backend
@@ -25,18 +93,22 @@ services:
     volumes:
       - ./backend:/app
     depends_on:
-      - redis # El backend necesita que Redis exista antes de arrancar
+      - redis
+      - postgres_db
+      - kafka
     networks:
       - hyperion_net
     environment:
-      - REDIS_HOST=redis # Usamos el nombre del servicio como host
+      - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - DB_HOST=postgres_db
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
     healthcheck:
       test: ["CMD", "python", "-c", "import socket; s = socket.socket(); s.connect(('localhost', 8000))"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 20s
 
   frontend:
     build: ./frontend
@@ -55,3 +127,7 @@ services:
 networks:
   hyperion_net:
     driver: bridge
+
+volumes:
+  postgres_data:
+  # Definimos volumen para que la DB persista aunque el contenedor muera

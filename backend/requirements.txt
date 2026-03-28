@@ -7,3 +7,7 @@ pyotp
 psutil
 twilio
 python-dotenv
+kafka-python
+sqlalchemy
+psycopg2-binary
+redis

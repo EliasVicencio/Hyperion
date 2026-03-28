@@ -14,6 +14,7 @@ import secrets
 import string
 import redis
 from dotenv import load_dotenv
+from kafka import KafkaProducer
 
 # --- CARGAR VARIABLES Y MOTOR SIEM ---
 load_dotenv()
@@ -32,6 +33,12 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Configuración del Productor de Kafka
+producer = KafkaProducer(
+    bootstrap_servers=['kafka:9092'],
+    value_serializer=lambda v: json.dumps(v).encode('utf-8')
 )
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -263,3 +270,15 @@ async def download_codes(email: str, token: str = None):
         content, 
         headers={"Content-Disposition": f"attachment; filename=codes_{email}.txt"}
     )
+
+@app.post("/api/v1/ingest/log")
+async def ingest_log(payload: dict, x_api_key: str = Header(None)):
+    # 1. Validación rápida de API Key (Capa de Seguridad)
+    if x_api_key != "TU_API_KEY_SUPER_SECRETA":
+        raise HTTPException(status_code=403, detail="Invalid API Key")
+
+    # 2. Enviar el log al tópico de Kafka
+    # Esto es asíncrono y ultra rápido, no bloquea al cliente
+    producer.send('hyperion.audit.logs', payload)
+    
+    return {"status": "EVENT_QUEUED", "message": "Log enviado a la cola de procesamiento"}
