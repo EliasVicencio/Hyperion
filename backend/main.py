@@ -15,6 +15,8 @@ import string
 import redis
 from dotenv import load_dotenv
 from kafka import KafkaProducer
+import time
+from kafka.errors import NoBrokersAvailable
 
 # --- CARGAR VARIABLES Y MOTOR SIEM ---
 load_dotenv()
@@ -36,10 +38,13 @@ app.add_middleware(
 )
 
 # Configuración del Productor de Kafka
-producer = KafkaProducer(
-    bootstrap_servers=['kafka:9092'],
-    value_serializer=lambda v: json.dumps(v).encode('utf-8')
-)
+for i in range(5):
+    try:
+        producer = KafkaProducer(bootstrap_servers=['kafka:9092'])
+        break
+    except NoBrokersAvailable:
+        print(f"Esperando a kafka... (intento {i+1}/5)")
+        time.sleep(5)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 TOTP_SECRET = os.getenv("TOTP_SECRET", "JBSWY3DPEHPK3PXP") 
