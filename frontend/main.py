@@ -6,6 +6,12 @@ import pandas as pd
 import plotly.graph_objects as go
 
 # --- CONFIGURACIÓN ESTÁTICA ---
+
+try:
+    BACKEND_URL = st.secrets["BACKEND_URL"]
+except:
+    BACKEND_URL = "http://localhost:8000"  # Para pruebas locales
+    
 # Cambiado para asegurar que use la red interna de Docker por defecto
 BACKEND_INTERNAL = os.getenv("BACKEND_URL", "http://backend:8000")
 BACKEND_EXTERNAL = "http://localhost:8000"
@@ -95,7 +101,7 @@ if not st.session_state.auth["token"]:
                                 
                         except requests.exceptions.RequestException as e:
                             # Si el log dice 200 OK pero entras aquí, es un tema de red interna de Docker
-                            st.error(f"Error de red: Asegúrate de que BACKEND_INTERNAL sea correcto.")
+                            st.error(f"Error de red: Asegúrate de que BACKEND_URL sea correcto.")
                             print(f"DEBUG: {e}")
             
             elif st.session_state.auth["step"] == "2fa":
@@ -223,7 +229,7 @@ else:
             st.info("El sistema está capturando eventos en tiempo real a través de los adaptadores de red. Los logs presentados en la consola externa son inmutables y están firmados criptográficamente.")
             
             # Botón estilizado
-            url = f"{BACKEND_EXTERNAL}/dashboard?token={st.session_state.auth['token']}"
+            url = f"{BACKEND_URL}/dashboard?token={st.session_state.auth['token']}"
             st.markdown(f"""
                 <a href="{url}" target="_blank" style="text-decoration: none;">
                     <div style="background: linear-gradient(90deg, #9333ea 0%, #c084fc 100%); 
