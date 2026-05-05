@@ -127,17 +127,43 @@ if not st.session_state.auth["token"]:
                     st.rerun()
 
         with tab2:
+            st.subheader("Registrar Nuevo Operador")
             new_u = st.text_input("Correo Operador", key="r_user")
             new_p = st.text_input("Clave Maestra", type="password", key="r_pass")
             new_r = st.selectbox("Rol", ["admin", "user"], key="r_role")
+            
             if st.button("Crear Operador", use_container_width=True):
                 try:
                     res = requests.post(f"{BACKEND_INTERNAL}/auth/register", 
-                                     json={"email": new_u, "password": new_p, "role": new_r})
-                    if res.status_code == 200: st.success("✅ Operador registrado con éxito.")
-                    else: st.error(f"Error: {res.json().get('detail', 'Error desconocido')}")
-                except: st.error("Servidor de registro fuera de línea.")
-            pass
+                                    json={"email": new_u, "password": new_p, "role": new_r})
+                    
+                    if res.status_code == 200:
+                        st.success("✅ Operador creado.")
+                        
+                        # --- NUEVA LÓGICA DE QR ---
+                        # El backend debería devolver el "provisioning_uri" en el JSON
+                        # Si no lo hace, lo construimos nosotros con el TOTP_SECRET del .env
+                        import qrcode
+                        from io import BytesIO
+                        from PIL import Image
+
+                        # Generamos el texto del QR (Formato estándar OTPAuth)
+                        # Reemplaza 'HyperionSIEM' por el nombre de tu app
+                        otp_uri = f"otpauth://totp/Hyperion:{new_u}?secret={os.getenv('TOTP_SECRET')}&issuer=HyperionSIEM"
+                        
+                        qr = qrcode.make(otp_uri)
+                        buf = BytesIO()
+                        qr.save(buf, format="PNG")
+                        
+                        st.warning("⚠️ ¡ACCIÓN REQUERIDA!")
+                        st.write("Escanea este código con tu app de autenticación (Google Authenticator/Authy):")
+                        st.image(buf.getvalue(), caption=f"QR para {new_u}", width=250)
+                        st.info("Guarda este código. No se volverá a mostrar por seguridad.")
+                        
+                    else:
+                        st.error(f"Error: {res.json().get('detail', 'Error desconocido')}")
+                except Exception as e:
+                    st.error(f"Servidor de registro fuera de línea: {e}")
 
 # --- VISTAS PROTEGIDAS ---
 else:

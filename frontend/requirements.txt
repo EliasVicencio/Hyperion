@@ -1,3 +1,5 @@
 streamlit
 requests
 plotly
+pillow
+qrcode
