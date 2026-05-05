@@ -266,7 +266,7 @@ else:
             st.info("El sistema está capturando eventos en tiempo real a través de los adaptadores de red. Los logs presentados en la consola externa son inmutables y están firmados criptográficamente.")
             
             # Botón estilizado
-            url = f"{BACKEND_EXTERNAL}/dashboard?token={st.session_state.auth['token']}"
+            url = f"{BACKEND_EXTERNAL}/Dashboard?token={st.session_state.auth['token']}"
             st.markdown(f"""
                 <a href="{url}" target="_blank" style="text-decoration: none;">
                     <div style="background: linear-gradient(90deg, #9333ea 0%, #c084fc 100%); 
