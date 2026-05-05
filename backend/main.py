@@ -195,5 +195,5 @@ async def register(data: dict = Body(...)):
 @app.get("/dashboard", response_class=HTMLResponse)
 async def serve_dashboard(token: str = None):
     if token != TOKEN_MAESTRO: return "Acceso Denegado"
-    with open("templates/dashboard.html", "r", encoding="utf-8") as f:
+    with open("templates/Dashboard.html", "r", encoding="utf-8") as f:
         return f.read()
