@@ -197,3 +197,8 @@ async def serve_dashboard(token: str = None):
     if token != TOKEN_MAESTRO: return "Acceso Denegado"
     with open("templates/Dashboard.html", "r", encoding="utf-8") as f:
         return f.read()
+    
+if __name__ == "__main__":
+    import uvicorn
+    # Cambia 127.0.0.1 por 0.0.0.0
+    uvicorn.run(app, host="0.0.0.0", port=8000)
