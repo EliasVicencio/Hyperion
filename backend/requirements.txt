@@ -52,3 +52,4 @@ validators==0.22.0
 watchfiles==1.1.1
 weaviate-client==4.4.4
 websockets==16.0
+pyotp==2.9.0
