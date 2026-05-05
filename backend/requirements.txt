@@ -54,3 +54,4 @@ weaviate-client==4.4.4
 websockets==16.0
 pyotp==2.9.0
 psutil==5.9.8
+kafka-python==2.0.2
