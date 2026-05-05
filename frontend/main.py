@@ -104,22 +104,45 @@ if not st.session_state.auth["token"]:
             
             elif st.session_state.auth["step"] == "2fa":
                 st.info(f"🔑 Verificación para: {st.session_state.auth['user']}")
-                code = st.text_input("Código de Seguridad", max_chars=6, key="otp_input")
+                
+                # --- NUEVA SECCIÓN DE QR EN LOGIN ---
+                with st.expander("¿No has vinculado tu app? Ver Código QR"):
+                    import qrcode
+                    from io import BytesIO
+                    
+                    # Generamos el URI usando el secreto del .env
+                    # IMPORTANTE: El secret debe coincidir con el que usa el Backend
+                    secret = os.getenv('TOTP_SECRET', 'JBSWY3DPEHPK3PXP')
+                    otp_uri = f"otpauth://totp/Hyperion:{st.session_state.auth['user']}?secret={secret}&issuer=HyperionOps"
+                    
+                    qr = qrcode.make(otp_uri)
+                    buf = BytesIO()
+                    qr.save(buf, format="PNG")
+                    st.image(buf.getvalue(), caption="Escanea con Google Authenticator", width=200)
+                
+                # --- CAMPO DE CÓDIGO ---
+                code = st.text_input("Ingresa el código de 6 dígitos", max_chars=6, key="otp_input")
                 
                 if st.button("Finalizar Acceso", use_container_width=True):
                     try:
-                        res = requests.post(f"{BACKEND_INTERNAL}/auth/login/verify-2fa", 
-                                         json={"email": st.session_state.auth["user"], "code": code})
+                        # DEBUG: Imprimir qué enviamos (puedes verlo en la consola)
+                        print(f"Enviando OTP: {code} para {st.session_state.auth['user']}")
+                        
+                        res = requests.post(
+                            f"{BACKEND_INTERNAL}/auth/login/verify-2fa", 
+                            json={"email": st.session_state.auth["user"], "code": code},
+                            timeout=5
+                        )
+                        
                         if res.status_code == 200:
-                            # AQUÍ ESTÁ EL CAMBIO CRÍTICO:
                             st.session_state.auth["token"] = res.json()["access_token"]
-                            st.success("Acceso concedido. Redireccionando...")
-                            time.sleep(0.5) # Pequeña pausa para asegurar el guardado
-                            st.rerun() # Esto DEBE saltar a la sección 'else' de abajo
+                            st.success("Acceso concedido.")
+                            time.sleep(0.5)
+                            st.rerun()
                         else:
-                            st.error("Código OTP incorrecto.")
-                    except:
-                        st.error("Error en la verificación.")
+                            st.error(f"Código incorrecto o expirado (Error {res.status_code})")
+                    except Exception as e:
+                        st.error(f"Error de conexión: {e}")
                 
                 # Opción para volver atrás si se equivocó de usuario
                 if st.button("⬅️ Volver al Login"):
