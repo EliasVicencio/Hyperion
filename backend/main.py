@@ -50,9 +50,13 @@ TOTP_SECRET = os.getenv("TOTP_SECRET", "JBSWY3DPEHPK3PXP")
 TOKEN_MAESTRO = "SESION_ADMIN_HYPERION_ULTRA_SECRETA" 
 AUDIT_FILE = "audit_log.json"
 
-# Conexión a Redis
+# Conexión a Redis usando variable de entorno
+redis_url = os.getenv("REDIS_URL", "redis://hyperion_cache:6379")
 try:
-    r = redis.Redis(host='hyperion_cache', port=6379, decode_responses=True)
+    r = redis.from_url(redis_url)
+    # Probar conexión
+    r.ping()
+    print(f"✅ Conectado a Redis en: {redis_url}")
 except Exception as e:
     print(f"⚠️ Redis no disponible: {e}")
     r = None
