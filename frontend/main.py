@@ -7,9 +7,13 @@ import plotly.graph_objects as go
 
 # --- CONFIGURACIÓN ESTÁTICA ---
     
-# Cambiado para asegurar que use la red interna de Docker por defecto
-BACKEND_INTERNAL = os.getenv("BACKEND_URL", "http://backend:8000")
-BACKEND_EXTERNAL = "http://localhost:8000"
+# --- CONFIGURACIÓN DE PRODUCCIÓN ---
+# En producción, BACKEND_INTERNAL es para la comunicación entre contenedores (Docker Net)
+# BACKEND_EXTERNAL es la IP que el navegador del usuario final verá.
+URL_BACKEND_RENDER = "https://hyperion-gcic.onrender.com"
+
+BACKEND_INTERNAL = URL_BACKEND_RENDER
+BACKEND_EXTERNAL = URL_BACKEND_RENDER
 
 if "BACKEND_URL" in st.secrets:
     BACKEND_INTERNAL = st.secrets["BACKEND_URL"]
@@ -266,7 +270,7 @@ else:
             st.info("El sistema está capturando eventos en tiempo real a través de los adaptadores de red. Los logs presentados en la consola externa son inmutables y están firmados criptográficamente.")
             
             # Botón estilizado
-            url = f"{BACKEND_EXTERNAL}/Dashboard?token={st.session_state.auth['token']}"
+            url = f"{BACKEND_EXTERNAL}/dashboard?token={st.session_state.auth['token']}"
             st.markdown(f"""
                 <a href="{url}" target="_blank" style="text-decoration: none;">
                     <div style="background: linear-gradient(90deg, #9333ea 0%, #c084fc 100%); 
