@@ -51,41 +51,76 @@ if st.session_state.auth["token"]:
             st.session_state.auth = {"token": None, "user": None, "step": "login"}
             st.rerun()
 
-# --- VISTA: ACCESO (LOGIN + REGISTRO) ---
+# --- LÓGICA DE ACCESO (VISTA PRINCIPAL) ---
+
+# 1. Verificamos si NO hay token (Pantalla de Acceso)
 if not st.session_state.auth["token"]:
     _, col, _ = st.columns([1, 2, 1])
     
     with col:
         st.markdown("<h1 style='text-align: center; color: #c084fc;'>HYPERION ACCESS</h1>", unsafe_allow_html=True)
         
+        # Guardamos la pestaña activa en session_state para que no se pierda
         tab1, tab2 = st.tabs(["🔐 Ingresar", "📝 Registrarse"])
         
         with tab1:
             if st.session_state.auth["step"] == "login":
-                u = st.text_input("Correo Electrónico", key="l_user")
-                p = st.text_input("Contraseña", type="password", key="l_pass")
+                u = st.text_input("Correo Electrónico", key="l_user_input")
+                p = st.text_input("Contraseña", type="password", key="l_pass_input")
+                
                 if st.button("Validar Credenciales", use_container_width=True):
-                    try:
-                        res = requests.post(f"{BACKEND_INTERNAL}/auth/login", data={"username": u, "password": p}, timeout=5)
-                        if res.status_code == 200:
-                            st.session_state.auth["user"] = u
-                            st.session_state.auth["step"] = "2fa"
-                            st.rerun()
-                        else: st.error("Credenciales incorrectas o IP bloqueada.")
-                    except: st.error("No se pudo conectar con el servidor central.")
+                    if u and p:
+                        try:
+                            with st.spinner("Verificando identidad..."):
+                                # Enviamos como data (form-data) porque usas OAuth2PasswordRequestForm
+                                res = requests.post(
+                                    f"{BACKEND_INTERNAL}/auth/login", 
+                                    data={"username": u, "password": p}, 
+                                    timeout=10
+                                )
+                            
+                            if res.status_code == 200:
+                                # Si llegamos aquí, el log de FastAPI debería decir 200 OK
+                                st.session_state.auth["user"] = u
+                                st.session_state.auth["step"] = "2fa"
+                                st.success("Credenciales correctas. Ingrese su código OTP.")
+                                time.sleep(0.5)
+                                st.rerun()
+                            elif res.status_code == 401:
+                                st.error("❌ Usuario o contraseña incorrectos.")
+                            elif res.status_code == 403:
+                                st.error("🚫 Acceso denegado: IP Bloqueada.")
+                            else:
+                                st.error(f"Error inesperado: {res.status_code}")
+                                
+                        except requests.exceptions.RequestException as e:
+                            # Si el log dice 200 OK pero entras aquí, es un tema de red interna de Docker
+                            st.error(f"Error de red: Asegúrate de que BACKEND_INTERNAL sea correcto.")
+                            print(f"DEBUG: {e}")
             
             elif st.session_state.auth["step"] == "2fa":
-                st.info(f"🔑 Código enviado a la app vinculada para: {st.session_state.auth['user']}")
-                code = st.text_input("Código de Seguridad", max_chars=6)
+                st.info(f"🔑 Verificación para: {st.session_state.auth['user']}")
+                code = st.text_input("Código de Seguridad", max_chars=6, key="otp_input")
+                
                 if st.button("Finalizar Acceso", use_container_width=True):
                     try:
                         res = requests.post(f"{BACKEND_INTERNAL}/auth/login/verify-2fa", 
                                          json={"email": st.session_state.auth["user"], "code": code})
                         if res.status_code == 200:
+                            # AQUÍ ESTÁ EL CAMBIO CRÍTICO:
                             st.session_state.auth["token"] = res.json()["access_token"]
-                            st.rerun()
-                        else: st.error("Código OTP inválido.")
-                    except: st.error("Error en la verificación.")
+                            st.success("Acceso concedido. Redireccionando...")
+                            time.sleep(0.5) # Pequeña pausa para asegurar el guardado
+                            st.rerun() # Esto DEBE saltar a la sección 'else' de abajo
+                        else:
+                            st.error("Código OTP incorrecto.")
+                    except:
+                        st.error("Error en la verificación.")
+                
+                # Opción para volver atrás si se equivocó de usuario
+                if st.button("⬅️ Volver al Login"):
+                    st.session_state.auth["step"] = "login"
+                    st.rerun()
 
         with tab2:
             new_u = st.text_input("Correo Operador", key="r_user")
@@ -98,6 +133,7 @@ if not st.session_state.auth["token"]:
                     if res.status_code == 200: st.success("✅ Operador registrado con éxito.")
                     else: st.error(f"Error: {res.json().get('detail', 'Error desconocido')}")
                 except: st.error("Servidor de registro fuera de línea.")
+            pass
 
 # --- VISTAS PROTEGIDAS ---
 else:
