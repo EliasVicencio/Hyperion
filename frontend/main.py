@@ -262,4 +262,4 @@ else:
             color = '#ef4444' if val == 'CRÍTICO' else ('#f59e0b' if val == 'ALTO' else '#3b82f6')
             return f'color: {color}; font-weight: bold;'
 
-st.table(mock_data.style.map(color_level, subset=['Nivel']))
+    st.table(mock_data.style.map(color_level, subset=['Nivel']))
