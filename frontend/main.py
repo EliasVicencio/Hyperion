@@ -23,6 +23,7 @@ st.set_page_config(page_title="Hyperion Ops", layout="wide")
 # --- CSS INYECTADO (ESTÉTICA DARK) ---
 st.markdown("""
     <style>
+    .stDataFrame { border: 1px solid #334155; border-radius: 10px; }
     .stApp { background-color: #0f172a; color: #f1f5f9; }
     [data-testid="stSidebar"] { background-color: #1e293b !important; }
     .metric-card {
@@ -53,6 +54,7 @@ if st.session_state.auth["token"]:
         if st.button("📊 Analíticas", use_container_width=True): nav_to("Analíticas")
         if st.button("👁️ Vigilancia", use_container_width=True): nav_to("Vigilancia")
         if st.button("👥 Operadores", use_container_width=True): nav_to("Operadores")
+        if st.button("📜 Logs de Auditoría", use_container_width=True): nav_to("AuditLogs")
         if st.button("📜 SIEM Audit", use_container_width=True): nav_to("SIEM")
         st.write("---")
         if st.button("🚪 Cerrar Sesión", use_container_width=True):
@@ -229,6 +231,43 @@ else:
                 else: st.info("No hay operadores registrados en la base de datos.")
             else: st.error("🛑 Acceso Denegado: Se requieren privilegios de Admin.")
         except Exception as e: st.error(f"Error al conectar con la base de datos: {e}")
+
+    elif st.session_state.page == "AuditLogs":
+        st.title("📜 Registros de Auditoría del Sistema")
+        st.info("Historial de acciones críticas almacenadas en PostgreSQL.")
+
+        try:
+            # Llamada al nuevo endpoint del backend
+            r = requests.get(f"{BACKEND_INTERNAL}/admin/audit-logs", params=auth_params, timeout=5)
+            
+            if r.status_code == 200:
+                logs = r.json()
+                if logs:
+                    df_logs = pd.DataFrame(logs)
+                    
+                    # Buscador básico
+                    search = st.text_input("🔍 Buscar en logs (actor, acción o fecha):")
+                    if search:
+                        # Filtrar en todas las columnas
+                        df_logs = df_logs[df_logs.apply(lambda row: search.lower() in row.astype(str).str.lower().values, axis=1)]
+                    
+                    # Mostrar tabla estilizada
+                    st.dataframe(
+                        df_logs, 
+                        use_container_width=True, 
+                        column_config={
+                            "timestamp": "Fecha y Hora",
+                            "actor": "Usuario/Sistema",
+                            "action": "Acción Realizada",
+                            "target": "Objetivo"
+                        }
+                    )
+                else:
+                    st.warning("No hay registros de auditoría en la base de datos.")
+            else:
+                st.error(f"🛑 Error {r.status_code}: No tienes permisos para ver los logs.")
+        except Exception as e:
+            st.error(f"🚨 Error al conectar con el servicio de auditoría: {e}")
 
     elif st.session_state.page == "SIEM":
         st.title("📜 Hyperion SIEM Audit")

@@ -37,6 +37,18 @@ class UserDB(Base):
 # Crear las tablas automáticamente si no existen
 Base.metadata.create_all(bind=engine)
 
+# --- MODELO DE AUDITORÍA ---
+class AuditLogDB(Base):
+    __tablename__ = "audit_logs"
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    actor = Column(String)
+    action = Column(String)
+    target = Column(String, nullable=True)
+
+# Asegúrate de que las tablas se creen
+Base.metadata.create_all(bind=engine)
+
 # --- CARGAR VARIABLES ---
 load_dotenv()
 try:
@@ -99,19 +111,19 @@ def send_security_alert(message):
     sms_history.insert(0, {"msg": f"🚨 {message}", "time": timestamp})
 
 def log_audit(actor, action, target=None):
-    entry = {
-        "timestamp": datetime.utcnow().isoformat() + "Z",
-        "actor": actor,
-        "action": action,
-        "target": target
-    }
-    logs = []
-    if os.path.exists(AUDIT_FILE):
-        with open(AUDIT_FILE, "r") as f:
-            try: logs = json.load(f)
-            except: logs = []
-    logs.append(entry)
-    with open(AUDIT_FILE, "w") as f: json.dump(logs, f, indent=4)
+    db = SessionLocal()
+    try:
+        new_log = AuditLogDB(
+            actor=actor,
+            action=action,
+            target=target
+        )
+        db.add(new_log)
+        db.commit()
+    except Exception as e:
+        print(f"❌ Error al guardar log: {e}")
+    finally:
+        db.close()
 
 # --- MIDDLEWARE ---
 @app.middleware("http")
@@ -227,6 +239,24 @@ async def serve_dashboard(token: str = None):
     if token != TOKEN_MAESTRO: return "Acceso Denegado"
     with open("templates/Dashboard.html", "r", encoding="utf-8") as f:
         return f.read()
+    
+@app.get("/admin/audit-logs")
+async def get_audit_logs(token: str = None):
+    if token != TOKEN_MAESTRO: 
+        raise HTTPException(status_code=403)
+    
+    db = SessionLocal()
+    logs = db.query(AuditLogDB).order_by(AuditLogDB.timestamp.desc()).limit(100).all()
+    db.close()
+    
+    return [
+        {
+            "timestamp": log.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+            "actor": log.actor,
+            "action": log.action,
+            "target": log.target
+        } for log in logs
+    ]
     
 if __name__ == "__main__":
     import uvicorn
