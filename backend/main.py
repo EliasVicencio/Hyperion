@@ -15,6 +15,27 @@ from dotenv import load_dotenv
 from kafka import KafkaProducer
 import time
 from kafka.errors import NoBrokersAvailable
+from sqlalchemy import create_engine, Column, String, DateTime
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+
+# --- CONFIGURACIÓN DE BASE DE DATOS ---
+DATABASE_URL = os.getenv("DATABASE_URL") # Render llenará esto automáticamente
+
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+# --- MODELO DE USUARIO ---
+class UserDB(Base):
+    __tablename__ = "users"
+    email = Column(String, primary_key=True, index=True)
+    password = Column(String)
+    role = Column(String)
+    created_at = Column(DateTime)
+
+# Crear las tablas automáticamente si no existen
+Base.metadata.create_all(bind=engine)
 
 # --- CARGAR VARIABLES ---
 load_dotenv()
@@ -65,19 +86,13 @@ sms_history = []
 MAX_ATTEMPTS = 5
 BLOCK_TIME_SECONDS = 300
 
-# --- FUNCIONES DE APOYO ---
-def get_users():
-    path = "users.json"
-    if not os.path.exists(path) or os.stat(path).st_size == 0:
-        with open(path, "w") as f: json.dump({}, f)
-        return {}
-    with open(path, "r") as f:
-        try: return json.load(f)
-        except: return {}
-
-def save_users(users):
-    with open("users.json", "w") as f:
-        json.dump(users, f, indent=4)
+# --- REEMPLAZO DE FUNCIONES JSON ---
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 def send_security_alert(message):
     timestamp = datetime.now().strftime("%H:%M:%S")
@@ -150,22 +165,30 @@ async def security_status(token: str = None):
 @app.get("/admin/users")
 async def list_users(token: str = None):
     if token != TOKEN_MAESTRO: raise HTTPException(status_code=403)
-    return get_users()
+    db = SessionLocal()
+    users = db.query(UserDB).all()
+    db.close()
+    # Convertimos los objetos de la BD a un formato que el Frontend entienda
+    return {user.email: {"role": user.role} for user in users}
 
 # --- AUTENTICACIÓN ---
 @app.post("/auth/login")
 async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
     client_ip = request.client.host
-    users = get_users()
-    user = users.get(form_data.username)
+    db = SessionLocal() # <--- Abrir conexión a DB
     
-    if not user or not pwd_context.verify(form_data.password, user["password"]):
+    # Buscar al usuario en la base de datos
+    user = db.query(UserDB).filter(UserDB.email == form_data.username).first()
+    db.close() # <--- Cerrar conexión
+    
+    # Verificar si el usuario existe y la contraseña es correcta
+    if not user or not pwd_context.verify(form_data.password, user.password):
         if r:
             attempts = r.incr(f"attempts:{client_ip}")
             r.expire(f"attempts:{client_ip}", 600)
             if attempts >= MAX_ATTEMPTS:
                 r.setex(f"block:{client_ip}", BLOCK_TIME_SECONDS, "blocked")
-        raise HTTPException(status_code=401, detail="Error")
+        raise HTTPException(status_code=401, detail="Credenciales incorrectas")
 
     if r: r.delete(f"attempts:{client_ip}")
     return {"access_token": TOKEN_MAESTRO, "requires_2fa": True}
@@ -179,18 +202,25 @@ async def verify_2fa(data: dict):
     raise HTTPException(status_code=400, detail="Inválido")
 
 @app.post("/auth/register")
-async def register(data: dict = Body(...)):
-    users = get_users()
-    email, password = data.get("email"), data.get("password")
-    if not email or email in users: raise HTTPException(status_code=400)
+async def register(data: dict):
+    db = SessionLocal()
+    email = data.get("email")
+    # Buscar si ya existe
+    user_exists = db.query(UserDB).filter(UserDB.email == email).first()
+    if user_exists:
+        db.close()
+        raise HTTPException(status_code=400, detail="El usuario ya existe")
     
-    users[email] = {
-        "password": pwd_context.hash(password),
-        "role": data.get("role", "user"),
-        "created_at": datetime.utcnow().isoformat()
-    }
-    save_users(users)
-    return {"msg": "OK"}
+    new_user = UserDB(
+        email=email,
+        password=pwd_context.hash(data.get("password")),
+        role=data.get("role", "user"),
+        created_at=datetime.utcnow()
+    )
+    db.add(new_user)
+    db.commit()
+    db.close()
+    return {"msg": "Usuario registrado en DB"}
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def serve_dashboard(token: str = None):
