@@ -1,3 +1,6 @@
+from sqlalchemy import Integer, create_engine, Column, String, DateTime
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 from fastapi import FastAPI, Depends, HTTPException, Request, Header, Body
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import HTMLResponse, PlainTextResponse
@@ -15,9 +18,7 @@ from dotenv import load_dotenv
 from kafka import KafkaProducer
 import time
 from kafka.errors import NoBrokersAvailable
-from sqlalchemy import create_engine, Column, String, DateTime
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+
 
 # --- CONFIGURACIÓN DE BASE DE DATOS ---
 DATABASE_URL = os.getenv("DATABASE_URL") # Render llenará esto automáticamente
@@ -37,6 +38,7 @@ class UserDB(Base):
 # Crear las tablas automáticamente si no existen
 Base.metadata.create_all(bind=engine)
 
+# --- MODELO DE AUDITORÍA ---
 # --- MODELO DE AUDITORÍA ---
 class AuditLogDB(Base):
     __tablename__ = "audit_logs"
