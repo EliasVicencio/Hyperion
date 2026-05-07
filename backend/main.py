@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Header, status
+from fastapi import FastAPI, Depends, HTTPException, Header, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 import redis
@@ -151,20 +151,35 @@ async def register(data: dict):
         db.close()
 
 @app.post("/auth/login")
-async def login(data: dict, db: Session = Depends(get_db)):
-    # Extraemos los datos del diccionario (JSON) que manda el front
+async def login(request: Request, db: Session = Depends(get_db)):
+    # 1. Intentamos leer como JSON, si falla, intentamos como Formulario
+    try:
+        data = await request.json()
+    except:
+        form_data = await request.form()
+        data = dict(form_data)
+
     username = data.get("username")
     password = data.get("password")
-    
-    if not username or not password:
-        raise HTTPException(status_code=422, detail="Faltan credenciales")
 
+    # Si el front usa 'email' en lugar de 'username', lo capturamos también
+    if not username:
+        username = data.get("email")
+
+    if not username or not password:
+        raise HTTPException(
+            status_code=422, 
+            detail="El backend espera 'username' y 'password'. Datos recibidos: " + str(list(data.keys()))
+        )
+
+    # 2. Buscamos al usuario
     user = db.query(UserDB).filter(UserDB.email == username).first()
     
     if not user or not pwd_context.verify(password, user.password):
+        # Log para debug (solo lo verás tú en Render)
+        print(f"Login fallido para: {username}")
         raise HTTPException(status_code=401, detail="Credenciales incorrectas")
     
-    # Devolvemos el token maestro y la bandera para que el front pase al 2FA
     return {
         "access_token": TOKEN_MAESTRO, 
         "token_type": "bearer", 
