@@ -146,9 +146,16 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     db = SessionLocal()
     user = db.query(UserDB).filter(UserDB.email == form_data.username).first()
     db.close()
+    
     if not user or not pwd_context.verify(form_data.password, user.password):
-        raise HTTPException(status_code=401, detail="Error")
-    return {"access_token": TOKEN_MAESTRO, "token_type": "bearer"}
+        raise HTTPException(status_code=401, detail="Credenciales incorrectas")
+    
+    # El frontend busca "requires_2fa": True para mostrar la casilla del código
+    return {
+        "access_token": TOKEN_MAESTRO, 
+        "token_type": "bearer", 
+        "requires_2fa": True
+    }
 
 @app.post("/access/request")
 def request_access(payload: dict, db: Session = Depends(get_db), user_data: dict = Depends(get_current_user)):
@@ -171,6 +178,25 @@ async def get_audit_logs(user: dict = Depends(get_current_user)):
     logs = db.query(AuditLogDB).order_by(AuditLogDB.timestamp.desc()).all()
     db.close()
     return logs
+
+@app.post("/auth/login/verify-2fa")
+async def verify_2fa(data: dict):
+    user_code = str(data.get("code", ""))
+    totp = pyotp.TOTP(TOTP_SECRET)
+    # Mantenemos tu bypass de prueba "123456"
+    if totp.verify(user_code) or user_code == "123456":
+        return {"access_token": TOKEN_MAESTRO, "role": "admin"}
+    raise HTTPException(status_code=400, detail="Código incorrecto o expirado")
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def serve_dashboard(token: str = None):
+    if token != TOKEN_MAESTRO: 
+        return HTMLResponse(content="<h1>Acceso Denegado</h1>", status_code=403)
+    try:
+        with open("templates/Dashboard.html", "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return HTMLResponse(content="<h1>Error: Dashboard.html no encontrado</h1>", status_code=404)
 
 if __name__ == "__main__":
     import uvicorn
