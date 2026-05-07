@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 from kafka import KafkaProducer
 import time
 from kafka.errors import NoBrokersAvailable
+import uuid
 
 
 # --- CONFIGURACIÓN DE BASE DE DATOS ---
@@ -39,7 +40,6 @@ class UserDB(Base):
 Base.metadata.create_all(bind=engine)
 
 # --- MODELO DE AUDITORÍA ---
-# --- MODELO DE AUDITORÍA ---
 class AuditLogDB(Base):
     __tablename__ = "audit_logs"
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
@@ -50,6 +50,18 @@ class AuditLogDB(Base):
 
 # Asegúrate de que las tablas se creen
 Base.metadata.create_all(bind=engine)
+
+# --- MODELO DE SOLICITUDES DE ACCESO ---
+class AccessRequestDB(Base):
+    __tablename__ = "access_requests"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    requested_role = Column(String)
+    justification = Column(Text)
+    status = Column(String, default="pending")  # pending, approved, rejected
+    requested_at = Column(DateTime, default=datetime.utcnow)
+    resolved_at = Column(DateTime, nullable=True)
+    resolved_by = Column(String, nullable=True) # Email del admin que aprobó/rechazó
 
 # --- CARGAR VARIABLES ---
 load_dotenv()
@@ -298,6 +310,28 @@ async def deep_health_check():
         db.close()
     
     return status
+
+@app.post("/access/request")
+async def create_access_request(data: dict):
+    db = SessionLocal()
+    try:
+        new_req = AccessRequestDB(
+            user_id=data.get("user_id"),
+            requested_role=data.get("requested_role"),
+            justification=data.get("justification")
+        )
+        db.add(new_req)
+        db.commit()
+        
+        # Auditamos el evento
+        log_audit(
+            actor=data.get("email"), 
+            action="ACCESS_REQUESTED", 
+            target=f"Role: {data.get('requested_role')}"
+        )
+        return {"msg": "Solicitud enviada correctamente"}
+    finally:
+        db.close()
     
 if __name__ == "__main__":
     import uvicorn

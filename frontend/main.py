@@ -80,6 +80,9 @@ if st.session_state.auth["token"]:
         if st.button("📊 Analíticas", use_container_width=True): nav_to("Analíticas")
         if st.button("👁️ Vigilancia", use_container_width=True): nav_to("Vigilancia")
         if st.button("👥 Operadores", use_container_width=True): nav_to("Operadores")
+        st.write("---")
+        # Añade esto en tu lista de botones del sidebar
+        if st.button("⚖️ Gobernanza", use_container_width=True): nav_to("Gobernanza")
         if st.button("📜 Logs de Auditoría", use_container_width=True): nav_to("AuditLogs")
         if st.button("📜 SIEM Audit", use_container_width=True): nav_to("SIEM")
         
@@ -213,8 +216,8 @@ if not st.session_state.auth["token"]:
 
 # --- VISTAS PROTEGIDAS ---
 else:
-    # Parámetro global para todas las llamadas al backend
-    auth_params = {"token": st.session_state.auth['token']}
+    # Definimos los headers estándar de seguridad (Bearer Token)
+    headers = {"Authorization": f"Bearer {st.session_state.auth['token']}"}
     
     if st.session_state.page == "Analíticas":
         st.title("📊 Estadísticas Globales")
@@ -232,7 +235,7 @@ else:
         try:
             start = time.time()
             # SE ENVÍA TOKEN POR PARAMS
-            r = requests.get(f"{BACKEND_INTERNAL}/api/system-metrics", params=auth_params, timeout=3)
+            r = requests.get(f"{BACKEND_INTERNAL}/api/system-metrics", headers=headers)
             lat = int((time.time() - start) * 1000)
             if r.status_code == 200:
                 data = r.json()
@@ -248,7 +251,7 @@ else:
         st.title("👥 Gestión de Operadores")
         try:
             # SE ENVÍA TOKEN POR PARAMS
-            r = requests.get(f"{BACKEND_INTERNAL}/admin/users", params=auth_params)
+            r = requests.get(f"{BACKEND_INTERNAL}/api/system-metrics", headers=headers)
             if r.status_code == 200:
                 usuarios = r.json()
                 if usuarios:
@@ -258,13 +261,72 @@ else:
                 else: st.info("No hay operadores registrados en la base de datos.")
             else: st.error("🛑 Acceso Denegado: Se requieren privilegios de Admin.")
         except Exception as e: st.error(f"Error al conectar con la base de datos: {e}")
+        
+    elif st.session_state.page == "Gobernanza":
+        st.title("⚖️ Gobernanza y Control de Acceso")
+        
+        tab1, tab2 = st.tabs(["🚀 Nueva Solicitud", "🛡️ Panel de Aprobación"])
+        
+        with tab1:
+            st.subheader("Solicitar Elevación de Privilegios")
+            with st.form("request_form_final"):
+                role_req = st.selectbox("Rol solicitado", ["admin", "analista_senior", "auditor"])
+                just = st.text_area("Justificación comercial/técnica")
+                submit = st.form_submit_button("Enviar Solicitud")
+                
+                if submit:
+                    if not just:
+                        st.error("⚠️ La justificación es obligatoria para la auditoría.")
+                    else:
+                        try:
+                            payload = {
+                                "requested_role": role_req,
+                                "justification": just
+                            }
+                            # CAMBIO A HEADERS AQUÍ
+                            res = requests.post(f"{BACKEND_INTERNAL}/access/request", json=payload, headers=headers)
+                            if res.status_code == 200:
+                                st.success("✅ Solicitud enviada. Se ha generado un ticket en el log de auditoría.")
+                            else:
+                                st.error(f"Error {res.status_code}: No se pudo procesar.")
+                        except:
+                            st.error("🚨 El servicio de gobernanza no responde.")
+
+        with tab2:
+            st.subheader("Gestión de Peticiones (Admin Only)")
+            try:
+                # Obtenemos las solicitudes pendientes
+                r = requests.get(f"{BACKEND_INTERNAL}/admin/access-requests", headers=headers)
+                if r.status_code == 200:
+                    reqs = r.json()
+                    if not reqs:
+                        st.info("No hay solicitudes pendientes de aprobación.")
+                    for req in reqs:
+                        with st.expander(f"📌 Solicitud de: {req['email']} - {req['requested_role']}"):
+                            st.write(f"**Justificación:** {req['justification']}")
+                            st.write(f"**Fecha:** {req['timestamp']}")
+                            
+                            c1, c2 = st.columns(2)
+                            if c1.button("Aprobar ✅", key=f"ok_{req['id']}"):
+                                # Llamada para cambiar el rol en la DB
+                                requests.post(f"{BACKEND_INTERNAL}/admin/approve-access", 
+                                             json={"request_id": req['id'], "action": "approve"}, headers=headers)
+                                st.rerun()
+                            if c2.button("Rechazar ❌", key=f"no_{req['id']}"):
+                                requests.post(f"{BACKEND_INTERNAL}/admin/approve-access", 
+                                             json={"request_id": req['id'], "action": "reject"}, headers=headers)
+                                st.rerun()
+                else:
+                    st.warning("Acceso restringido: Se requieren permisos de Administrador.")
+            except:
+                st.info("Configura los endpoints en el backend para ver las solicitudes aquí.")
 
     elif st.session_state.page == "AuditLogs":
         st.title("📜 Registros de Auditoría del Sistema")
         st.info("Historial de acciones críticas almacenadas en PostgreSQL.")
 
         try:
-            r = requests.get(f"{BACKEND_INTERNAL}/admin/audit-logs", params=auth_params, timeout=5)
+            r = requests.get(f"{BACKEND_INTERNAL}/api/system-metrics", headers=headers)
             
             if r.status_code == 200:
                 logs = r.json()
