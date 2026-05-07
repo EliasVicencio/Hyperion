@@ -279,11 +279,12 @@ else:
                         st.error("⚠️ La justificación es obligatoria para la auditoría.")
                     else:
                         try:
+                            # Dentro del formulario de gobernanza
                             payload = {
                                 "requested_role": role_req,
                                 "justification": just
+                                # Eliminamos user_email de aquí porque el backend lo sacará del header
                             }
-                            # CAMBIO A HEADERS AQUÍ
                             res = requests.post(f"{BACKEND_INTERNAL}/access/request", json=payload, headers=headers)
                             if res.status_code == 200:
                                 st.success("✅ Solicitud enviada. Se ha generado un ticket en el log de auditoría.")
