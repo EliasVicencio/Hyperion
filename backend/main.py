@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
@@ -48,6 +49,8 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Hyperion SIEM")
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -55,6 +58,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # --- DEPENDENCIAS ---
 def get_db():
