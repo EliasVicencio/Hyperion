@@ -172,12 +172,23 @@ def request_access(payload: dict, db: Session = Depends(get_db), user_data: dict
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
+# --- REPARACIÓN DE LOGS DE AUDITORÍA ---
 @app.get("/admin/audit-logs")
-async def get_audit_logs(user: dict = Depends(get_current_user)):
-    db = SessionLocal()
-    logs = db.query(AuditLogDB).order_by(AuditLogDB.timestamp.desc()).all()
-    db.close()
-    return logs
+async def get_audit_logs(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    logs = db.query(AuditLogDB).order_by(AuditLogDB.timestamp.desc()).limit(100).all()
+    
+    # Si no hay logs, devolvemos una lista vacía explícita
+    if not logs:
+        return []
+
+    return [
+        {
+            "timestamp": log.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+            "actor": log.actor,
+            "action": log.action,
+            "target": log.target
+        } for log in logs
+    ]
 
 @app.post("/auth/login/verify-2fa")
 async def verify_2fa(data: dict):
@@ -271,7 +282,21 @@ async def get_metrics(user: dict = Depends(get_current_user)):
         "uptime": "online"
     }
 
-# ... (Mantener el resto de endpoints de Auth y Register) ...
+# --- REPARACIÓN DE OPERADORES ---
+@app.get("/admin/users")
+async def list_users(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+    users = db.query(UserDB).all()
+    # Devolvemos una LISTA de diccionarios, no un diccionario anidado
+    return [
+        {
+            "id": u.id,
+            "email": u.email,
+            "role": u.role,
+            "created_at": u.created_at.strftime("%Y-%m-%d %H:%M:%S") if u.created_at else None
+        } for u in users
+    ]
+
+
 
 if __name__ == "__main__":
     import uvicorn
