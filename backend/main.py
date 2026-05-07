@@ -1,4 +1,4 @@
-from sqlalchemy import Integer, create_engine, Column, String, DateTime
+from sqlalchemy import Integer, create_engine, Column, String, DateTime, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from fastapi import FastAPI, Depends, HTTPException, Request, Header, Body
