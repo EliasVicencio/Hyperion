@@ -41,6 +41,7 @@ class UserDB(Base):
     role = Column(String)
     created_at = Column(DateTime)
 
+Base.metadata.drop_all(bind=engine)
 # Crear las tablas automáticamente si no existen
 Base.metadata.create_all(bind=engine)
 
@@ -53,6 +54,7 @@ class AuditLogDB(Base):
     action = Column(String)
     target = Column(String, nullable=True)
 
+Base.metadata.drop_all(bind=engine)
 # Asegúrate de que las tablas se creen
 Base.metadata.create_all(bind=engine)
 
@@ -60,15 +62,16 @@ Base.metadata.create_all(bind=engine)
 class AccessRequestDB(Base):
     __tablename__ = "access_requests"
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id = Column(Integer, ForeignKey("users.id"))
+    user_email = Column(String)  # <--- CAMBIA user_id POR user_email
     requested_role = Column(String)
     justification = Column(Text)
-    status = Column(String, default="pending")  # pending, approved, rejected
+    status = Column(String, default="pending")
     requested_at = Column(DateTime, default=datetime.utcnow)
     resolved_at = Column(DateTime, nullable=True)
-    resolved_by = Column(String, nullable=True) # Email del admin que aprobó/rechazó
+    resolved_by = Column(String, nullable=True)
     
 # En main.py, después de definir todas las clases (Base)
+Base.metadata.drop_all(bind=engine)
 Base.metadata.create_all(bind=engine)
 
 # --- CARGAR VARIABLES ---
@@ -328,14 +331,10 @@ async def deep_health_check():
     return status
 
 @app.post("/access/request")
-def request_access(
-    payload: dict, 
-    db: Session = Depends(get_db), 
-    user_data: dict = Depends(get_current_user) # Suponiendo que esto devuelve los datos del token
-):
+def request_access(payload: dict, db: Session = Depends(get_db), user_data: dict = Depends(get_current_user)):
     try:
         new_req = AccessRequestDB(
-            user_email=user_data["email"], # Extraemos el email del token verificado
+            user_email=user_data["email"], # Ahora coincide con el modelo
             requested_role=payload["requested_role"],
             justification=payload["justification"]
         )
@@ -344,8 +343,9 @@ def request_access(
         return {"status": "success", "message": "Solicitud registrada"}
     except Exception as e:
         db.rollback()
-        print(f"Error crítico: {e}") # Esto lo verás en los logs de Render
-        raise HTTPException(status_code=500, detail=str(e))
+        # Esto te dirá el error exacto en los logs de Render
+        print(f"ERROR CRÍTICO EN DB: {str(e)}") 
+        raise HTTPException(status_code=500, detail="Error interno al procesar la solicitud")
     
 if __name__ == "__main__":
     import uvicorn
