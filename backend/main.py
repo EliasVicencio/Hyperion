@@ -278,6 +278,27 @@ async def get_audit_logs(token: str = None):
         } for log in logs
     ]
     
+@app.get("/health/deep")
+async def deep_health_check():
+    status = {
+        "api": "healthy",
+        "database": "unreachable",
+        "timestamp": datetime.utcnow().isoformat()
+    }
+    
+    db = SessionLocal()
+    try:
+        # Intentamos una operación ultra simple en la DB
+        db.execute(text("SELECT 1")) 
+        status["database"] = "healthy"
+    except Exception as e:
+        print(f"🚨 Error de salud en DB: {e}")
+        # Aquí podrías disparar la función enviar_alerta() en el futuro
+    finally:
+        db.close()
+    
+    return status
+    
 if __name__ == "__main__":
     import uvicorn
     # Cambia 127.0.0.1 por 0.0.0.0

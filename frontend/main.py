@@ -50,13 +50,39 @@ def nav_to(page):
 if st.session_state.auth["token"]:
     with st.sidebar:
         st.markdown("<h2 style='color: #c084fc;'>🛡️ HYPERION CORE</h2>", unsafe_allow_html=True)
+        
+        # --- NUEVO: WIDGET DE SALUD (HEALTH CHECK) ---
+        try:
+            # Llamamos al nuevo endpoint que creamos en el backend
+            h = requests.get(f"{BACKEND_INTERNAL}/health/deep", timeout=2)
+            health_data = h.json()
+            api_status = "🟢" if health_data.get("api") == "healthy" else "🔴"
+            db_status = "🟢" if health_data.get("database") == "healthy" else "🔴"
+        except:
+            # Si el backend ni siquiera responde al request
+            api_status, db_status = "🔴", "🔴"
+
+        st.markdown(f"""
+            <div style="background: #1e293b; padding: 12px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 10px;">
+                <p style='margin:0; font-size:11px; color:#94a3b8; font-weight:bold;'>ESTADO DEL SISTEMA</p>
+                <div style='display: flex; justify-content: space-between; margin-top: 5px;'>
+                    <span style='font-size:13px;'>{api_status} API</span>
+                    <span style='font-size:13px;'>{db_status} DB</span>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+        # --------------------------------------------
+
         st.write(f"👤 **Usuario:** {st.session_state.auth['user']}")
         st.write("---")
+        
+        # Botones de Navegación
         if st.button("📊 Analíticas", use_container_width=True): nav_to("Analíticas")
         if st.button("👁️ Vigilancia", use_container_width=True): nav_to("Vigilancia")
         if st.button("👥 Operadores", use_container_width=True): nav_to("Operadores")
         if st.button("📜 Logs de Auditoría", use_container_width=True): nav_to("AuditLogs")
         if st.button("📜 SIEM Audit", use_container_width=True): nav_to("SIEM")
+        
         st.write("---")
         if st.button("🚪 Cerrar Sesión", use_container_width=True):
             st.session_state.auth = {"token": None, "user": None, "step": "login"}
