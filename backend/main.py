@@ -1,6 +1,6 @@
 from sqlalchemy import ForeignKey, Integer, Text, create_engine, Column, String, DateTime, text
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 from fastapi import FastAPI, Depends, HTTPException, Request, Header, Body
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import HTMLResponse, PlainTextResponse
@@ -315,26 +315,24 @@ async def deep_health_check():
     return status
 
 @app.post("/access/request")
-async def create_access_request(data: dict):
-    db = SessionLocal()
+def request_access(
+    payload: dict, 
+    db: Session = Depends(get_db), 
+    user_data: dict = Depends(get_current_user) # Suponiendo que esto devuelve los datos del token
+):
     try:
         new_req = AccessRequestDB(
-            user_id=data.get("user_id"),
-            requested_role=data.get("requested_role"),
-            justification=data.get("justification")
+            user_email=user_data["email"], # Extraemos el email del token verificado
+            requested_role=payload["requested_role"],
+            justification=payload["justification"]
         )
         db.add(new_req)
         db.commit()
-        
-        # Auditamos el evento
-        log_audit(
-            actor=data.get("email"), 
-            action="ACCESS_REQUESTED", 
-            target=f"Role: {data.get('requested_role')}"
-        )
-        return {"msg": "Solicitud enviada correctamente"}
-    finally:
-        db.close()
+        return {"status": "success", "message": "Solicitud registrada"}
+    except Exception as e:
+        db.rollback()
+        print(f"Error crítico: {e}") # Esto lo verás en los logs de Render
+        raise HTTPException(status_code=500, detail=str(e))
     
 if __name__ == "__main__":
     import uvicorn
