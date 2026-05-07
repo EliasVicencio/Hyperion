@@ -218,23 +218,41 @@ async def verify_2fa(data: dict):
 @app.post("/auth/register")
 async def register(data: dict):
     db = SessionLocal()
-    email = data.get("email")
-    # Buscar si ya existe
-    user_exists = db.query(UserDB).filter(UserDB.email == email).first()
-    if user_exists:
-        db.close()
-        raise HTTPException(status_code=400, detail="El usuario ya existe")
-    
-    new_user = UserDB(
-        email=email,
-        password=pwd_context.hash(data.get("password")),
-        role=data.get("role", "user"),
-        created_at=datetime.utcnow()
-    )
-    db.add(new_user)
-    db.commit()
-    db.close()
-    return {"msg": "Usuario registrado en DB"}
+    try:
+        email = data.get("email")
+        role = data.get("role", "user")
+
+        # 1. Verificar existencia
+        user_exists = db.query(UserDB).filter(UserDB.email == email).first()
+        if user_exists:
+            # Auditamos el intento fallido por duplicidad (Seguridad)
+            log_audit(actor="SYSTEM", action="REGISTER_FAIL", target=f"Duplicate email: {email}")
+            raise HTTPException(status_code=400, detail="El usuario ya existe")
+        
+        # 2. Crear nuevo usuario
+        new_user = UserDB(
+            email=email,
+            password=pwd_context.hash(data.get("password")),
+            role=role,
+            created_at=datetime.utcnow()
+        )
+        db.add(new_user)
+        db.commit()
+
+        # 3. 🛡️ REGISTRO EN AUDITORÍA (Lo que verá el jefe)
+        log_audit(
+            actor="SYSTEM", 
+            action="USER_CREATED", 
+            target=f"User: {email} | Role: {role}"
+        )
+
+        return {"msg": f"Usuario {email} registrado con éxito"}
+
+    except Exception as e:
+        db.rollback() # Si algo falla, revertimos
+        raise e
+    finally:
+        db.close() # Siempre cerramos la conexión
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def serve_dashboard(token: str = None):

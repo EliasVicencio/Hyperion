@@ -4,6 +4,7 @@ import os
 import time
 import pandas as pd
 import plotly.graph_objects as go
+import io
 
 # --- CONFIGURACIÓN ESTÁTICA ---
     
@@ -237,7 +238,6 @@ else:
         st.info("Historial de acciones críticas almacenadas en PostgreSQL.")
 
         try:
-            # Llamada al nuevo endpoint del backend
             r = requests.get(f"{BACKEND_INTERNAL}/admin/audit-logs", params=auth_params, timeout=5)
             
             if r.status_code == 200:
@@ -245,29 +245,47 @@ else:
                 if logs:
                     df_logs = pd.DataFrame(logs)
                     
-                    # Buscador básico
-                    search = st.text_input("🔍 Buscar en logs (actor, acción o fecha):")
-                    if search:
-                        # Filtrar en todas las columnas
-                        df_logs = df_logs[df_logs.apply(lambda row: search.lower() in row.astype(str).str.lower().values, axis=1)]
+                    # --- NUEVA SECCIÓN DE EXPORTACIÓN ---
+                    col_search, col_exp = st.columns([2, 1])
                     
-                    # Mostrar tabla estilizada
+                    with col_search:
+                        search = st.text_input("🔍 Filtrar logs:", placeholder="Ej: admin, login...")
+                    
+                    if search:
+                        df_logs = df_logs[df_logs.apply(lambda row: search.lower() in row.astype(str).str.lower().values, axis=1)]
+
+                    with col_exp:
+                        st.write("📤 **Exportar Reporte**")
+                        # Generar CSV en memoria
+                        csv = df_logs.to_csv(index=False).encode('utf-8')
+                        st.download_button(
+                            label="Descargar CSV",
+                            data=csv,
+                            file_name=f"audit_report_{time.strftime('%Y%m%d_%H%M')}.csv",
+                            mime="text/csv",
+                            use_container_width=True
+                        )
+                    # ------------------------------------
+
                     st.dataframe(
                         df_logs, 
-                        use_container_width=True, 
+                        use_container_width=True,
                         column_config={
-                            "timestamp": "Fecha y Hora",
-                            "actor": "Usuario/Sistema",
-                            "action": "Acción Realizada",
-                            "target": "Objetivo"
+                            "timestamp": "Fecha/Hora",
+                            "actor": "Usuario",
+                            "action": "Acción",
+                            "target": "Detalle"
                         }
                     )
+                    
+                    st.caption(f"Mostrando {len(df_logs)} registros encontrados.")
+                    
                 else:
                     st.warning("No hay registros de auditoría en la base de datos.")
             else:
-                st.error(f"🛑 Error {r.status_code}: No tienes permisos para ver los logs.")
+                st.error(f"🛑 Error {r.status_code}: No autorizado.")
         except Exception as e:
-            st.error(f"🚨 Error al conectar con el servicio de auditoría: {e}")
+            st.error(f"🚨 Error de conexión: {e}")
 
     elif st.session_state.page == "SIEM":
         st.title("📜 Hyperion SIEM Audit")
