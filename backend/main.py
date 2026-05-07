@@ -172,23 +172,27 @@ def request_access(payload: dict, db: Session = Depends(get_db), user_data: dict
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-# --- REPARACIÓN DE LOGS DE AUDITORÍA ---
+# --- REPARACIÓN BLINDADA DE LOGS ---
 @app.get("/admin/audit-logs")
 async def get_audit_logs(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
-    logs = db.query(AuditLogDB).order_by(AuditLogDB.timestamp.desc()).limit(100).all()
-    
-    # Si no hay logs, devolvemos una lista vacía explícita
-    if not logs:
-        return []
+    try:
+        logs = db.query(AuditLogDB).order_by(AuditLogDB.timestamp.desc()).limit(100).all()
+        
+        if not logs:
+            return []
 
-    return [
-        {
-            "timestamp": log.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
-            "actor": log.actor,
-            "action": log.action,
-            "target": log.target
-        } for log in logs
-    ]
+        log_list = []
+        for log in logs:
+            log_list.append({
+                "timestamp": log.timestamp.strftime("%Y-%m-%d %H:%M:%S") if log.timestamp else "N/A",
+                "actor": str(log.actor),
+                "action": str(log.action),
+                "target": str(log.target) if log.target else "None"
+            })
+        return log_list
+    except Exception as e:
+        print(f"Error en audit-logs: {e}")
+        return []
 
 @app.post("/auth/login/verify-2fa")
 async def verify_2fa(data: dict):
@@ -282,19 +286,27 @@ async def get_metrics(user: dict = Depends(get_current_user)):
         "uptime": "online"
     }
 
-# --- REPARACIÓN DE OPERADORES ---
+# --- REPARACIÓN BLINDADA DE OPERADORES ---
 @app.get("/admin/users")
 async def list_users(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
-    users = db.query(UserDB).all()
-    # Devolvemos una LISTA de diccionarios, no un diccionario anidado
-    return [
-        {
-            "id": u.id,
-            "email": u.email,
-            "role": u.role,
-            "created_at": u.created_at.strftime("%Y-%m-%d %H:%M:%S") if u.created_at else None
-        } for u in users
-    ]
+    try:
+        users = db.query(UserDB).all()
+        if not users:
+            return []
+        
+        # Forzamos una lista de diccionarios ultra-simple
+        user_list = []
+        for u in users:
+            user_list.append({
+                "id": int(u.id) if u.id else 0,
+                "email": str(u.email),
+                "role": str(u.role),
+                "created_at": u.created_at.strftime("%Y-%m-%d %H:%M:%S") if u.created_at else "N/A"
+            })
+        return user_list
+    except Exception as e:
+        print(f"Error en list_users: {e}")
+        return [] # Devolvemos lista vacía para que el front no explote
 
 
 
