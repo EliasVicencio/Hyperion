@@ -31,7 +31,8 @@ Base = declarative_base()
 # --- MODELO DE USUARIO ---
 class UserDB(Base):
     __tablename__ = "users"
-    email = Column(String, primary_key=True, unique=True, index=True)
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True)
     password = Column(String)
     role = Column(String)
     created_at = Column(DateTime)
