@@ -62,6 +62,9 @@ class AccessRequestDB(Base):
     requested_at = Column(DateTime, default=datetime.utcnow)
     resolved_at = Column(DateTime, nullable=True)
     resolved_by = Column(String, nullable=True) # Email del admin que aprobó/rechazó
+    
+# En main.py, después de definir todas las clases (Base)
+Base.metadata.create_all(bind=engine)
 
 # --- CARGAR VARIABLES ---
 load_dotenv()
