@@ -19,6 +19,7 @@ from kafka import KafkaProducer
 import time
 from kafka.errors import NoBrokersAvailable
 import uuid
+from fastapi.security import OAuth2PasswordBearer
 
 
 # --- CONFIGURACIÓN DE BASE DE DATOS ---
@@ -27,6 +28,9 @@ DATABASE_URL = os.getenv("DATABASE_URL") # Render llenará esto automáticamente
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
+# Esto permite que FastAPI entienda de dónde sacar el token
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 # --- MODELO DE USUARIO ---
 class UserDB(Base):
@@ -115,6 +119,14 @@ except Exception as e:
 sms_history = [] 
 MAX_ATTEMPTS = 5
 BLOCK_TIME_SECONDS = 300
+
+
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    # Por ahora, como tu sistema usa un TOKEN_MAESTRO simple:
+    if token != TOKEN_MAESTRO:
+        raise HTTPException(status_code=401, detail="Token inválido")
+    # Retornamos un diccionario simulado (puedes ajustarlo luego)
+    return {"email": "admin@hyperion.com", "role": "admin"}
 
 # --- REEMPLAZO DE FUNCIONES JSON ---
 def get_db():
