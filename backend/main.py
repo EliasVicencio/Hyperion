@@ -151,10 +151,25 @@ async def register(data: dict):
         db.close()
 
 @app.post("/auth/login")
-def login(payload: dict, db: Session = Depends(get_db)):
-    # Búsqueda ultra-simple para evitar errores de tipo
-    user = db.query(UserDB).filter(UserDB.email == payload.get("username")).first()
-    return {"access_token": TOKEN_MAESTRO, "requires_2fa": True}
+async def login(data: dict, db: Session = Depends(get_db)):
+    # Extraemos los datos del diccionario (JSON) que manda el front
+    username = data.get("username")
+    password = data.get("password")
+    
+    if not username or not password:
+        raise HTTPException(status_code=422, detail="Faltan credenciales")
+
+    user = db.query(UserDB).filter(UserDB.email == username).first()
+    
+    if not user or not pwd_context.verify(password, user.password):
+        raise HTTPException(status_code=401, detail="Credenciales incorrectas")
+    
+    # Devolvemos el token maestro y la bandera para que el front pase al 2FA
+    return {
+        "access_token": TOKEN_MAESTRO, 
+        "token_type": "bearer", 
+        "requires_2fa": True
+    }
 
 @app.post("/access/request")
 def request_access(payload: dict, db: Session = Depends(get_db), user_data: dict = Depends(get_current_user)):
