@@ -5,6 +5,9 @@ import redis
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
+from passlib.context import CryptContext # <--- ESTO FALTABA
+from kafka import KafkaProducer # <--- IMPORTACIÓN DE KAFKA
+from fastapi.security import OAuth2PasswordBearer
 from datetime import datetime
 import os, psutil, uuid
 
@@ -49,6 +52,15 @@ app.add_middleware(CORSMiddleware,
                    allow_origins=["*"], 
                    allow_methods=["*"], 
                    allow_headers=["*"])
+
+# 1. Definimos el esquema (esto es lo que marcaba en amarillo)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+# 2. Creamos la función que la UTILIZA (así deja de estar en amarillo)
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    if token != TOKEN_MAESTRO:
+        raise HTTPException(status_code=401, detail="Token inválido")
+    return {"email": "admin@hyperion.com", "role": "admin"}
 
 # --- HELPERS ---
 def get_db():
@@ -159,10 +171,9 @@ def request_access(payload: dict, db: Session = Depends(get_db), user_data: dict
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
-# --- REPARACIÓN BLINDADA DE LOGS ---
+# 3. Ahora aplica esa dependencia a los endpoints de administración
 @app.get("/admin/users")
-def list_users(db: Session = Depends(get_db)):
-    # Eliminamos el Depends de seguridad momentáneamente para ver si el Front carga
+def list_users(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
     users = db.query(UserDB).all()
     return [{"id": u.id, "email": u.email, "role": u.role} for u in users]
 
