@@ -272,37 +272,44 @@ else:
         except Exception as e: st.error(f"Error al conectar con la base de datos: {e}")
         
     elif st.session_state.page == "Gobernanza":
-        st.title("⚖️ Gobernanza y Cumplimiento")
-        st.info("Gestión de políticas de seguridad y marcos normativos de Hyperion Core.")
-
-        # --- KPIs DE RIESGO ---
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Nivel de Riesgo", "Bajo", "-2%", delta_color="normal")
-        col2.metric("Cumplimiento ISO", "84%", "+5%")
-        col3.metric("Políticas Activas", "12/12")
+        st.title("⚖️ Centro de Gobernanza Hyperion")
+        
+        # --- FILA SUPERIOR: MÉTRICAS EJECUTIVAS ---
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Score de Seguridad", "92/100", "+2")
+        c2.metric("Riesgos Críticos", "0", "Stable")
+        c3.metric("Uptime Mensual", "99.98%", "-0.01%")
+        c4.metric("Detección Amenazas", "100%", "Target Reached")
 
         st.write("---")
 
-        # --- SECCIÓN DE POLÍTICAS ---
-        tab1, tab2 = st.tabs(["📋 Políticas Internas", "🎯 Objetivos de Cumplimiento"])
+        col_left, col_right = st.columns([2, 1])
 
-        with tab1:
-            st.subheader("Estado de Políticas Críticas")
-            policies = {
-                "Control de Contraseñas": "✅ Activo",
-                "Rotación de Claves API": "✅ Activo",
-                "Auditoría de Logs Semanal": "⚠️ Pendiente",
-                "Acceso de Terceros": "✅ Activo"
-            }
-            for p, status in policies.items():
-                st.write(f"{status} - **{p}**")
+        with col_left:
+            st.subheader("🛡️ Matriz de Riesgos Operacionales")
+            # Creamos una tabla de riesgos visual
+            riesgos_data = [
+                {"Activo": "Base de Datos Usuarios", "Riesgo": "Medio", "Mitigación": "Cifrado AES-256", "Estado": "🟢"},
+                {"Activo": "Endpoint de Vigilancia", "Riesgo": "Bajo", "Mitigación": "Token Bearer", "Estado": "🟢"},
+                {"Activo": "Consola de Auditoría", "Riesgo": "Alto", "Mitigación": "IP Whitelisting", "Estado": "🟡"},
+                {"Activo": "Backup de Logs", "Riesgo": "Bajo", "Mitigación": "S3 Replication", "Estado": "🟢"},
+            ]
+            st.table(riesgos_data)
 
-        with tab2:
-            st.subheader("Análisis de Brechas (Gap Analysis)")
-            # Simulación de una barra de progreso de cumplimiento
-            st.write("Preparación para Auditoría Externa")
-            st.progress(0.84)
-            st.caption("Faltan 12 días para el próximo reporte de gobernanza.")
+        with col_right:
+            st.subheader("📈 Cumplimiento")
+            # Simulación visual de cumplimiento de normas
+            st.write("**GDPR (Privacidad)**")
+            st.progress(100)
+            st.write("**ISO 27001 (Seguridad)**")
+            st.progress(85)
+            st.write("**SOC2 (Disponibilidad)**")
+            st.progress(70)
+            
+            st.divider()
+            if st.button("📥 Descargar Reporte PDF", use_container_width=True):
+                st.toast("Generando reporte de cumplimiento...")
+            
     elif st.session_state.page == "AuditLogs":
         st.title("📜 Registros de Auditoría del Sistema")
         st.info("Historial de acciones críticas almacenadas en PostgreSQL.")
