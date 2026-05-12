@@ -51,7 +51,9 @@ def nav_to(page):
 # --- SIDEBAR ---
 if st.session_state.auth["token"]:
     with st.sidebar:
-        st.markdown("<h2 style='color: #c084fc;'>LOGO_SVG HYPERION CORE</h2>", unsafe_allow_html=True)
+        # Mostramos el logo centrado y un título elegante
+        st.image(LOGO_SVG, width=80) 
+        st.markdown("<h2 style='color: #a78bfa; margin-top: -10px;'>HYPERION CORE</h2>", unsafe_allow_code=True)
         
         # --- NUEVO: WIDGET DE SALUD (HEALTH CHECK) ---
         try:
