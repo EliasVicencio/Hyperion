@@ -16,10 +16,12 @@ URL_BACKEND_RENDER = "https://hyperion-gcic.onrender.com"
 BACKEND_INTERNAL = URL_BACKEND_RENDER
 BACKEND_EXTERNAL = URL_BACKEND_RENDER
 
+LOGO_SVG = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='20' fill='none' stroke='%23a78bfa' stroke-width='2' /><ellipse cx='50' cy='50' rx='45' ry='15' fill='none' stroke='%2358a6ff' stroke-width='1' transform='rotate(45 50 50)' /><ellipse cx='50' cy='50' rx='45' ry='15' fill='none' stroke='%2358a6ff' stroke-width='1' transform='rotate(-45 50 50)' /><circle cx='50' cy='50' r='8' fill='%23a78bfa' /></svg>"
+
 if "BACKEND_URL" in st.secrets:
     BACKEND_INTERNAL = st.secrets["BACKEND_URL"]
 
-st.set_page_config(page_title="Hyperion Ops", layout="wide")
+st.set_page_config(page_title="Hyperion Ops", page_icon=LOGO_SVG, layout="wide")
 
 # --- CSS INYECTADO (ESTÉTICA DARK) ---
 st.markdown("""
