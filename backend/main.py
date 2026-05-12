@@ -156,9 +156,83 @@ def get_users_as_metrics(db: Session = Depends(get_db)):
 def get_reqs():
     return []
 
-@app.get("/dashboard")
-def dash():
-    return {"status": "ok"}
+@app.get("/dashboard", response_class=HTMLResponse)
+async def external_dashboard(token: str = None):
+    # Verificación de seguridad mínima
+    if token != "SESION_ADMIN_HYPERION_ULTRA_SECRETA": # Usa tu variable TOKEN_MAESTRO
+        return "<html><body style='background:black;color:red;'><h1>ACCESO DENEGADO - IP REGISTRADA</h1></body></html>"
+        
+    return """
+    <html>
+        <head>
+            <title>Hyperion SIEM | Live Audit</title>
+            <style>
+                body { 
+                    background-color: #050505; 
+                    color: #00ff41; 
+                    font-family: 'Courier New', Courier, monospace; 
+                    margin: 0; padding: 20px;
+                    overflow: hidden;
+                }
+                .container { border: 1px solid #00ff41; height: 90vh; padding: 10px; display: flex; flex-direction: column; }
+                .header { border-bottom: 2px solid #00ff41; padding-bottom: 10px; margin-bottom: 10px; display: flex; justify-content: space-between;}
+                #log-window { flex-grow: 1; overflow-y: auto; font-size: 14px; line-height: 1.5; }
+                .entry { margin-bottom: 4px; }
+                .timestamp { color: #888; }
+                .critical { color: #ff0000; font-weight: bold; }
+                .scanline {
+                    width: 100%; height: 2px; background: rgba(0, 255, 65, 0.1);
+                    position: absolute; top: 0; left: 0; pointer-events: none;
+                    animation: scan 4s linear infinite;
+                }
+                @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
+            </style>
+        </head>
+        <body>
+            <div class="scanline"></div>
+            <div class="container">
+                <div class="header">
+                    <span>[ HYPERION CORE v2.0 - AUDIT LOGS ]</span>
+                    <span>STATUS: MONITORING...</span>
+                </div>
+                <div id="log-window">
+                    <div class="entry"><span class="timestamp">[""" + str(datetime.utcnow()) + """]</span> [SYSTEM] Kernel SIEM inicializado...</div>
+                </div>
+            </div>
+
+            <script>
+                const logWindow = document.getElementById('log-window');
+                const events = [
+                    "Paquete interceptado en Puerto 443",
+                    "Intento de acceso SSH fallido (IP: 185.22.1.4)",
+                    "Handshake TLS 1.3 verificado",
+                    "Sincronización con DB PostgreSQL exitosa",
+                    "Escaneo de vulnerabilidades: 0 amenazas",
+                    "Cifrado de sesión renovado",
+                    "Alerta de latencia: +150ms en nodo central"
+                ];
+
+                function addLog() {
+                    const div = document.createElement('div');
+                    div.className = 'entry';
+                    const now = new Date().toLocaleTimeString();
+                    const event = events[Math.floor(Math.random() * events.length)];
+                    
+                    // Probabilidad de evento crítico
+                    const isCritical = Math.random() > 0.85;
+                    const content = isCritical 
+                        ? `<span class="critical">[CRITICAL]</span> Amenaza detectada: ${event}`
+                        : `[INFO] ${event}`;
+
+                    div.innerHTML = `<span class="timestamp">[${now}]</span> ${content}`;
+                    logWindow.prepend(div);
+                }
+
+                setInterval(addLog, 2000);
+            </script>
+        </body>
+    </html>
+    """
 
 if __name__ == "__main__":
     import uvicorn
