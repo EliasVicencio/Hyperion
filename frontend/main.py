@@ -51,21 +51,23 @@ def nav_to(page):
 # --- SIDEBAR ---
 if st.session_state.auth["token"]:
     with st.sidebar:
-        # Mostramos el logo centrado y un título elegante
+        # Mostramos el logo centrado
         st.image(LOGO_SVG, width=80) 
-        st.markdown("<h2 style='color: #a78bfa; margin-top: -10px;'>HYPERION CORE</h2>", unsafe_allow_code=True)
         
-        # --- NUEVO: WIDGET DE SALUD (HEALTH CHECK) ---
+        # FIX AQUÍ: Cambiamos unsafe_allow_code por unsafe_allow_html
+        st.markdown("<h2 style='color: #a78bfa; margin-top: -10px;'>HYPERION CORE</h2>", unsafe_allow_html=True)
+        
+        # --- WIDGET DE SALUD ---
         try:
-            # Llamamos al nuevo endpoint que creamos en el backend
+            # Importante: Asegúrate de que BACKEND_INTERNAL esté bien definido
             h = requests.get(f"{BACKEND_INTERNAL}/health/deep", timeout=2)
             health_data = h.json()
             api_status = "🟢" if health_data.get("api") == "healthy" else "🔴"
             db_status = "🟢" if health_data.get("database") == "healthy" else "🔴"
         except:
-            # Si el backend ni siquiera responde al request
             api_status, db_status = "🔴", "🔴"
 
+        # Widget visual
         st.markdown(f"""
             <div style="background: #1e293b; padding: 12px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 10px;">
                 <p style='margin:0; font-size:11px; color:#94a3b8; font-weight:bold;'>ESTADO DEL SISTEMA</p>
@@ -75,7 +77,6 @@ if st.session_state.auth["token"]:
                 </div>
             </div>
         """, unsafe_allow_html=True)
-        # --------------------------------------------
 
         st.write(f"👤 **Usuario:** {st.session_state.auth['user']}")
         st.write("---")
