@@ -276,7 +276,12 @@ else:
         
         # --- FILA SUPERIOR: MÉTRICAS EJECUTIVAS ---
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Score de Seguridad", "92/100", "+2")
+        
+        with c1:
+            st.metric("Score de Seguridad", "92/100", "+2")
+            # Mini gráfico de evolución (Sparkline)
+            st.line_chart([88, 89, 89, 90, 91, 91, 92], height=60) # Simulación de 7 días
+            
         c2.metric("Riesgos Críticos", "0", "Stable")
         c3.metric("Uptime Mensual", "99.98%", "-0.01%")
         c4.metric("Detección Amenazas", "100%", "Target Reached")
@@ -287,28 +292,21 @@ else:
 
         with col_left:
             st.subheader("🛡️ Matriz de Riesgos Operacionales")
-            # Creamos una tabla de riesgos visual
+            # Tabla mejorada con "Dueño" y "Remediación"
             riesgos_data = [
-                {"Activo": "Base de Datos Usuarios", "Riesgo": "Medio", "Mitigación": "Cifrado AES-256", "Estado": "🟢"},
-                {"Activo": "Endpoint de Vigilancia", "Riesgo": "Bajo", "Mitigación": "Token Bearer", "Estado": "🟢"},
-                {"Activo": "Consola de Auditoría", "Riesgo": "Alto", "Mitigación": "IP Whitelisting", "Estado": "🟡"},
-                {"Activo": "Backup de Logs", "Riesgo": "Bajo", "Mitigación": "S3 Replication", "Estado": "🟢"},
+                {"Activo": "DB Usuarios", "Riesgo": "Medio", "Estado": "🟢", "Mitigación": "Cifrado AES-256", "Dueño": "DB-Team"},
+                {"Activo": "Vigilancia", "Riesgo": "Bajo", "Estado": "🟢", "Mitigación": "Token Bearer", "Dueño": "Sec-Ops"},
+                {"Activo": "Consola Auditoría", "Riesgo": "Alto", "Estado": "🟠", "Mitigación": "IP Whitelisting", "Dueño": "Net-Admin"},
+                {"Activo": "Backup Logs", "Riesgo": "Bajo", "Estado": "🟢", "Mitigación": "S3 Repo", "Dueño": "Cloud-Ops"},
             ]
             st.table(riesgos_data)
-
-        with col_right:
-            st.subheader("📈 Cumplimiento")
-            # Simulación visual de cumplimiento de normas
-            st.write("**GDPR (Privacidad)**")
-            st.progress(100)
-            st.write("**ISO 27001 (Seguridad)**")
-            st.progress(85)
-            st.write("**SOC2 (Disponibilidad)**")
-            st.progress(70)
             
-            st.divider()
-            if st.button("📥 Descargar Reporte PDF", use_container_width=True):
-                st.toast("Generando reporte de cumplimiento...")
+            # El "Plan de Remediación" que pidió el CTO para el riesgo ALTO
+            with st.expander("🔍 Ver Plan de Acción: Consola de Auditoría (Riesgo Alto)"):
+                st.warning("**Acción Prioritaria:** Implementar Whitelisting de IPs corporativas y MFA.")
+                st.write("- **Responsable:** Admin de Red")
+                st.write("- **Fecha Límite:** 20 de Mayo, 2026")
+                st.progress(0.4) # 40% completado
             
     elif st.session_state.page == "AuditLogs":
         st.title("📜 Registros de Auditoría del Sistema")
