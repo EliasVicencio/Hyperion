@@ -26,16 +26,45 @@ st.set_page_config(page_title="Hyperion Ops", page_icon=LOGO_SVG, layout="wide")
 # --- CSS INYECTADO (ESTÉTICA DARK) ---
 st.markdown("""
     <style>
-    .stDataFrame { border: 1px solid #334155; border-radius: 10px; }
-    .stApp { background-color: #0f172a; color: #f1f5f9; }
-    [data-testid="stSidebar"] { background-color: #1e293b !important; }
-    .metric-card {
-        background: #1e293b; padding: 20px; border-radius: 10px;
-        border-left: 5px solid #9333ea; border: 1px solid #334155;
-    }
-    div[data-testid="stMetricValue"] { color: #c084fc; }
+        /* Fondo total de la aplicación */
+        .stApp {
+            background-color: #0b0e14;
+        }
+
+        /* Cambiar el color de los botones (quitar el azul) */
+        div.stButton > button {
+            background-color: #161b22;
+            color: #f0f6fc;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        /* Efecto Hover de los botones en Púrpura */
+        div.stButton > button:hover {
+            border-color: #a78bfa;
+            color: #a78bfa;
+            background-color: #161b22;
+        }
+
+        /* Estilo para el Sidebar */
+        [data-testid="stSidebar"] {
+            background-color: #0d1117;
+            border-right: 1px solid #30363d;
+        }
+
+        /* Estilo de las métricas para que no usen azul */
+        [data-testid="stMetricValue"] {
+            color: #a78bfa !important;
+        }
+        
+        /* Quitar líneas azules de enfoque */
+        *:focus {
+            outline: none !important;
+            box-shadow: none !important;
+        }
     </style>
-    """, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 # --- SINGLETON DE SESIÓN ---
 if "auth" not in st.session_state:
