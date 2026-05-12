@@ -400,9 +400,18 @@ else:
                 st.caption("Fase de recolección de evidencia: 70%")
                 
                 st.write("---")
-                if st.button("📥 Generar Reporte Ejecutivo PDF", use_container_width=True):
-                    st.balloons()
-                    st.success("Reporte generado con éxito.")
+                # Añadimos key="btn_reporte_gobernanza" para que sea único
+                if st.button("📥 Generar Reporte Ejecutivo PDF", use_container_width=True, key="btn_reporte_gobernanza"):
+                    with st.spinner('Compilando métricas y roadmap...'):
+                        import time
+                        time.sleep(2)
+                        st.success("✅ Reporte 'Hyperion_Executive_Q2.pdf' listo para descarga.")
+                        st.download_button(
+                            label="Click para descargar", 
+                            data="Contenido del PDF simulado", 
+                            file_name="Hyperion_Report.pdf",
+                            key="btn_download_final" # También le damos una key única al de descarga
+                        )
             
     elif st.session_state.page == "AuditLogs":
         st.title("📜 Registros de Auditoría del Sistema")
