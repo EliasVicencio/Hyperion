@@ -272,65 +272,37 @@ else:
         except Exception as e: st.error(f"Error al conectar con la base de datos: {e}")
         
     elif st.session_state.page == "Gobernanza":
-        st.title("⚖️ Gobernanza y Control de Acceso")
-        
-        tab1, tab2 = st.tabs(["🚀 Nueva Solicitud", "🛡️ Panel de Aprobación"])
-        
+        st.title("⚖️ Gobernanza y Cumplimiento")
+        st.info("Gestión de políticas de seguridad y marcos normativos de Hyperion Core.")
+
+        # --- KPIs DE RIESGO ---
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Nivel de Riesgo", "Bajo", "-2%", delta_color="normal")
+        col2.metric("Cumplimiento ISO", "84%", "+5%")
+        col3.metric("Políticas Activas", "12/12")
+
+        st.write("---")
+
+        # --- SECCIÓN DE POLÍTICAS ---
+        tab1, tab2 = st.tabs(["📋 Políticas Internas", "🎯 Objetivos de Cumplimiento"])
+
         with tab1:
-            st.subheader("Solicitar Elevación de Privilegios")
-            with st.form("request_form_final"):
-                role_req = st.selectbox("Rol solicitado", ["admin", "analista_senior", "auditor"])
-                just = st.text_area("Justificación comercial/técnica")
-                submit = st.form_submit_button("Enviar Solicitud")
-                
-                if submit:
-                    if not just:
-                        st.error("⚠️ La justificación es obligatoria para la auditoría.")
-                    else:
-                        try:
-                            # Dentro del formulario de gobernanza
-                            payload = {
-                                "requested_role": role_req,
-                                "justification": just
-                                # Eliminamos user_email de aquí porque el backend lo sacará del header
-                            }
-                            res = requests.post(f"{BACKEND_INTERNAL}/access/request", json=payload, headers=headers)
-                            if res.status_code == 200:
-                                st.success("✅ Solicitud enviada. Se ha generado un ticket en el log de auditoría.")
-                            else:
-                                st.error(f"Error {res.status_code}: No se pudo procesar.")
-                        except:
-                            st.error("🚨 El servicio de gobernanza no responde.")
+            st.subheader("Estado de Políticas Críticas")
+            policies = {
+                "Control de Contraseñas": "✅ Activo",
+                "Rotación de Claves API": "✅ Activo",
+                "Auditoría de Logs Semanal": "⚠️ Pendiente",
+                "Acceso de Terceros": "✅ Activo"
+            }
+            for p, status in policies.items():
+                st.write(f"{status} - **{p}**")
 
         with tab2:
-            st.subheader("Gestión de Peticiones (Admin Only)")
-            try:
-                # Obtenemos las solicitudes pendientes
-                r = requests.get(f"{BACKEND_INTERNAL}/admin/access-requests", headers=headers)
-                if r.status_code == 200:
-                    reqs = r.json()
-                    if not reqs:
-                        st.info("No hay solicitudes pendientes de aprobación.")
-                    for req in reqs:
-                        with st.expander(f"📌 Solicitud de: {req['email']} - {req['requested_role']}"):
-                            st.write(f"**Justificación:** {req['justification']}")
-                            st.write(f"**Fecha:** {req['timestamp']}")
-                            
-                            c1, c2 = st.columns(2)
-                            if c1.button("Aprobar ✅", key=f"ok_{req['id']}"):
-                                # Llamada para cambiar el rol en la DB
-                                requests.post(f"{BACKEND_INTERNAL}/admin/approve-access", 
-                                             json={"request_id": req['id'], "action": "approve"}, headers=headers)
-                                st.rerun()
-                            if c2.button("Rechazar ❌", key=f"no_{req['id']}"):
-                                requests.post(f"{BACKEND_INTERNAL}/admin/approve-access", 
-                                             json={"request_id": req['id'], "action": "reject"}, headers=headers)
-                                st.rerun()
-                else:
-                    st.warning("Acceso restringido: Se requieren permisos de Administrador.")
-            except:
-                st.info("Configura los endpoints en el backend para ver las solicitudes aquí.")
-
+            st.subheader("Análisis de Brechas (Gap Analysis)")
+            # Simulación de una barra de progreso de cumplimiento
+            st.write("Preparación para Auditoría Externa")
+            st.progress(0.84)
+            st.caption("Faltan 12 días para el próximo reporte de gobernanza.")
     elif st.session_state.page == "AuditLogs":
         st.title("📜 Registros de Auditoría del Sistema")
         st.info("Historial de acciones críticas almacenadas en PostgreSQL.")
