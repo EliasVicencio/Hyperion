@@ -235,7 +235,7 @@ else:
         try:
             start = time.time()
             # SE ENVÍA TOKEN POR PARAMS
-            r = requests.get(f"{BACKEND_INTERNAL}/api/system-metrics", headers=headers)
+            r = requests.get(f"{BACKEND_INTERNAL}/api/vigilancia", headers=headers)
             lat = int((time.time() - start) * 1000)
             if r.status_code == 200:
                 data = r.json()

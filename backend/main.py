@@ -130,28 +130,25 @@ async def get_audit_logs(db: Session = Depends(get_db), user: dict = Depends(get
             "objetivo": l.target or "N/A"
         } for l in logs
     ]
-
-# 1. El endpoint que realmente debería llamar la pestaña de Operadores
-@app.get("/api/system-metrics")
-async def get_combined_metrics(db: Session = Depends(get_db)):
-    # 1. Obtenemos datos reales del sistema para 'Vigilancia'
-    cpu_usage = psutil.cpu_percent()
-    ram_usage = psutil.virtual_memory().percent
-    disk_usage = psutil.disk_usage('/').percent
-
-    # 2. Obtenemos usuarios de la DB para 'Operadores'
-    users = db.query(UserDB).all()
-    user_dict = {u.email: {"role": u.role} for u in users}
-
-    # 3. CONSTRUIMOS EL SUPER-OBJETO
-    # Combinamos ambos datos en un solo JSON
-    response = {
-        "cpu": cpu_usage,
-        "ram": ram_usage,
-        "disk": disk_usage,
-        **user_dict  # Esto "desempaqueta" los usuarios dentro del mismo nivel
+    
+# --- ENDPOINT EXCLUSIVO PARA VIGILANCIA ---
+@app.get("/api/vigilancia")
+async def get_real_metrics(user: dict = Depends(get_current_user)):
+    return {
+        "cpu": psutil.cpu_percent(),
+        "ram": psutil.virtual_memory().percent,
+        "disk": psutil.disk_usage('/').percent
     }
 
+# 1. El endpoint que realmente debería llamar la pestaña de Operadores
+@app.get("/api/system-metrics") # Lo mantenemos así porque tu front lo pide ahí
+def get_users_as_metrics(db: Session = Depends(get_db)):
+    # Obtenemos los usuarios reales de la base de datos
+    users = db.query(UserDB).all()
+    response = {}
+    for u in users:
+        response[u.email] = {"role": u.role}
+    
     return response
     
 # Rutas para Gobernanza que pide tu Front
