@@ -51,7 +51,7 @@ def nav_to(page):
 # --- SIDEBAR ---
 if st.session_state.auth["token"]:
     with st.sidebar:
-        st.markdown("<h2 style='color: #c084fc;'>🛡️ HYPERION CORE</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='color: #c084fc;'>LOGO_SVG HYPERION CORE</h2>", unsafe_allow_html=True)
         
         # --- NUEVO: WIDGET DE SALUD (HEALTH CHECK) ---
         try:
