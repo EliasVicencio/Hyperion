@@ -159,77 +159,100 @@ def get_reqs():
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def external_dashboard(token: str = None):
-    # Verificación de seguridad mínima
-    if token != "SESION_ADMIN_HYPERION_ULTRA_SECRETA": # Usa tu variable TOKEN_MAESTRO
-        return "<html><body style='background:black;color:red;'><h1>ACCESO DENEGADO - IP REGISTRADA</h1></body></html>"
+    # Verificación de Token
+    if token != "SESION_ADMIN_HYPERION_ULTRA_SECRETA": 
+        return "<h1>ACCESS DENIED</h1>"
         
     return """
     <html>
         <head>
-            <title>Hyperion SIEM | Live Audit</title>
+            <title>Hyperion Command Center</title>
+            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
             <style>
-                body { 
-                    background-color: #050505; 
-                    color: #00ff41; 
-                    font-family: 'Courier New', Courier, monospace; 
-                    margin: 0; padding: 20px;
-                    overflow: hidden;
-                }
-                .container { border: 1px solid #00ff41; height: 90vh; padding: 10px; display: flex; flex-direction: column; }
-                .header { border-bottom: 2px solid #00ff41; padding-bottom: 10px; margin-bottom: 10px; display: flex; justify-content: space-between;}
-                #log-window { flex-grow: 1; overflow-y: auto; font-size: 14px; line-height: 1.5; }
-                .entry { margin-bottom: 4px; }
-                .timestamp { color: #888; }
-                .critical { color: #ff0000; font-weight: bold; }
-                .scanline {
-                    width: 100%; height: 2px; background: rgba(0, 255, 65, 0.1);
-                    position: absolute; top: 0; left: 0; pointer-events: none;
-                    animation: scan 4s linear infinite;
-                }
-                @keyframes scan { 0% { top: 0; } 100% { top: 100%; } }
+                body { background: #0b0e14; color: #e2e8f0; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; }
+                .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 20px; }
+                .card { background: #1a1f2e; border: 1px solid #2d3748; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+                .card-title { color: #a78bfa; font-size: 0.8rem; font-weight: bold; text-transform: uppercase; margin-bottom: 15px; }
+                .big-value { font-size: 2rem; font-weight: bold; color: #fff; }
+                .console { background: #000; color: #4ade80; font-family: 'Consolas', monospace; height: 300px; overflow-y: auto; padding: 15px; border-radius: 8px; font-size: 12px; border: 1px solid #064e3b; }
+                .chart-container { position: relative; height: 200px; width: 100%; }
+                h1 { font-size: 1.5rem; margin-bottom: 20px; color: #f8fafc; display: flex; align-items: center; gap: 10px; }
+                .status-dot { height: 10px; width: 10px; background: #22c55e; border-radius: 50%; display: inline-block; animation: pulse 2s infinite; }
+                @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
             </style>
         </head>
         <body>
-            <div class="scanline"></div>
-            <div class="container">
-                <div class="header">
-                    <span>[ HYPERION CORE v2.0 - AUDIT LOGS ]</span>
-                    <span>STATUS: MONITORING...</span>
+            <h1><span class="status-dot"></span> HYPERION EXTERNAL COMMAND CENTER</h1>
+            
+            <div class="grid">
+                <div class="card">
+                    <div class="card-title">Carga del Sistema (Real-Time)</div>
+                    <div class="chart-container">
+                        <canvas id="loadChart"></canvas>
+                    </div>
                 </div>
-                <div id="log-window">
-                    <div class="entry"><span class="timestamp">[""" + str(datetime.utcnow()) + """]</span> [SYSTEM] Kernel SIEM inicializado...</div>
+                <div class="card">
+                    <div class="card-title">Eventos de Red / Segundo</div>
+                    <div class="big-value" id="netValue">0</div>
+                    <div style="color: #22c55e; font-size: 0.8rem;">↑ 12% vs última hora</div>
+                </div>
+                <div class="card">
+                    <div class="card-title">Integridad del Encriptado</div>
+                    <div class="big-value">FIPS 140-2</div>
+                    <div style="color: #a78bfa; font-size: 0.8rem;">Modo: AES-GCM-256</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Terminal de Auditoría Inmutable</div>
+                <div id="terminal" class="console">
+                    > [SYS] Iniciando stream de datos... <br>
                 </div>
             </div>
 
             <script>
-                const logWindow = document.getElementById('log-window');
-                const events = [
-                    "Paquete interceptado en Puerto 443",
-                    "Intento de acceso SSH fallido (IP: 185.22.1.4)",
-                    "Handshake TLS 1.3 verificado",
-                    "Sincronización con DB PostgreSQL exitosa",
-                    "Escaneo de vulnerabilidades: 0 amenazas",
-                    "Cifrado de sesión renovado",
-                    "Alerta de latencia: +150ms en nodo central"
-                ];
+                // Configuración de la Gráfica
+                const ctx = document.getElementById('loadChart').getContext('2d');
+                const loadChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: ['', '', '', '', '', '', '', '', '', ''],
+                        datasets: [{
+                            label: 'CPU %',
+                            data: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                            borderColor: '#a78bfa',
+                            tension: 0.4,
+                            fill: true,
+                            backgroundColor: 'rgba(167, 139, 250, 0.1)'
+                        }]
+                    },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false,
+                        scales: { y: { display: false }, x: { display: false } },
+                        plugins: { legend: { display: false } }
+                    }
+                });
 
-                function addLog() {
-                    const div = document.createElement('div');
-                    div.className = 'entry';
-                    const now = new Date().toLocaleTimeString();
-                    const event = events[Math.floor(Math.random() * events.length)];
-                    
-                    // Probabilidad de evento crítico
-                    const isCritical = Math.random() > 0.85;
-                    const content = isCritical 
-                        ? `<span class="critical">[CRITICAL]</span> Amenaza detectada: ${event}`
-                        : `[INFO] ${event}`;
+                // Función para actualizar datos
+                function updateDashboard() {
+                    // Simular dato de red
+                    document.getElementById('netValue').innerText = Math.floor(Math.random() * (150 - 80) + 80);
 
-                    div.innerHTML = `<span class="timestamp">[${now}]</span> ${content}`;
-                    logWindow.prepend(div);
+                    // Actualizar Gráfica
+                    loadChart.data.datasets[0].data.shift();
+                    loadChart.data.datasets[0].data.push(Math.floor(Math.random() * 100));
+                    loadChart.update();
+
+                    // Añadir Log
+                    const term = document.getElementById('terminal');
+                    const entry = document.createElement('div');
+                    entry.innerHTML = `> [${new Date().toLocaleTimeString()}] Evento detectado: ${Math.random().toString(36).substring(7).toUpperCase()}-NODE`;
+                    term.appendChild(entry);
+                    term.scrollTop = term.scrollHeight;
                 }
 
-                setInterval(addLog, 2000);
+                setInterval(updateDashboard, 2000);
             </script>
         </body>
     </html>
