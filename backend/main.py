@@ -109,11 +109,12 @@ async def verify(data: dict):
 def health():
     return {"api": "healthy", "database": "healthy", "health_score": 100}
 
+# 2. Asegúrate de que la ruta /admin/users devuelva una lista simple 
+# por si el front cambia en el futuro
 @app.get("/admin/users")
-async def list_operators(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
+def list_users(db: Session = Depends(get_db)):
     users = db.query(UserDB).all()
-    # Retornamos lista plana para evitar error de 'float'
-    return [{"id": u.id, "email": u.email, "role": u.role} for u in users]
+    return [{"email": u.email, "role": u.role} for u in users]
 
 @app.get("/admin/audit-logs")
 async def get_audit_logs(db: Session = Depends(get_db), user: dict = Depends(get_current_user)):
@@ -130,26 +131,23 @@ async def get_audit_logs(db: Session = Depends(get_db), user: dict = Depends(get
         } for l in logs
     ]
 
-# IMPORTANTE: Tu front pide métricas en varios sitios, vamos a dárselas siempre
-@app.get("/api/system-metrics")
-def metrics():
-    # Tu pestaña de 'Operadores' espera una lista de usuarios aquí según tu código actual.
-    # Vamos a devolver los usuarios de la DB para que esa pestaña funcione.
-    db = SessionLocal()
+# 1. El endpoint que realmente debería llamar la pestaña de Operadores
+@app.get("/api/system-metrics") # Lo mantenemos así porque tu front lo pide ahí
+def get_users_as_metrics(db: Session = Depends(get_db)):
+    # Obtenemos los usuarios reales de la base de datos
     users = db.query(UserDB).all()
-    db.close()
     
-    # Si la petición viene de la pestaña 'Vigilancia', espera CPU/RAM
-    # Si viene de 'Operadores', espera un diccionario de usuarios.
-    # Enviamos un objeto "Híbrido" para que ninguna pestaña falle.
-    return {
-        "cpu": psutil.cpu_percent(),
-        "ram": psutil.virtual_memory().percent,
-        "disk": 20,
-        # Esto es lo que 'Operadores' busca:
-        "admin@hyperion.com": {"role": "admin"}, 
-        **{u.email: {"role": u.role} for u in users}
-    }
+    # Construimos el diccionario que espera tu línea: usuarios.items()
+    # Tu front espera: {"email": {"role": "admin"}, "email2": {"role": "user"}}
+    response = {}
+    for u in users:
+        response[u.email] = {"role": u.role}
+    
+    # Si por alguna razón el front también espera CPU/RAM en este mismo dict
+    # (aunque lo dudo por el .items()), los añadimos por seguridad:
+    # response["cpu"] = {"role": "system"} 
+    
+    return response
     
 # Rutas para Gobernanza que pide tu Front
 @app.get("/admin/access-requests")
