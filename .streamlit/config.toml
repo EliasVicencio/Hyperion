@@ -1,0 +1,14 @@
+[theme]
+# El color morado que le gustó al jefe
+primaryColor = "#a78bfa"
+
+# Fondo oscuro profundo (estilo Dashboard externo)
+backgroundColor = "#0d1117"
+
+# Color de las tarjetas y el sidebar
+secondaryBackgroundColor = "#161b22"
+
+# Color de las letras (Blanco suave)
+textColor = "#e2e8f0"
+
+font = "sans serif"
