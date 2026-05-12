@@ -272,84 +272,122 @@ else:
         except Exception as e: st.error(f"Error al conectar con la base de datos: {e}")
         
     elif st.session_state.page == "Gobernanza":
-        st.markdown(f"""
-            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
-                <img src="{LOGO_SVG}" width="40">
-                <h1 style="margin: 0;">Gobernanza y Estrategia</h1>
-            </div>
-        """, unsafe_allow_html=True)
-
-        # --- KPI HEADER ESTILO DASHBOARD PRO ---
+        # --- ESTILOS CSS AVANZADOS ---
         st.markdown("""
             <style>
-                .kpi-box {
-                    background: #161b22;
-                    padding: 20px;
-                    border-radius: 10px;
-                    border-left: 5px solid #a78bfa;
-                    box-shadow: 2px 2px 10px rgba(0,0,0,0.3);
+                .kpi-card { background: #161b22; padding: 20px; border-radius: 12px; border: 1px solid #30363d; }
+                .risk-row { 
+                    background: #0d1117; padding: 15px; border-radius: 10px; 
+                    border: 1px solid #30363d; margin-bottom: 12px;
+                    display: flex; justify-content: space-between; align-items: center;
                 }
-                .risk-card {
-                    background: #0d1117;
-                    padding: 15px;
-                    border-radius: 8px;
-                    border: 1px solid #30363d;
-                    margin-bottom: 10px;
+                .owner-badge { 
+                    background: #21262d; color: #8b949e; padding: 2px 8px; 
+                    border-radius: 10px; font-size: 11px; border: 1px solid #30363d;
                 }
+                .compliance-tag { font-size: 12px; color: #a78bfa; font-weight: bold; }
             </style>
         """, unsafe_allow_html=True)
 
-        col_a, col_b, col_c = st.columns(3)
-        with col_a:
-            st.markdown('<div class="kpi-box"><p style="color:#8b949e;margin:0">SECURITY SCORE</p><h2 style="margin:0">92%</h2><p style="color:#238636;margin:0">▲ 2.1% este mes</p></div>', unsafe_allow_html=True)
-        with col_b:
-            st.markdown('<div class="kpi-box" style="border-left-color:#f85149"><p style="color:#8b949e;margin:0">INCIDENTES ABIERTOS</p><h2 style="margin:0">0</h2><p style="color:#8b949e;margin:0">Sin criticidad</p></div>', unsafe_allow_html=True)
-        with col_c:
-            st.markdown('<div class="kpi-box" style="border-left-color:#58a6ff"><p style="color:#8b949e;margin:0">CUMPLIMIENTO TOTAL</p><h2 style="margin:0">88%</h2><p style="color:#58a6ff;margin:0">SOC2 / GDPR / ISO</p></div>', unsafe_allow_html=True)
-
+        st.title("⚖️ Centro de Gobernanza y Estrategia")
         st.write("###")
+
+        # --- FILA 1: KPIs CON SPARKLINE Y DESGLOSE ---
+        col_a, col_b, col_c = st.columns(3)
         
-        # --- MATRIZ DE RIESGOS ESTILIZADA ---
-        col_left, col_right = st.columns([1.5, 1])
+        with col_a:
+            st.markdown('<div class="kpi-card">', unsafe_allow_html=True)
+            st.metric("SECURITY SCORE", "92%", "+2.1%")
+            # Sparkline de evolución (últimos 6 meses)
+            st.line_chart([85, 87, 86, 89, 90, 92], height=50, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        with col_b:
+            st.markdown('<div class="kpi-card">', unsafe_allow_html=True)
+            st.metric("INCIDENTES ABIERTOS", "0", "Stable", delta_color="normal")
+            st.write("🛡️ Sistema íntegro")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        with col_c:
+            st.markdown('<div class="kpi-card">', unsafe_allow_html=True)
+            st.metric("CUMPLIMIENTO TOTAL", "88%", "SOC2/GDPR")
+            # Desglose de cumplimiento que pidió el CTO
+            st.markdown("""
+                <div style="margin-top:10px;">
+                    <span class="compliance-tag">GDPR: 85%</span> | 
+                    <span class="compliance-tag">SOC2: 92%</span> | 
+                    <span class="compliance-tag">ISO: 87%</span>
+                </div>
+            """, unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        st.write("---")
+
+        # --- FILA 2: MATRIZ DE RIESGOS (DISEÑO MOCKUP DEL CTO) ---
+        col_left, col_right = st.columns([1.8, 1])
 
         with col_left:
             st.subheader("🛡️ Gestión de Activos y Riesgos")
             
-            # Tarjeta 1: Riesgo Alto
+            # Activo 1: ALTO
             st.markdown("""
-                <div class="risk-card" style="border-right: 5px solid #f85149;">
-                    <div style="display: flex; justify-content: space-between;">
-                        <strong>🖥️ Consola de Auditoría Externa</strong>
-                        <span style="color:#f85149; font-weight:bold;">ALTO</span>
+                <div class="risk-row" style="border-left: 4px solid #f85149;">
+                    <div>
+                        <strong style="font-size:16px;">Consola Auditoría Externa</strong><br>
+                        <span style="color:#8b949e; font-size:13px;">Mitigación: IP Whitelisting (En progreso)</span><br>
+                        <span class="owner-badge">Dueño: @carlos.seg</span>
                     </div>
-                    <p style="font-size:12px; color:#8b949e; margin:5px 0;">Mitigación: IP Whitelisting en progreso</p>
-                    <div style="background:#30363d; height:6px; border-radius:3px;">
-                        <div style="background:#f85149; width:40%; height:6px; border-radius:3px;"></div>
+                    <div style="text-align:right;">
+                        <span style="color:#f85149; font-weight:bold; font-size:18px;">🟠</span><br>
+                        <small style="color:#f85149;">ALTO</small>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
 
-            # Tarjeta 2: Riesgo Medio
+            # Activo 2: MEDIO
             st.markdown("""
-                <div class="risk-card" style="border-right: 5px solid #d29922;">
-                    <div style="display: flex; justify-content: space-between;">
-                        <strong>🗄️ Base de Datos de Usuarios</strong>
-                        <span style="color:#d29922; font-weight:bold;">MEDIO</span>
+                <div class="risk-row" style="border-left: 4px solid #d29922;">
+                    <div>
+                        <strong style="font-size:16px;">Base de Datos Usuarios</strong><br>
+                        <span style="color:#8b949e; font-size:13px;">Mitigación: Encripción AES-256 Activa</span><br>
+                        <span class="owner-badge">Dueño: @dba.team</span>
                     </div>
-                    <p style="font-size:12px; color:#8b949e; margin:5px 0;">Mitigación: Encriptación AES-256 Activa</p>
+                    <div style="text-align:right;">
+                        <span style="color:#238636; font-weight:bold; font-size:18px;">🟢</span><br>
+                        <small style="color:#d29922;">MEDIO</small>
+                    </div>
                 </div>
             """, unsafe_allow_html=True)
 
-            # Tarjeta 3: Riesgo Bajo
+            # Activo 3: BAJO
             st.markdown("""
-                <div class="risk-card" style="border-right: 5px solid #238636;">
-                    <div style="display: flex; justify-content: space-between;">
-                        <strong>📡 Nodo de Vigilancia Central</strong>
-                        <span style="color:#238636; font-weight:bold;">BAJO</span>
+                <div class="risk-row" style="border-left: 4px solid #238636;">
+                    <div>
+                        <strong style="font-size:16px;">Nodo Vigilancia Central</strong><br>
+                        <span style="color:#8b949e; font-size:13px;">Mitigación: Autenticación Token Bearer</span><br>
+                        <span class="owner-badge">Dueño: @devops.team</span>
                     </div>
-                    <p style="font-size:12px; color:#8b949e; margin:5px 0;">Mitigación: Autenticación por Token Bearer</p>
+                    <div style="text-align:right;">
+                        <span style="color:#238636; font-weight:bold; font-size:18px;">🟢</span><br>
+                        <small style="color:#238636;">BAJO</small>
+                    </div>
                 </div>
             """, unsafe_allow_html=True)
+
+        with col_right:
+            st.subheader("📋 Roadmap y Auditoría")
+            with st.expander("📅 Próximos Hitos", expanded=True):
+                st.write("**Auditoría Externa:** `2026-05-25`")
+                st.write("**Revisión de Accesos:** `En 3 días`")
+            
+            st.write("###")
+            # Botón de Reporte que genera el PDF (con lógica de simulación)
+            if st.button("📥 Generar Reporte Ejecutivo PDF", use_container_width=True):
+                with st.spinner('Compilando métricas y roadmap...'):
+                    import time
+                    time.sleep(2)
+                    st.success("✅ Reporte 'Hyperion_Executive_Q2.pdf' listo para descarga.")
+                    st.download_button("Click para descargar", "Contenido del PDF simulado", "Hyperion_Report.pdf")
 
         with col_right:
             st.subheader("📈 Auditoría y Reportes")
