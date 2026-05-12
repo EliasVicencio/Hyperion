@@ -272,41 +272,99 @@ else:
         except Exception as e: st.error(f"Error al conectar con la base de datos: {e}")
         
     elif st.session_state.page == "Gobernanza":
-        st.title("⚖️ Centro de Gobernanza Hyperion")
-        
-        # --- FILA SUPERIOR: MÉTRICAS EJECUTIVAS ---
-        c1, c2, c3, c4 = st.columns(4)
-        
-        with c1:
-            st.metric("Score de Seguridad", "92/100", "+2")
-            # Mini gráfico de evolución (Sparkline)
-            st.line_chart([88, 89, 89, 90, 91, 91, 92], height=60) # Simulación de 7 días
-            
-        c2.metric("Riesgos Críticos", "0", "Stable")
-        c3.metric("Uptime Mensual", "99.98%", "-0.01%")
-        c4.metric("Detección Amenazas", "100%", "Target Reached")
+        st.markdown(f"""
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px;">
+                <img src="{LOGO_SVG}" width="40">
+                <h1 style="margin: 0;">Gobernanza y Estrategia</h1>
+            </div>
+        """, unsafe_allow_html=True)
 
-        st.write("---")
+        # --- KPI HEADER ESTILO DASHBOARD PRO ---
+        st.markdown("""
+            <style>
+                .kpi-box {
+                    background: #161b22;
+                    padding: 20px;
+                    border-radius: 10px;
+                    border-left: 5px solid #a78bfa;
+                    box-shadow: 2px 2px 10px rgba(0,0,0,0.3);
+                }
+                .risk-card {
+                    background: #0d1117;
+                    padding: 15px;
+                    border-radius: 8px;
+                    border: 1px solid #30363d;
+                    margin-bottom: 10px;
+                }
+            </style>
+        """, unsafe_allow_html=True)
 
-        col_left, col_right = st.columns([2, 1])
+        col_a, col_b, col_c = st.columns(3)
+        with col_a:
+            st.markdown('<div class="kpi-box"><p style="color:#8b949e;margin:0">SECURITY SCORE</p><h2 style="margin:0">92%</h2><p style="color:#238636;margin:0">▲ 2.1% este mes</p></div>', unsafe_allow_html=True)
+        with col_b:
+            st.markdown('<div class="kpi-box" style="border-left-color:#f85149"><p style="color:#8b949e;margin:0">INCIDENTES ABIERTOS</p><h2 style="margin:0">0</h2><p style="color:#8b949e;margin:0">Sin criticidad</p></div>', unsafe_allow_html=True)
+        with col_c:
+            st.markdown('<div class="kpi-box" style="border-left-color:#58a6ff"><p style="color:#8b949e;margin:0">CUMPLIMIENTO TOTAL</p><h2 style="margin:0">88%</h2><p style="color:#58a6ff;margin:0">SOC2 / GDPR / ISO</p></div>', unsafe_allow_html=True)
+
+        st.write("###")
+        
+        # --- MATRIZ DE RIESGOS ESTILIZADA ---
+        col_left, col_right = st.columns([1.5, 1])
 
         with col_left:
-            st.subheader("🛡️ Matriz de Riesgos Operacionales")
-            # Tabla mejorada con "Dueño" y "Remediación"
-            riesgos_data = [
-                {"Activo": "DB Usuarios", "Riesgo": "Medio", "Estado": "🟢", "Mitigación": "Cifrado AES-256", "Dueño": "DB-Team"},
-                {"Activo": "Vigilancia", "Riesgo": "Bajo", "Estado": "🟢", "Mitigación": "Token Bearer", "Dueño": "Sec-Ops"},
-                {"Activo": "Consola Auditoría", "Riesgo": "Alto", "Estado": "🟠", "Mitigación": "IP Whitelisting", "Dueño": "Net-Admin"},
-                {"Activo": "Backup Logs", "Riesgo": "Bajo", "Estado": "🟢", "Mitigación": "S3 Repo", "Dueño": "Cloud-Ops"},
-            ]
-            st.table(riesgos_data)
+            st.subheader("🛡️ Gestión de Activos y Riesgos")
             
-            # El "Plan de Remediación" que pidió el CTO para el riesgo ALTO
-            with st.expander("🔍 Ver Plan de Acción: Consola de Auditoría (Riesgo Alto)"):
-                st.warning("**Acción Prioritaria:** Implementar Whitelisting de IPs corporativas y MFA.")
-                st.write("- **Responsable:** Admin de Red")
-                st.write("- **Fecha Límite:** 20 de Mayo, 2026")
-                st.progress(0.4) # 40% completado
+            # Tarjeta 1: Riesgo Alto
+            st.markdown("""
+                <div class="risk-card" style="border-right: 5px solid #f85149;">
+                    <div style="display: flex; justify-content: space-between;">
+                        <strong>🖥️ Consola de Auditoría Externa</strong>
+                        <span style="color:#f85149; font-weight:bold;">ALTO</span>
+                    </div>
+                    <p style="font-size:12px; color:#8b949e; margin:5px 0;">Mitigación: IP Whitelisting en progreso</p>
+                    <div style="background:#30363d; height:6px; border-radius:3px;">
+                        <div style="background:#f85149; width:40%; height:6px; border-radius:3px;"></div>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+
+            # Tarjeta 2: Riesgo Medio
+            st.markdown("""
+                <div class="risk-card" style="border-right: 5px solid #d29922;">
+                    <div style="display: flex; justify-content: space-between;">
+                        <strong>🗄️ Base de Datos de Usuarios</strong>
+                        <span style="color:#d29922; font-weight:bold;">MEDIO</span>
+                    </div>
+                    <p style="font-size:12px; color:#8b949e; margin:5px 0;">Mitigación: Encriptación AES-256 Activa</p>
+                </div>
+            """, unsafe_allow_html=True)
+
+            # Tarjeta 3: Riesgo Bajo
+            st.markdown("""
+                <div class="risk-card" style="border-right: 5px solid #238636;">
+                    <div style="display: flex; justify-content: space-between;">
+                        <strong>📡 Nodo de Vigilancia Central</strong>
+                        <span style="color:#238636; font-weight:bold;">BAJO</span>
+                    </div>
+                    <p style="font-size:12px; color:#8b949e; margin:5px 0;">Mitigación: Autenticación por Token Bearer</p>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with col_right:
+            st.subheader("📈 Auditoría y Reportes")
+            with st.container(border=True):
+                st.write("**Próxima Auditoría Interna:**")
+                st.code("2026-05-25 (En 14 días)")
+                
+                st.write("**Reporte SOC2:**")
+                st.progress(0.7)
+                st.caption("Fase de recolección de evidencia: 70%")
+                
+                st.write("---")
+                if st.button("📥 Generar Reporte Ejecutivo PDF", use_container_width=True):
+                    st.balloons()
+                    st.success("Reporte generado con éxito.")
             
     elif st.session_state.page == "AuditLogs":
         st.title("📜 Registros de Auditoría del Sistema")
