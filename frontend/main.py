@@ -51,8 +51,15 @@ def nav_to(page):
 # --- SIDEBAR ---
 if st.session_state.auth["token"]:
     with st.sidebar:
-        # Mostramos el logo centrado
-        st.image(LOGO_SVG, width=50), st.markdown("<h2 style='color: #a78bfa; margin-top: -10px;'>HYPERION CORE</h2>", unsafe_allow_html=True)
+        # Logo y Título alineados en la misma línea
+        st.markdown(f"""
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+                <img src="{LOGO_SVG}" width="35">
+                <h2 style="color: #a78bfa; margin: 0; font-size: 1.5rem; letter-spacing: 1px;">
+                    HYPERION <span style="color: white; font-size: 0.8rem; vertical-align: middle;">CORE</span>
+                </h2>
+            </div>
+        """, unsafe_allow_html=True)
         
         # --- WIDGET DE SALUD ---
         try:
