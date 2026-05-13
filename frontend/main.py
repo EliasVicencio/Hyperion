@@ -272,59 +272,57 @@ else:
         st.plotly_chart(fig, use_container_width=True)
 
     elif st.session_state.page == "Vigilancia":
-        st.title("🕵️ Vigilancia de Red en Tiempo Real")
-        st.markdown("---")
+        st.title("🕵️ Centro de Control Operativo (Capa 7)")
+        
+        # --- FILA 1: TELEMETRÍA DINÁMICA ---
+        col_grafica, col_stats = st.columns([2, 1])
+        
+        with col_grafica:
+            st.subheader("📈 Latencia del Motor (ms)")
+            # Simulamos datos de latencia
+            import numpy as np
+            chart_data = pd.DataFrame(
+                np.random.randn(20, 1) + [20],
+                columns=['Latencia ms']
+            )
+            st.area_chart(chart_data, height=150, use_container_width=True)
 
-        # --- FILA DE MÉTRICAS RÁPIDAS ---
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("ESTADO DEL NODO", "ONLINE", delta="Secure", delta_color="normal")
-        with col2:
-            st.metric("PROTOCOLO", "TLS 1.3", "AES-256-GCM")
-        with col3:
-            # Simulamos un tráfico aleatorio para darle vida
-            import random
-            st.metric("TRÁFICO EN VIVO", f"{random.randint(150, 250)} req/s", "LIVE STREAMING")
+        with col_stats:
+            st.subheader("🛡️ Defensa Activa")
+            st.status("Firewall: **Protegiendo**", state="complete")
+            st.metric("Amenazas Bloqueadas (24h)", "127", "+12%")
 
-        st.write("###")
-        st.subheader("🖥️ Terminal de Auditoría Inmutable (Live Feed)")
+        st.write("---")
 
-        # Contenedor donde inyectaremos los logs
+        # --- FILA 2: TERMINAL DE INGENIERÍA ---
+        st.subheader("🖥️ Consola de Tráfico de Red (Deep Packet Inspection)")
+        
         log_placeholder = st.empty()
 
-        # --- BUCLE DE ACTUALIZACIÓN ---
-        # Esto hará que la pestaña se refresque cada 3 segundos automáticamente
-        for i in range(10): # Lo ejecutamos varias veces por ciclo de renderizado
+        # Bucle de actualización mejorado
+        for i in range(5):
             try:
-                # Importante: Usamos BACKEND_INTERNAL que ya definiste arriba
+                # Llamamos al nuevo endpoint que crearemos
                 response = requests.get(f"{BACKEND_INTERNAL}/logs/recent", headers=headers, timeout=5)
                 
                 if response.status_code == 200:
                     logs = response.json()
                     
-                    if logs:
-                        # Construcción del feed de texto
-                        log_feed = ""
-                        for log in logs:
-                            # Formato profesional: [Timestamp] EVENT: Message
-                            ts = log.get('timestamp', '00:00:00')
-                            evt = log.get('event', 'TRAFFIC')
-                            msg = log.get('message', 'Capturando paquete en nodo...')
-                            log_feed += f"[{ts}] AUDIT: {msg} en nodo {random.choice(['OM608', 'OYAI27', '83358D'])}\n"
-                        
-                        # Inyectamos en el contenedor con estilo de código
-                        log_placeholder.code(log_feed, language="bash")
-                    else:
-                        log_placeholder.warning("📡 Esperando flujo de datos del backend...")
+                    # Formateo ultra-técnico para impresionar
+                    log_feed = ""
+                    for log in logs:
+                        # Añadimos datos técnicos simulados como IPs y Protocolos
+                        ip_falsa = f"192.168.1.{np.random.randint(2, 254)}"
+                        metodo = np.random.choice(["GET", "POST", "PUT", "DELETE"])
+                        log_feed += f"DEBUG [{log['timestamp']}] {metodo} {ip_falsa} -> HTTP/1.1 200 OK | {log['message']}\n"
+                    
+                    log_placeholder.code(log_feed, language="accesslog")
                 else:
-                    log_placeholder.error(f"❌ Error de Backend: {response.status_code}")
+                    log_placeholder.error(f"⚠️ Error de enlace con el Backend: {response.status_code}")
+            except:
+                log_placeholder.error("🚨 Nodo Central fuera de alcance. Reintentando...")
             
-            except Exception as e:
-                log_placeholder.error(f"🚨 Error de conexión: {e}")
-            
-            # Pausa para no saturar el procesador
-            time.sleep(3)
-            # st.rerun()  # Opcional: Esto fuerza el refresco total de la página
+            time.sleep(2)
 
     elif st.session_state.page == "Operadores":
         st.title("👥 Gestión de Operadores")
