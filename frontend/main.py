@@ -1,4 +1,3 @@
-from frontend.dashboard import API_URL
 import streamlit as st
 import requests
 import os
