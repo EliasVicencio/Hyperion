@@ -9,7 +9,7 @@ from passlib.context import CryptContext
 from datetime import datetime
 import os, psutil
 
-from backend.models import models
+from models import models
 
 # --- CONFIGURACIÓN DE NÚCLEO ---
 DATABASE_URL = os.getenv("DATABASE_URL")
