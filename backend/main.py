@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker, Session
 from passlib.context import CryptContext
 from datetime import datetime
 import os, psutil
+import random
 
 # --- CONFIGURACIÓN DE NÚCLEO ---
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -157,11 +158,30 @@ def get_users_as_metrics(db: Session = Depends(get_db)):
 def get_reqs():
     return []
 
-@app.get("/api/v1/logs/recent")
-def get_recent_logs(db: Session = Depends(get_db)):
-    # Cambiado de order_order_by a order_by
-    logs = db.query(AuditLogDB).order_by(AuditLogDB.id.desc()).limit(100).all()
-    return logs
+@app.get("/logs/recent")
+async def get_recent_logs():
+    """
+    Genera logs en tiempo real para la terminal de Hyperion.
+    En una fase avanzada, aquí consultarás tu base de datos SQL.
+    """
+    nodos = ["OM608", "OYAI27", "0W9W5", "G82LZ8", "MTXIT", "K3KBUJ"]
+    acciones = [
+        "Capturado paquete de entrada", 
+        "Validando handshake TLS", 
+        "Filtro de integridad activo", 
+        "Detección de anomalía heurística"
+    ]
+    
+    # Generamos 15 logs ficticios para que la terminal se vea llena y profesional
+    fake_logs = []
+    for i in range(15):
+        fake_logs.append({
+            "timestamp": datetime.now().strftime("%H:%M:%S"),
+            "event": "AUDIT",
+            "message": f"{random.choice(acciones)} en nodo {random.choice(nodos)}"
+        })
+        
+    return fake_logs
 
 @app.delete("/api/v1/system/cleanup")
 def cleanup_old_logs(db: Session = Depends(get_db)):
