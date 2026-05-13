@@ -9,8 +9,6 @@ from passlib.context import CryptContext
 from datetime import datetime
 import os, psutil
 
-from models import models
-
 # --- CONFIGURACIÓN DE NÚCLEO ---
 DATABASE_URL = os.getenv("DATABASE_URL")
 TOKEN_MAESTRO = "SESION_ADMIN_HYPERION_ULTRA_SECRETA"
@@ -161,18 +159,17 @@ def get_reqs():
 
 @app.get("/api/v1/logs/recent")
 def get_recent_logs(db: Session = Depends(get_db)):
-    # Solo pedimos los últimos 100 logs y los ordenamos por ID descendente
-    # Esto reduce el uso de RAM del servidor y el ancho de banda de red
-    logs = db.query(models.AuditLog).order_order_by(models.AuditLog.id.desc()).limit(100).all()
+    # Cambiado de order_order_by a order_by
+    logs = db.query(AuditLogDB).order_by(AuditLogDB.id.desc()).limit(100).all()
     return logs
 
 @app.delete("/api/v1/system/cleanup")
 def cleanup_old_logs(db: Session = Depends(get_db)):
-    # Borramos logs de más de 30 días para mantener el disco limpio y las búsquedas rápidas
     from datetime import datetime, timedelta
-    limit_date = datetime.now() - timedelta(days=30)
+    limit_date = datetime.utcnow() - timedelta(days=30)
     
-    num_deleted = db.query(models.AuditLog).filter(models.AuditLog.timestamp < limit_date).delete()
+    # Usamos AuditLogDB que es tu clase definida arriba
+    num_deleted = db.query(AuditLogDB).filter(AuditLogDB.timestamp < limit_date).delete()
     db.commit()
     
     return {"status": "success", "deleted_logs": num_deleted}
