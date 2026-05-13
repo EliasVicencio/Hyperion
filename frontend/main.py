@@ -5,7 +5,6 @@ import time
 import pandas as pd
 import plotly.graph_objects as go
 import io
-from models import models  # ✅ Si la carpeta 'models' está al mismo nivel que main.py
 
 # --- CONFIGURACIÓN ESTÁTICA ---
     
