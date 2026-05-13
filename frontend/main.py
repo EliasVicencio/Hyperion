@@ -4,7 +4,6 @@ import os
 import time
 import pandas as pd
 import plotly.graph_objects as go
-import io
 
 # --- CONFIGURACIÓN ESTÁTICA ---
     
@@ -15,6 +14,10 @@ URL_BACKEND_RENDER = "https://hyperion-gcic.onrender.com"
 
 BACKEND_INTERNAL = URL_BACKEND_RENDER
 BACKEND_EXTERNAL = URL_BACKEND_RENDER
+
+headers = {
+    "Authorization": "Bearer SESION_ADMIN_HYPERION_ULTRA_SECRETA"
+}
 
 LOGO_SVG = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='20' fill='none' stroke='%23a78bfa' stroke-width='2' /><ellipse cx='50' cy='50' rx='45' ry='15' fill='none' stroke='%2358a6ff' stroke-width='1' transform='rotate(45 50 50)' /><ellipse cx='50' cy='50' rx='45' ry='15' fill='none' stroke='%2358a6ff' stroke-width='1' transform='rotate(-45 50 50)' /><circle cx='50' cy='50' r='8' fill='%23a78bfa' /></svg>"
 
@@ -277,7 +280,7 @@ else:
         # Función de refresco con bajo impacto
         def update_logs():
             # Llamada a la API optimizada (máximo 100 registros)
-            response = requests.get(f"{API_URL}/logs/recent", headers=headers)
+            response = requests.get(f"{BACKEND_INTERNAL}/logs/recent", headers=headers)
             if response.status_code == 200:
                 logs = response.json()
                 
