@@ -1,3 +1,4 @@
+from frontend.dashboard import API_URL
 import streamlit as st
 import requests
 import os
@@ -269,21 +270,29 @@ else:
         st.plotly_chart(fig, use_container_width=True)
 
     elif st.session_state.page == "Vigilancia":
-        st.title("👁️ Vigilancia en Tiempo Real")
-        try:
-            start = time.time()
-            # SE ENVÍA TOKEN POR PARAMS
-            r = requests.get(f"{BACKEND_INTERNAL}/api/vigilancia", headers=headers)
-            lat = int((time.time() - start) * 1000)
-            if r.status_code == 200:
-                data = r.json()
-                col1, col2, col3, col4 = st.columns(4)
-                col1.metric("CPU", f"{data['cpu']}%")
-                col2.metric("RAM", f"{data['ram']}%")
-                col3.metric("DISCO", f"{data['disk']}%")
-                col4.metric("LATENCIA", f"{lat}ms")
-            else: st.error(f"⚠️ Error {r.status_code}: No autorizado.")
-        except: st.error("🚨 El motor de vigilancia no responde.")
+        st.subheader("🕵️ Vigilancia en Tiempo Real (Modo Optimizado)")
+        
+        # Contenedor para los logs
+        log_container = st.empty()
+        
+        # Función de refresco con bajo impacto
+        def update_logs():
+            # Llamada a la API optimizada (máximo 100 registros)
+            response = requests.get(f"{API_URL}/logs/recent", headers=headers)
+            if response.status_code == 200:
+                logs = response.json()
+                
+                # Construimos el terminal inmutable con el estilo unificado
+                log_text = ""
+                for log in logs:
+                    # Formateamos solo texto ligero, sin HTML pesado por cada línea
+                    log_text += f"[{log['timestamp']}] {log['event']}\n"
+                
+                # Actualizamos todo el bloque de una sola vez para evitar parpadeos y CPU spikes
+                log_container.code(log_text, language="bash")
+
+        # Ejecutamos con un sleep para dar respiro al procesador
+        update_logs()
 
     elif st.session_state.page == "Operadores":
         st.title("👥 Gestión de Operadores")
