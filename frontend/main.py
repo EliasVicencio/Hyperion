@@ -278,6 +278,7 @@ if not st.session_state.auth["token"]:
                             
                     except Exception as e:
                         st.error("🚨 El servidor de registro no responde. Verifica la conexión.")
+                        st.caption(f"Detalle técnico del error: {e}")
 
 # --- VISTAS PROTEGIDAS ---
 else:
