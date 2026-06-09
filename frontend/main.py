@@ -7,12 +7,28 @@ import plotly.graph_objects as go
 from sqlalchemy import create_engine, text
 import numpy as np
 
-# --- CONFIGURACIÓN ESTÁTICA ---
-# --- CONFIGURACIÓN DE PRODUCCIÓN ---
-# En producción, BACKEND_INTERNAL es para la comunicación entre contenedores (Docker Net)
-# BACKEND_EXTERNAL es la IP que el navegador del usuario final verá.
-URI_SUPABASE = ""
-URL_BACKEND_RENDER = "http://localhost:8000"  # Valor por defecto seguro para evitar NameError
+# --- CARGAR VARIABLES DESDE EL ENTORNO (.env) ---
+# Intentamos cargar un archivo .env si se ejecuta localmente
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+# --- CONFIGURACIÓN DE PRODUCCIÓN / ENTORNO ---
+# 1. Buscamos la URI de Supabase en los Secrets de Streamlit o en el archivo .env local
+URI_SUPABASE = os.getenv("URI_SUPABASE", "")
+if "URI_SUPABASE" in st.secrets:
+    URI_SUPABASE = st.secrets["URI_SUPABASE"]
+
+# Parche obligatorio para que SQLAlchemy entienda Supabase si viene como 'postgres://'
+if URI_SUPABASE.startswith("postgres://"):
+    URI_SUPABASE = URI_SUPABASE.replace("postgres://", "postgresql://", 1)
+
+# 2. Buscamos la URL del Backend (Hugging Face / Render) en el entorno o en secrets
+URL_BACKEND_RENDER = os.getenv("BACKEND_URL", "http://localhost:8000") # Respaldo local
+if "BACKEND_URL" in st.secrets:
+    URL_BACKEND_RENDER = st.secrets["BACKEND_URL"]
 
 BACKEND_INTERNAL = URL_BACKEND_RENDER
 BACKEND_EXTERNAL = URL_BACKEND_RENDER
@@ -22,9 +38,6 @@ headers = {
 }
 
 LOGO_SVG = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='20' fill='none' stroke='%23a78bfa' stroke-width='2' /><ellipse cx='50' cy='50' rx='45' ry='15' fill='none' stroke='%2358a6ff' stroke-width='1' transform='rotate(45 50 50)' /><ellipse cx='50' cy='50' rx='45' ry='15' fill='none' stroke='%2358a6ff' stroke-width='1' transform='rotate(-45 50 50)' /><circle cx='50' cy='50' r='8' fill='%23a78bfa' /></svg>"
-
-if "BACKEND_URL" in st.secrets:
-    BACKEND_INTERNAL = st.secrets["BACKEND_URL"]
 
 st.set_page_config(page_title="Hyperion Ops", page_icon=LOGO_SVG, layout="wide")
 
