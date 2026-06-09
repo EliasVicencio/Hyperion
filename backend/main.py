@@ -9,6 +9,7 @@ from passlib.context import CryptContext
 from datetime import datetime
 import os, psutil
 import random
+import uuid
 
 # --- CONFIGURACIÓN DE NÚCLEO ---
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -20,7 +21,6 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# --- MODELOS ---
 # --- MODELOS ---
 class UserDB(Base):
     __tablename__ = "users"
