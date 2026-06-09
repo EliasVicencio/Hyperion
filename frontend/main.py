@@ -5,35 +5,15 @@ import time
 import pandas as pd
 import plotly.graph_objects as go
 from sqlalchemy import create_engine, text
+import numpy as np
 
-# Intentar cargar variables locales si existe python-dotenv (opcional para local)
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass
+# --- CONFIGURACIÓN ESTÁTICA ---
+# --- CONFIGURACIÓN DE PRODUCCIÓN ---
+# En producción, BACKEND_INTERNAL es para la comunicación entre contenedores (Docker Net)
+# BACKEND_EXTERNAL es la IP que el navegador del usuario final verá.
+URI_SUPABASE = ""
+URL_BACKEND_RENDER = "http://localhost:8000"  # Valor por defecto seguro para evitar NameError
 
-# --- CONFIGURACIÓN DE CONEXIÓN SEGURA desde .env o Secrets ---
-if "URI_SUPABASE" in st.secrets:
-    URI_SUPABASE = st.secrets["URI_SUPABASE"]
-else:
-    URI_SUPABASE = os.getenv("URI_SUPABASE", "postgresql://localhost:5432/postgres")
-
-# Parche obligatorio por si viene con el prefijo antiguo de postgres
-if URI_SUPABASE.startswith("postgres://"):
-    URI_SUPABASE = URI_SUPABASE.replace("postgres://", "postgresql://", 1)
-
-# --- SINGLETON DEL MOTOR DE BASE DE DATOS DIRECTO ---
-@st.cache_resource
-def obtener_motor_db():
-    """Inicializa un pool de conexiones directo a Supabase"""
-    return create_engine(URI_SUPABASE, pool_pre_ping=True, pool_size=5, max_overflow=10)
-
-engine = obtener_motor_db()
-
-# --- CONFIGURACIÓN DE BACKEND REZAGADO (PRODUCCIÓN ANTERIOR) ---
-# Mantengo tus variables por compatibilidad de tus pestañas pesadas
-URL_BACKEND_RENDER = "https://tu-backend-mock.render.com" 
 BACKEND_INTERNAL = URL_BACKEND_RENDER
 BACKEND_EXTERNAL = URL_BACKEND_RENDER
 
@@ -51,25 +31,73 @@ st.set_page_config(page_title="Hyperion Ops", page_icon=LOGO_SVG, layout="wide")
 # --- CSS INYECTADO (ESTÉTICA DARK) ---
 st.markdown("""
     <style>
-        .stApp { background-color: #0b0e14; }
-        div.stButton > button {
-            background-color: #161b22; color: #f0f6fc;
-            border: 1px solid #30363d; border-radius: 8px; transition: all 0.3s ease;
+        /* Fondo total de la aplicación */
+        .stApp {
+            background-color: #0b0e14;
         }
-        div.stButton > button:hover { border-color: #a78bfa; color: #a78bfa; background-color: #161b22; }
-        [data-testid="stSidebar"] { background-color: #0d1117; border-right: 1px solid #30363d; }
-        [data-testid="stMetricValue"] { color: #a78bfa !important; }
-        *:focus { outline: none !important; box-shadow: none !important; }
-        .metric-card { background: #161b22; padding: 15px; border-radius: 10px; border: 1px solid #30363d; }
+
+        /* Cambiar el color de los botones (quitar el azul) */
+        div.stButton > button {
+            background-color: #161b22;
+            color: #f0f6fc;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        /* Efecto Hover de los botones en Púrpura */
+        div.stButton > button:hover {
+            border-color: #a78bfa;
+            color: #a78bfa;
+            background-color: #161b22;
+        }
+
+        /* Estilo para el Sidebar */
+        [data-testid="stSidebar"] {
+            background-color: #0d1117;
+            border-right: 1px solid #30363d;
+        }
+
+        /* Estilo de las métricas para que no usen azul */
+        [data-testid="stMetricValue"] {
+            color: #a78bfa !important;
+        }
+        
+        /* Quitar líneas azules de enfoque */
+        *:focus {
+            outline: none !important;
+            box-shadow: none !important;
+        }
+        
+        /* Estilos CSS Avanzados de SIEM y Gobernanza integrados globalmente */
+        .kpi-card { background: #161b22; padding: 20px; border-radius: 12px; border: 1px solid #30363d; }
+        .risk-row { 
+            background: #0d1117; padding: 15px; border-radius: 10px; 
+            border: 1px solid #30363d; margin-bottom: 12px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .owner-badge { 
+            background: #21262d; color: #8b949e; padding: 2px 8px; 
+            border-radius: 10px; font-size: 11px; border: 1px solid #30363d;
+        }
+        .compliance-tag { font-size: 12px; color: #a78bfa; font-weight: bold; }
+        
+        .metric-card {
+            background: #161b22;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #30363d;
+        }
     </style>
 """, unsafe_allow_html=True)
 
 # --- SINGLETON DE SESIÓN ---
 if "auth" not in st.session_state:
-    st.session_state.auth = {"token": "BYPASS_DIRECT_DB_MODE", "user": "admin@hyperion.io", "step": "dashboard"} # Autologin temporal para desarrollo directo
+    st.session_state.auth = {"token": None, "user": None, "step": "login"}
 if "page" not in st.session_state:
     st.session_state.page = "Analíticas"
 
+# --- LÓGICA DE NAVEGACIÓN ---
 def nav_to(page):
     st.session_state.page = page
     st.rerun()
@@ -77,6 +105,7 @@ def nav_to(page):
 # --- SIDEBAR ---
 if st.session_state.auth["token"]:
     with st.sidebar:
+        # Logo y Título alineados en la misma línea
         st.markdown(f"""
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
                 <img src="{LOGO_SVG}" width="35">
@@ -86,21 +115,22 @@ if st.session_state.auth["token"]:
             </div>
         """, unsafe_allow_html=True)
         
-        # --- WIDGET DE SALUD (CONEXIÓN DIRECTA A SUPABASE) ---
-        api_status = "🟢" # Tu API ahora es este mismo Frontend
+        # --- WIDGET DE SALUD ---
         try:
-            with engine.connect() as conn:
-                conn.execute(text("SELECT 1"))
-            db_status = "🟢"
+            h = requests.get(f"{BACKEND_INTERNAL}/health/deep", timeout=2)
+            health_data = h.json()
+            api_status = "🟢" if health_data.get("api") == "healthy" else "🔴"
+            db_status = "🟢" if health_data.get("database") == "healthy" else "🔴"
         except:
-            db_status = "🔴"
+            api_status, db_status = "🔴", "🔴"
 
+        # Widget visual
         st.markdown(f"""
             <div style="background: #1e293b; padding: 12px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 10px;">
                 <p style='margin:0; font-size:11px; color:#94a3b8; font-weight:bold;'>ESTADO DEL SISTEMA</p>
                 <div style='display: flex; justify-content: space-between; margin-top: 5px;'>
-                    <span style='font-size:13px;'>{api_status} CORE (Streamlit)</span>
-                    <span style='font-size:13px;'>{db_status} SUPABASE</span>
+                    <span style='font-size:13px;'>{api_status} API</span>
+                    <span style='font-size:13px;'>{db_status} DB</span>
                 </div>
             </div>
         """, unsafe_allow_html=True)
@@ -108,6 +138,7 @@ if st.session_state.auth["token"]:
         st.write(f"👤 **Usuario:** {st.session_state.auth['user']}")
         st.write("---")
         
+        # Botones de Navegación
         if st.button("📊 Analíticas", use_container_width=True): nav_to("Analíticas")
         if st.button("👁️ Vigilancia", use_container_width=True): nav_to("Vigilancia")
         if st.button("👥 Operadores", use_container_width=True): nav_to("Operadores")
@@ -115,15 +146,127 @@ if st.session_state.auth["token"]:
         if st.button("⚖️ Gobernanza", use_container_width=True): nav_to("Gobernanza")
         if st.button("📜 Logs de Auditoría", use_container_width=True): nav_to("AuditLogs")
         if st.button("📜 SIEM Audit", use_container_width=True): nav_to("SIEM")
+        
         st.write("---")
         if st.button("🚪 Cerrar Sesión", use_container_width=True):
             st.session_state.auth = {"token": None, "user": None, "step": "login"}
             st.rerun()
 
-# --- DESPLIEGUE DE VISTAS PRINCIPALES ---
+# --- LÓGICA DE ACCESO (VISTA PRINCIPAL) ---
+
+# 1. Verificamos si NO hay token (Pantalla de Acceso)
 if not st.session_state.auth["token"]:
-    # (Mantén aquí tu bloque exacto de login si quieres usarlo en el futuro, por ahora dejé el bypass activo para entrar directo)
-    st.warning("Ingrese mediante credenciales mapeadas.")
+    _, col, _ = st.columns([1, 2, 1])
+    
+    with col:
+        st.markdown("<h1 style='text-align: center; color: #c084fc;'>HYPERION ACCESS</h1>", unsafe_allow_html=True)
+        
+        tab1, tab2 = st.tabs(["🔐 Ingresar", "📝 Registrarse"])
+        
+        with tab1:
+            if st.session_state.auth["step"] == "login":
+                u = st.text_input("Correo Electrónico", key="l_user_input")
+                p = st.text_input("Contraseña", type="password", key="l_pass_input")
+                
+                if st.button("Validar Credenciales", use_container_width=True):
+                    if u and p:
+                        try:
+                            with st.spinner("Verificando identidad..."):
+                                res = requests.post(
+                                    f"{BACKEND_INTERNAL}/auth/login", 
+                                    data={"username": u, "password": p}, 
+                                    timeout=10
+                                )
+                            
+                            if res.status_code == 200:
+                                st.session_state.auth["user"] = u
+                                st.session_state.auth["step"] = "2fa"
+                                st.success("Credenciales correctas. Ingrese su código OTP.")
+                                time.sleep(0.5)
+                                st.rerun()
+                            elif res.status_code == 401:
+                                st.error("❌ Usuario o contraseña incorrectos.")
+                            elif res.status_code == 403:
+                                st.error("🚫 Acceso denegado: IP Bloqueada.")
+                            else:
+                                st.error(f"Error inesperado: {res.status_code}")
+                                
+                        except requests.exceptions.RequestException as e:
+                            st.error(f"Error de red: Asegúrate de que BACKEND_URL sea correcto.")
+                            print(f"DEBUG: {e}")
+            
+            elif st.session_state.auth["step"] == "2fa":
+                st.info(f"🔑 Verificación para: {st.session_state.auth['user']}")
+                
+                # --- NUEVA SECCIÓN DE QR EN LOGIN ---
+                with st.expander("¿No has vinculado tu app? Ver Código QR"):
+                    import qrcode
+                    from io import BytesIO
+                    
+                    secret = os.getenv('TOTP_SECRET', 'JBSWY3DPEHPK3PXP')
+                    otp_uri = f"otpauth://totp/Hyperion:{st.session_state.auth['user']}?secret={secret}&issuer=HyperionOps"
+                    
+                    qr = qrcode.make(otp_uri)
+                    buf = BytesIO()
+                    qr.save(buf, format="PNG")
+                    st.image(buf.getvalue(), caption="Escanea con Google Authenticator", width=200)
+                
+                # --- CAMPO DE CÓDIGO ---
+                code = st.text_input("Ingresa el código de 6 dígitos", max_chars=6, key="otp_input")
+                
+                if st.button("Finalizar Acceso", use_container_width=True):
+                    try:
+                        print(f"Enviando OTP: {code} para {st.session_state.auth['user']}")
+                        
+                        res = requests.post(
+                            f"{BACKEND_INTERNAL}/auth/login/verify-2fa", 
+                            json={"email": st.session_state.auth["user"], "code": code},
+                            timeout=5
+                        )
+                        
+                        if res.status_code == 200:
+                            st.session_state.auth["token"] = res.json()["access_token"]
+                            st.success("Acceso concedido.")
+                            time.sleep(0.5)
+                            st.rerun()
+                        else:
+                            st.error(f"Código incorrecto o expirado (Error {res.status_code})")
+                    except Exception as e:
+                        st.error(f"Error de conexión: {e}")
+                
+                if st.button("⬅️ Volver al Login"):
+                    st.session_state.auth["step"] = "login"
+                    st.rerun()
+
+        with tab2:
+            st.subheader("📝 Registrar Nuevo Operador")
+            new_u = st.text_input("Correo Operador", key="r_user")
+            new_p = st.text_input("Clave Maestra", type="password", key="r_pass")
+            new_r = st.selectbox("Rol", ["admin", "user"], key="r_role")
+            
+            if st.button("Crear Operador", use_container_width=True):
+                if not new_u or not new_p:
+                    st.warning("⚠️ Por favor, completa todos los campos.")
+                else:
+                    try:
+                        res = requests.post(
+                            f"{BACKEND_INTERNAL}/auth/register", 
+                            json={"email": new_u, "password": new_p, "role": new_r},
+                            timeout=10
+                        )
+                        
+                        if res.status_code == 200:
+                            st.success(f"✅ Operador **{new_u}** registrado con éxito.")
+                            st.balloons()
+                            st.info("💡 Ahora puedes ir a la pestaña 'Ingresar' para vincular tu app y entrar.")
+                        else:
+                            error_detail = res.json().get('detail', 'Error desconocido')
+                            st.error(f"❌ Error en registro: {error_detail}")
+                            
+                    except Exception as e:
+                        st.error("🚨 El servidor de registro no responde. Verifica la conexión.")
+
+# --- VISTAS PROTEGIDAS ---
 else:
     headers = {"Authorization": f"Bearer {st.session_state.auth['token']}"}
     
@@ -143,117 +286,296 @@ else:
         
         # --- FILA 1: TELEMETRÍA DINÁMICA ---
         col_grafica, col_stats = st.columns([2, 1])
+        
         with col_grafica:
             st.subheader("📈 Latencia del Motor (ms)")
-            import numpy as np
-            chart_data = pd.DataFrame(np.random.randn(20, 1) + [22], columns=['Latencia ms'])
+            chart_data = pd.DataFrame(
+                np.random.randn(20, 1) + [20],
+                columns=['Latencia ms']
+            )
             st.area_chart(chart_data, height=150, use_container_width=True)
 
         with col_stats:
             st.subheader("🛡️ Defensa Activa")
-            st.status("Firewall: **Protegiendo de forma Directa**", state="complete")
-            st.metric("Amenazas Bloqueadas (24h)", "142", "+16%")
+            st.status("Firewall: **Protegiendo**", state="complete")
+            st.metric("Amenazas Bloqueadas (24h)", "127", "+12%")
 
         st.write("---")
 
-        # --- FILA 2: TERMINAL DE INGENIERÍA CONECTADA A SUPABASE ---
+        # --- FILA 2: TERMINAL DE INGENIERÍA ---
         st.subheader("🖥️ Consola de Tráfico de Red (Deep Packet Inspection)")
-        log_placeholder = st.empty()
         
-        try:
-            with engine.connect() as conn:
-                # Intentamos leer logs reales de tu tabla de Supabase
-                query = text("SELECT timestamp, event_name, message FROM logs_audit ORDER BY timestamp DESC LIMIT 8")
-                result = conn.execute(query).fetchall()
+        log_placeholder = st.empty()
+
+        for i in range(5):
+            try:
+                response = requests.get(f"{BACKEND_INTERNAL}/logs/recent", headers=headers, timeout=5)
                 
-                if result:
+                if response.status_code == 200:
+                    logs = response.json()
                     log_feed = ""
-                    for row in result:
+                    for log in logs:
                         ip_falsa = f"192.168.1.{np.random.randint(2, 254)}"
-                        log_feed += f"SUCCESS [{row[0]}] {row[1]} -> {ip_falsa} | {row[2]}\n"
+                        metodo = np.random.choice(["GET", "POST", "PUT", "DELETE"])
+                        log_feed += f"DEBUG [{log['timestamp']}] {metodo} {ip_falsa} -> HTTP/1.1 200 OK | {log['message']}\n"
+                    
                     log_placeholder.code(log_feed, language="accesslog")
                 else:
-                    log_placeholder.info("📡 Enlace directo exitoso con Supabase. Esperando nuevas trazas de auditoría...")
-                    log_placeholder.code("[00:01:15] HANDSHAKE LINK EXCITOSO -> Conectado a la base de datos PostgreSQL de Supabase.", language="accesslog")
-        except Exception as err:
-            # Fallback elegante para la demo si la tabla aún no existe en Supabase
-            log_placeholder.warning("⚠️ Modo de simulación híbrido activo (Tablas base en preparación).")
-            log_feed_mock = f"[LOCAL_STREAM] Enlace Directo Ok. Info técnica: {str(err)[:50]}...\n"
-            log_feed_mock += "[06:12:45] GET 192.168.1.54 -> HTTP/1.1 200 OK | Canal seguro TLS establecido\n"
-            log_feed_mock += "[06:12:50] POST 192.168.1.112 -> HTTP/1.1 201 Created | Sincronización inmutable Supabase\n"
-            log_placeholder.code(log_feed_mock, language="accesslog")
+                    log_placeholder.error(f"⚠️ Error de enlace con el Backend: {response.status_code}")
+            except:
+                log_placeholder.error("🚨 Nodo Central fuera de alcance. Reintentando...")
+            
+            time.sleep(2)
 
     elif st.session_state.page == "Operadores":
         st.title("👥 Gestión de Operadores")
         try:
-            with engine.connect() as conn:
-                # Intenta jalar tus usuarios reales de Supabase
-                result = conn.execute(text("SELECT email, role FROM usuarios_ops")).fetchall()
-                if result:
-                    df_users = pd.DataFrame(result, columns=["Email", "Rol"])
-                    st.dataframe(df_users, use_container_width=True)
-                else:
-                    st.info("No hay operadores registrados en las tablas de Supabase.")
-        except:
-            # Mockup robusto para salvar la reunión si la tabla no está lista
-            st.warning("Visualizando estructura de operadores (Modo Offline)")
-            mock_users = pd.DataFrame([{"Email": "admin@hyperion.io", "Rol": "admin"}, {"Email": "operador1@hyperion.io", "Rol": "user"}])
-            st.dataframe(mock_users, use_container_width=True)
-
+            r = requests.get(f"{BACKEND_INTERNAL}/api/system-metrics", headers=headers)
+            if r.status_code == 200:
+                usuarios = r.json()
+                if usuarios:
+                    data_list = [{"Email": k, "Rol": v.get('role', 'N/A')} for k, v in usuarios.items()]
+                    st.dataframe(pd.DataFrame(data_list), use_container_width=True)
+                else: st.info("No hay operadores registrados en la base de datos.")
+            else: st.error("🛑 Acceso Denegado: Se requieren privilegios de Admin.")
+        except Exception as e: st.error(f"Error al conectar con la base de datos: {e}")
+        
     elif st.session_state.page == "Gobernanza":
-        st.markdown("""
-            <style>
-                .kpi-card { background: #161b22; padding: 20px; border-radius: 12px; border: 1px solid #30363d; }
-                .risk-row { background: #0d1117; padding: 15px; border-radius: 10px; border: 1px solid #30363d; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-                .owner-badge { background: #21262d; color: #8b949e; padding: 2px 8px; border-radius: 10px; font-size: 11px; border: 1px solid #30363d; }
-                .compliance-tag { font-size: 12px; color: #a78bfa; font-weight: bold; }
-            </style>
-        """, unsafe_allow_html=True)
         st.title("⚖️ Centro de Gobernanza y Estrategia")
+        st.write("###")
+
+        # --- FILA 1: KPIs CON SPARKLINE Y DESGLOSE ---
         col_a, col_b, col_c = st.columns(3)
+        
         with col_a:
             st.markdown('<div class="kpi-card">', unsafe_allow_html=True)
             st.metric("SECURITY SCORE", "92%", "+2.1%")
             st.line_chart([85, 87, 86, 89, 90, 92], height=50, use_container_width=True)
             st.markdown('</div>', unsafe_allow_html=True)
+
         with col_b:
             st.markdown('<div class="kpi-card">', unsafe_allow_html=True)
-            st.metric("INCIDENTES ABIERTOS", "0", "Stable")
+            st.metric("INCIDENTES ABIERTOS", "0", "Stable", delta_color="normal")
             st.write("🛡️ Sistema íntegro")
             st.markdown('</div>', unsafe_allow_html=True)
+
         with col_c:
             st.markdown('<div class="kpi-card">', unsafe_allow_html=True)
             st.metric("CUMPLIMIENTO TOTAL", "88%", "SOC2/GDPR")
-            st.markdown('<div style="margin-top:10px;"><span class="compliance-tag">GDPR: 85%</span> | <span class="compliance-tag">SOC2: 92%</span></div>', unsafe_allow_html=True)
+            st.markdown("""
+                <div style="margin-top:10px;">
+                    <span class="compliance-tag">GDPR: 85%</span> | 
+                    <span class="compliance-tag">SOC2: 92%</span> | 
+                    <span class="compliance-tag">ISO: 87%</span>
+                </div>
+            """, unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
-        
-        st.write("---")
-        st.subheader("🛡️ Gestión de Activos y Riesgos")
-        st.markdown('<div class="risk-row" style="border-left: 4px solid #f85149;"><div><strong>Enlace Supabase Cloud</strong><br><span style="color:#8b949e; font-size:13px;">Seguridad: Pooling SSL Direct Activo</span><br><span class="owner-badge">Dueño: @infra.core</span></div><div style="text-align:right;"><span style="color:#238636; font-weight:bold; font-size:18px;">🟢</span><br><small style="color:#238636;">ESTABLE</small></div></div>', unsafe_allow_html=True)
 
+        st.write("---")
+
+        # --- FILA 2: MATRIZ DE RIESGOS (DISEÑO MOCKUP DEL CTO) ---
+        col_left, col_right = st.columns([1.8, 1])
+
+        with col_left:
+            st.subheader("🛡️ Gestión de Activos y Riesgos")
+            
+            st.markdown("""
+                <div class="risk-row" style="border-left: 4px solid #f85149;">
+                    <div>
+                        <strong style="font-size:16px;">Consola Auditoría Externa</strong><br>
+                        <span style="color:#8b949e; font-size:13px;">Mitigación: IP Whitelisting (En progreso)</span><br>
+                        <span class="owner-badge">Dueño: @carlos.seg</span>
+                    </div>
+                    <div style="text-align:right;">
+                        <span style="color:#f85149; font-weight:bold; font-size:18px;">🟠</span><br>
+                        <small style="color:#f85149;">ALTO</small>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown("""
+                <div class="risk-row" style="border-left: 4px solid #d29922;">
+                    <div>
+                        <strong style="font-size:16px;">Base de Datos Usuarios</strong><br>
+                        <span style="color:#8b949e; font-size:13px;">Mitigación: Encripción AES-256 Activa</span><br>
+                        <span class="owner-badge">Dueño: @dba.team</span>
+                    </div>
+                    <div style="text-align:right;">
+                        <span style="color:#238636; font-weight:bold; font-size:18px;">🟢</span><br>
+                        <small style="color:#d29922;">MEDIO</small>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+
+            st.markdown("""
+                <div class="risk-row" style="border-left: 4px solid #238636;">
+                    <div>
+                        <strong style="font-size:16px;">Nodo Vigilancia Central</strong><br>
+                        <span style="color:#8b949e; font-size:13px;">Mitigación: Autenticación Token Bearer</span><br>
+                        <span class="owner-badge">Dueño: @devops.team</span>
+                    </div>
+                    <div style="text-align:right;">
+                        <span style="color:#238636; font-weight:bold; font-size:18px;">🟢</span><br>
+                        <small style="color:#238636;">BAJO</small>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with col_right:
+            st.subheader("📋 Roadmap y Auditoría")
+            with st.expander("📅 Próximos Hitos", expanded=True):
+                st.write("**Auditoría Externa:** `2026-05-25`")
+                st.write("**Revisión de Accesos:** `En 3 días`")
+            
+            st.write("###")
+            if st.button("📥 Generar Reporte Ejecutivo PDF", use_container_width=True):
+                with st.spinner('Compilando métricas y roadmap...'):
+                    time.sleep(2)
+                    st.success("✅ Reporte 'Hyperion_Executive_Q2.pdf' listo para descarga.")
+                    st.download_button("Click para descargar", "Contenido del PDF simulado", "Hyperion_Report.pdf")
+
+        with col_right:
+            st.subheader("📈 Auditoría y Reportes")
+            with st.container(border=True):
+                st.write("**Próxima Auditoría Interna:**")
+                st.code("2026-05-25 (En 14 días)")
+                
+                st.write("**Reporte SOC2:**")
+                st.progress(0.7)
+                st.caption("Fase de recolección de evidencia: 70%")
+                
+                st.write("---")
+                if st.button("📥 Generar Reporte Ejecutivo PDF", use_container_width=True, key="btn_reporte_gobernanza"):
+                    with st.spinner('Compilando métricas y roadmap...'):
+                        time.sleep(2)
+                        st.success("✅ Reporte 'Hyperion_Executive_Q2.pdf' listo para descarga.")
+                        st.download_button(
+                            label="Click para descargar", 
+                            data="Contenido del PDF simulado", 
+                            file_name="Hyperion_Report.pdf",
+                            key="btn_download_final"
+                        )
+            
     elif st.session_state.page == "AuditLogs":
         st.title("📜 Registros de Auditoría del Sistema")
-        st.info("Logs Directos de la Base de Datos Inmutable en Supabase.")
+        st.info("Historial de acciones críticas almacenadas en PostgreSQL.")
+
         try:
-            with engine.connect() as conn:
-                df = pd.read_sql("SELECT * FROM logs_audit LIMIT 50", conn)
-                st.dataframe(df, use_container_width=True)
-        except:
-            st.warning("Exhibiendo estructura muestra de auditoría (Esquema PostgreSQL)")
-            df_mock = pd.DataFrame([{"timestamp": "2026-04-01 20:15:02", "actor": "admin@hyperion.io", "action": "CREATE_LINK", "target": "Supabase DB"}])
-            st.dataframe(df_mock, use_container_width=True)
+            r = requests.get(f"{BACKEND_INTERNAL}/api/system-metrics", headers=headers)
+            
+            if r.status_code == 200:
+                logs = r.json()
+                if logs:
+                    df_logs = pd.DataFrame(logs)
+                    
+                    # --- NUEVA SECCIÓN DE EXPORTACIÓN ---
+                    col_search, col_exp = st.columns([2, 1])
+                    
+                    with col_search:
+                        search = st.text_input("🔍 Filtrar logs:", placeholder="Ej: admin, login...")
+                    
+                    if search:
+                        df_logs = df_logs[df_logs.apply(lambda row: search.lower() in row.astype(str).str.lower().values, axis=1)]
+
+                    with col_exp:
+                        st.write("📤 **Exportar Reporte**")
+                        csv = df_logs.to_csv(index=False).encode('utf-8')
+                        st.download_button(
+                            label="Descargar CSV",
+                            data=csv,
+                            file_name=f"audit_report_{time.strftime('%Y%m%d_%H%M')}.csv",
+                            mime="text/csv",
+                            use_container_width=True
+                        )
+
+                    st.dataframe(
+                        df_logs, 
+                        use_container_width=True,
+                        column_config={
+                            "timestamp": "Fecha/Hora",
+                            "actor": "Usuario",
+                            "action": "Acción",
+                            "target": "Detalle"
+                        }
+                    )
+                    st.caption(f"Mostrando {len(df_logs)} registros encontrados.")
+                else:
+                    st.warning("No hay registros de auditoría en la base de datos.")
+            else:
+                st.error(f"🛑 Error {r.status_code}: No autorizado.")
+        except Exception as e:
+            st.error(f"🚨 Error de conexión: {e}")
 
     elif st.session_state.page == "SIEM":
         st.title("📜 Hyperion SIEM Audit")
-        col_a, col_b, col_c = st.columns(3)
-        with col_a: st.markdown('<div class="metric-card"><h4 style="margin:0; color:#9333ea;">📦 Nodo Ingesta</h4><p style="font-size:24px; font-weight:bold; margin:0;">CONECTADO</p><small style="color:#4ade80;">Supabase Port 6543</small></div>', unsafe_allow_html=True)
-        with col_b: st.markdown('<div class="metric-card"><h4 style="margin:0; color:#9333ea;">🔒 Integridad</h4><p style="font-size:24px; font-weight:bold; margin:0;">VERIFICADO</p><small style="color:#4ade80;">Cifrado nativo SSL</small></div>', unsafe_allow_html=True)
-        with col_c: st.markdown('<div class="metric-card"><h4 style="margin:0; color:#9333ea;">⚡ Rendimiento</h4><p style="font-size:24px; font-weight:bold; margin:0;">< 5ms</p><small style="color:#4ade80;">Conexión directa peer-to-peer</small></div>', unsafe_allow_html=True)
         
+        # --- FILA 1: ESTADO DEL MOTOR ---
+        col_a, col_b, col_c = st.columns(3)
+        with col_a:
+            st.markdown("""
+                <div class="metric-card">
+                    <h4 style='margin:0; color:#9333ea;'>📦 Nodo de Ingesta</h4>
+                    <p style='font-size:24px; font-weight:bold; margin:0;'>ACTIVO</p>
+                    <small style='color:#4ade80;'>Protocolo Kafka 9092</small>
+                </div>
+            """, unsafe_allow_html=True)
+        with col_b:
+            st.markdown("""
+                <div class="metric-card">
+                    <h4 style='margin:0; color:#9333ea;'>🔒 Integridad</h4>
+                    <p style='font-size:24px; font-weight:bold; margin:0;'>SHA-256</p>
+                    <small style='color:#4ade80;'>Cadena de bloques verificada</small>
+                </div>
+            """, unsafe_allow_html=True)
+        with col_c:
+            st.markdown("""
+                <div class="metric-card">
+                    <h4 style='margin:0; color:#9333ea;'>⚡ Rendimiento</h4>
+                    <p style='font-size:24px; font-weight:bold; margin:0;'>< 10ms</p>
+                    <small style='color:#4ade80;'>Latencia de procesamiento</small>
+                </div>
+            """, unsafe_allow_html=True)
+
+        st.write("")
+
+        # --- FILA 2: ACCESO Y DETALLES TÉCNICOS ---
+        left_col, right_col = st.columns([2, 1])
+
+        with left_col:
+            st.subheader("Motor de Análisis de Logs")
+            st.info("El sistema está capturando eventos en tiempo real a través de los adaptadores de red. Los logs presentados en la consola externa son inmutables y están firmados criptográficamente.")
+            
+            url = f"{BACKEND_EXTERNAL}/dashboard?token={st.session_state.auth['token']}"
+            st.markdown(f"""
+                <a href="{url}" target="_blank" style="text-decoration: none;">
+                    <div style="background: linear-gradient(90deg, #9333ea 0%, #c084fc 100%); 
+                                padding: 20px; border-radius: 10px; text-align: center; 
+                                color: white; font-weight: bold; font-size: 20px;
+                                box-shadow: 0 4px 15px rgba(147, 51, 234, 0.3);">
+                        🚀 ABRIR CONSOLA EXTERNA DE AUDITORÍA
+                    </div>
+                </a>
+            """, unsafe_allow_html=True)
+
+        with right_col:
+            st.subheader("Configuración")
+            with st.expander("Ver credenciales de sesión"):
+                st.code(f"JWT_TOKEN: {st.session_state.auth['token'][:15]}...", language="bash")
+                st.caption("Este token es temporal y expira al cerrar la pestaña.")
+            
+            st.warning("⚠️ El acceso externo requiere que la VPN esté activa si trabajas en remoto.")
+
+        # --- FILA 3: TABLA DE EVENTOS RECIENTES (MOCKUP) ---
         st.write("---")
-        st.subheader("Últimas Alertas de Seguridad")
+        st.subheader("Últimas Alertas de Seguridad detectadas")
         mock_data = pd.DataFrame([
-            {"Timestamp": "2026-06-01 20:15:02", "Evento": "Conexión Directa Establecida", "Nivel": "BAJO", "Origen": "Streamlit App"},
-            {"Timestamp": "2026-06-01 21:05:12", "Evento": "Lectura SSL Sincronizada", "Nivel": "BAJO", "Origen": "Supabase Engine"}
+            {"Timestamp": "2026-04-01 20:15:02", "Evento": "Intento de Brute Force", "Nivel": "CRÍTICO", "Origen": "192.168.1.45"},
+            {"Timestamp": "2026-04-01 21:05:12", "Evento": "Escaneo de Puertos", "Nivel": "ALTO", "Origen": "10.0.0.12"},
+            {"Timestamp": "2026-04-01 21:10:45", "Evento": "Cambio de permisos", "Nivel": "MEDIO", "Origen": "admin_user"}
         ])
-        st.table(mock_data)
+        
+        def color_level(val):
+            color = '#ef4444' if val == 'CRÍTICO' else ('#f59e0b' if val == 'ALTO' else '#3b82f6')
+            return f'color: {color}; font-weight: bold;'
+
+        st.table(mock_data.style.map(color_level, subset=['Nivel']))
