@@ -3,3 +3,5 @@ requests
 plotly
 pillow
 qrcode
+sqlalchemy
+psycopg2-binary
