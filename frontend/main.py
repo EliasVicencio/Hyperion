@@ -262,22 +262,34 @@ if not st.session_state.auth["token"]:
                     st.warning("⚠️ Por favor, completa todos los campos.")
                 else:
                     try:
-                        res = requests.post(
-                            f"{BACKEND_INTERNAL}/auth/register", 
-                            json={"email": new_u, "password": new_p, "role": new_r},
-                            timeout=10
-                        )
+                        with st.spinner("Comunicando con el nodo central..."):
+                            res = requests.post(
+                                f"{BACKEND_INTERNAL}/auth/register", 
+                                json={"email": new_u, "password": new_p, "role": new_r},
+                                timeout=10
+                            )
                         
+                        # Si el backend responde 200 OK
                         if res.status_code == 200:
                             st.success(f"✅ Operador **{new_u}** registrado con éxito.")
                             st.balloons()
                             st.info("💡 Ahora puedes ir a la pestaña 'Ingresar' para vincular tu app y entrar.")
+                        
+                        # Si el backend responde con un error controlado (400, 422, 500, etc.)
                         else:
-                            error_detail = res.json().get('detail', 'Error desconocido')
-                            st.error(f"❌ Error en registro: {error_detail}")
+                            try:
+                                # FastAPI emite los errores dentro de la propiedad 'detail'
+                                error_detail = res.json().get('detail', 'Error desconocido en el servidor.')
+                            except Exception:
+                                # Respaldo en caso de que la respuesta no sea JSON (un HTML de Hugging Face por ejemplo)
+                                error_detail = res.text if res.text else "Respuesta vacía del servidor."
+                                
+                            st.error(f"❌ Error en registro (Código {res.status_code}): {error_detail}")
                             
+                    except requests.exceptions.ConnectionError:
+                        st.error("🚨 No se pudo establecer conexión con el backend. Verifica que la URL no termine en '/' y que el Space esté en modo 'Public'.")
                     except Exception as e:
-                        st.error("🚨 El servidor de registro no responde. Verifica la conexión.")
+                        st.error("🚨 Ocurrió un fallo inesperado en la solicitud de red.")
                         st.caption(f"Detalle técnico del error: {e}")
 
 # --- VISTAS PROTEGIDAS ---

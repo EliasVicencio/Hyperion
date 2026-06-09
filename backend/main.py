@@ -81,17 +81,32 @@ def log_event(db: Session, actor: str, action: str, target: str = None):
 # --- RUTAS DE AUTENTICACIÓN Y REGISTRO ---
 
 @app.post("/auth/register")
-async def register(data: dict):
-    db = SessionLocal()
+async def register(data: dict, db: Session = Depends(get_db)): # Usamos la dependencia get_db
+    # Validar que vengan los campos indispensables
+    if "email" not in data or "password" not in data:
+        raise HTTPException(status_code=400, detail="Faltan campos obligatorios (email/password)")
+        
+    # Verificar si el usuario ya existe para evitar que explote SQLAlchemy
+    existing_user = db.query(UserDB).filter(UserDB.email == data["email"]).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="El operador ya se encuentra registrado")
+
     try:
-        new_user = UserDB(email=data["email"], password=pwd_context.hash(data["password"]), role=data.get("role", "admin"))
+        new_user = UserDB(
+            email=data["email"], 
+            password=pwd_context.hash(data["password"]), 
+            role=data.get("role", "admin")
+        )
         db.add(new_user)
         db.commit()
+        
+        # Registrar el evento en los logs de auditoría
+        log_event(db, actor=data["email"], action="REGISTER", target="User created successfully")
+        
         return {"msg": "OK"}
-    except:
-        return {"msg": "Error o usuario ya existe"}
-    finally:
-        db.close()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
 
 @app.post("/auth/login")
 async def login(request: Request):
