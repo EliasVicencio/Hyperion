@@ -21,6 +21,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+app = FastAPI()
 # --- MODELOS ---
 class UserDB(Base):
     __tablename__ = "users"
