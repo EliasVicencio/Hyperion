@@ -105,9 +105,9 @@ def get_audit_logs(token: str = Depends(oauth2_scheme)):
 # RESTAURACIÓN ABSOLUTA DEL COMMAND CENTER ORIGINAL (FIEL AL 100%)
 # =====================================================================
 @app.get("/dashboard", response_class=HTMLResponse)
-async def external_dashboard(token: str = None):
-    # Verificación de Token (Tal cual lo tenías configurado)
-    if token != "SESION_ADMIN_HYPERION_ULTRA_SECRETA":
+async def external_dashboard(auth_token: str = None):  # <--- CAMBIO: Cambiado de 'token' a 'auth_token'
+    # Verificación de credenciales segura sin interferir con OAuth2 global
+    if auth_token != "SESION_ADMIN_HYPERION_ULTRA_SECRETA":
         return "<html><body style='background:black;color:red;display:flex;justify-content:center;align-items:center;height:100vh;'><h1>ACCESO DENEGADO - PROTOCOLO DE SEGURIDAD ACTIVO</h1></body></html>"
        
     # Retornamos el HTML plano puro (sin la 'f' inicial) para que Vercel no rompa con los caracteres % del SVG

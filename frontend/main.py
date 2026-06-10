@@ -391,7 +391,7 @@ else:
 
         with left_col:
             st.subheader("Motor de Análisis de Logs")
-            url = f"{BACKEND_EXTERNAL}/dashboard?token={st.session_state.auth['token']}"
+            url = f"{BACKEND_EXTERNAL}/dashboard?auth_token={st.session_state.auth['token']}"
             st.markdown(f"""
                 <a href="{url}" target="_blank" style="text-decoration: none;">
                     <div style="background: linear-gradient(90deg, #9333ea 0%, #c084fc 100%); padding: 20px; border-radius: 10px; text-align: center; color: white; font-weight: bold; font-size: 20px;">
