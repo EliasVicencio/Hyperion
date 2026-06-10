@@ -5,15 +5,12 @@ import time
 import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
-# 🔄 CAMBIO: Se importa de manera limpia la función modularizada del nuevo dashboard desacoplado
-from audit_app import mostrar_auditoria
 
 # --- CARGAR VARIABLES DESDE EL ENTORNO O SECRETS ---
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 if "BACKEND_URL" in st.secrets:
     BACKEND_URL = st.secrets["BACKEND_URL"]
 
-# Parche de seguridad para limpiar barras diagonales al final de la URL
 if BACKEND_URL.endswith("/"):
     BACKEND_URL = BACKEND_URL.rstrip("/")
 
@@ -24,7 +21,7 @@ LOGO_SVG = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='
 
 st.set_page_config(page_title="Hyperion Ops", page_icon=LOGO_SVG, layout="wide")
 
-# --- CSS INYECTADO (ESTÉTICA DARK MODERNA) ---
+# --- CSS INYECTADO ---
 st.markdown("""
     <style>
         .stApp { background-color: #0b0e14; }
@@ -63,7 +60,6 @@ if st.session_state.auth["token"]:
             </div>
         """, unsafe_allow_html=True)
         
-        # --- VERIFICACIÓN DINÁMICA DE SALUD ---
         try:
             h = requests.get(f"{BACKEND_INTERNAL}/health/deep", timeout=2)
             health_data = h.json()
@@ -373,11 +369,10 @@ else:
         except Exception as e:
             st.error(f"🚨 Error de conexión: {e}")
 
-    # 🔄 CAMBIO: Se reestructura por completo la pestaña "SIEM" para ejecutar el código inyectado
+    # 🔄 CAMBIO: Se restaura la vista externa independiente para la pestaña SIEM
     elif st.session_state.page == "SIEM":
         st.title("📜 Hyperion SIEM Audit")
         
-        # Se preservan las tarjetas de estado e infraestructura del SIEM
         col_a, col_b, col_c = st.columns(3)
         with col_a:
             st.markdown('<div class="metric-card"><h4 style="margin:0; color:#9333ea;">📦 Nodo Ingesta</h4><p style="font-size:24px; font-weight:bold; margin:0;">ACTIVO</p><small style="color:#4ade80;">Kafka 9092</small></div>', unsafe_allow_html=True)
@@ -387,14 +382,31 @@ else:
             st.markdown('<div class="metric-card"><h4 style="margin:0; color:#9333ea;">⚡ Rendimiento</h4><p style="font-size:24px; font-weight:bold; margin:0;">< 10ms</p><small style="color:#4ade80;">Latencia estable</small></div>', unsafe_allow_html=True)
 
         st.write("")
-        st.write("---")
-        
-        # 🔄 CAMBIO: Se eliminó el botón que apuntaba a la URL externa rota del antiguo backend.
-        # En su lugar, ejecutamos de manera nativa y directa la consulta segura a la base de datos PostgreSQL.
-        mostrar_auditoria()
+        left_col, right_col = st.columns([2, 1])
+
+        with left_col:
+            st.subheader("Motor de Análisis de Logs")
+            
+            # 🔄 CAMBIO: Cambia esta URL por la dirección real donde vas a levantar de forma externa tu `audit_app.py`
+            URL_PANEL_AUDITORIA_EXTERNO = "https://tu-app-de-auditoria-independiente.streamlit.app"
+            
+            # Botón de redirección estilizado para abrir la Bitácora Legal en una pestaña nueva
+            st.markdown(f"""
+                <a href="{URL_PANEL_AUDITORIA_EXTERNO}" target="_blank" style="text-decoration: none;">
+                    <div style="background: linear-gradient(90deg, #9333ea 0%, #c084fc 100%); padding: 20px; border-radius: 10px; text-align: center; color: white; font-weight: bold; font-size: 20px; box-shadow: 0 4px 15px rgba(147, 51, 234, 0.3); transition: transform 0.2s;">
+                        🚀 ABRIR CONSOLA EXTERNA DE AUDITORÍA (NODO INDEPENDIENTE)
+                    </div>
+                </a>
+            """, unsafe_allow_html=True)
+
+        with right_col:
+            st.subheader("Configuración")
+            with st.expander("Ver credenciales de sesión"):
+                st.code(f"JWT_TOKEN: {st.session_state.auth['token'][:15]}...", language="bash")
+            st.warning("⚠️ El acceso requiere VPN activa para entornos remotos.")
 
         st.write("---")
-        st.subheader("Últimas Alertas de Seguridad detectadas (Streaming)")
+        st.subheader("Últimas Alertas de Seguridad detectadas")
         mock_data = pd.DataFrame([
             {"Timestamp": "2026-04-01 20:15:02", "Evento": "Intento de Brute Force", "Nivel": "CRÍTICO", "Origen": "192.168.1.45"},
             {"Timestamp": "2026-04-01 21:05:12", "Evento": "Escaneo de Puertos", "Nivel": "ALTO", "Origen": "10.0.0.12"},
