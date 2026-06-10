@@ -102,21 +102,15 @@ def get_audit_logs(token: str = Depends(oauth2_scheme)):
 
 # --- CONSOLA EXTERNA (SIEM CONSOLE HTML) ---
 # =====================================================================
-# RESTAURACIÓN CRÍTICA: COMMAND CENTER INTERACTIVO CON CHART.JS (COMPATIBLE CON VERCEL)
+# RESTAURACIÓN ABSOLUTA DEL COMMAND CENTER ORIGINAL (FIEL AL 100%)
 # =====================================================================
 @app.get("/dashboard", response_class=HTMLResponse)
 async def external_dashboard(token: str = None):
-    # Verificación estricta de Token de Seguridad
+    # Verificación de Token (Tal cual lo tenías configurado)
     if token != "SESION_ADMIN_HYPERION_ULTRA_SECRETA":
-        return """
-        <html>
-            <body style='background:#0b0e14;color:#f85149;display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;'>
-                <h1 style='border: 2px solid #f85149; padding: 20px; border-radius: 8px;'>ACCESO DENEGADO - PROTOCOLO DE SEGURIDAD ACTIVO</h1>
-            </body>
-        </html>
-        """
-        
-    # NOTA: Eliminamos la 'f' del string para evitar que Vercel crashee con los caracteres especiales del SVG y Chart.js
+        return "<html><body style='background:black;color:red;display:flex;justify-content:center;align-items:center;height:100vh;'><h1>ACCESO DENEGADO - PROTOCOLO DE SEGURIDAD ACTIVO</h1></body></html>"
+       
+    # Retornamos el HTML plano puro (sin la 'f' inicial) para que Vercel no rompa con los caracteres % del SVG
     return """
     <html>
         <head>
@@ -144,7 +138,7 @@ async def external_dashboard(token: str = None):
                     color: #fff;
                     text-transform: uppercase;
                 }
-                .logo-text span { color: #a78bfa; }
+                .logo-text span { color: #a78bfa; } /* El toque morado de Hyperion */
                 
                 .status-container { display: flex; align-items: center; gap: 10px; font-size: 0.8rem; color: #8b949e; }
                 .status-dot { height: 8px; width: 8px; background: #238636; border-radius: 50%; box-shadow: 0 0 8px #238636; animation: pulse 2s infinite; }
