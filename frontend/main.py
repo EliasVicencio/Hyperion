@@ -5,9 +5,10 @@ import time
 import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
+# 🔄 CAMBIO: Se importa de manera limpia la función modularizada del nuevo dashboard desacoplado
+from audit_app import mostrar_auditoria
 
 # --- CARGAR VARIABLES DESDE EL ENTORNO O SECRETS ---
-# Buscamos la URL del Backend. Si no existe, usamos localhost por defecto.
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 if "BACKEND_URL" in st.secrets:
     BACKEND_URL = st.secrets["BACKEND_URL"]
@@ -114,7 +115,6 @@ if not st.session_state.auth["token"]:
                     if u and p:
                         try:
                             with st.spinner("Verificando identidad..."):
-                                # CAMBIO: Mantenemos 'data=' porque OAuth2/FastAPI recibe los parámetros por x-www-form-urlencoded
                                 res = requests.post(
                                     f"{BACKEND_INTERNAL}/auth/login", 
                                     data={"username": u, "password": p}, 
@@ -155,7 +155,6 @@ if not st.session_state.auth["token"]:
                 
                 if st.button("Finalizar Acceso", use_container_width=True):
                     try:
-                        # CAMBIO: Usamos json= para enviar los campos requeridos por el backend de forma estructurada
                         res = requests.post(
                             f"{BACKEND_INTERNAL}/auth/login/verify-2fa", 
                             json={"email": st.session_state.auth["user"], "code": code},
@@ -346,7 +345,6 @@ else:
         st.info("Historial de acciones críticas almacenadas en PostgreSQL.")
 
         try:
-            # CAMBIO: Corregido el endpoint para que llame de forma precisa a /admin/audit-logs en lugar de system-metrics
             r = requests.get(f"{BACKEND_INTERNAL}/admin/audit-logs", headers=headers)
             
             if r.status_code == 200:
@@ -375,9 +373,11 @@ else:
         except Exception as e:
             st.error(f"🚨 Error de conexión: {e}")
 
+    # 🔄 CAMBIO: Se reestructura por completo la pestaña "SIEM" para ejecutar el código inyectado
     elif st.session_state.page == "SIEM":
         st.title("📜 Hyperion SIEM Audit")
         
+        # Se preservan las tarjetas de estado e infraestructura del SIEM
         col_a, col_b, col_c = st.columns(3)
         with col_a:
             st.markdown('<div class="metric-card"><h4 style="margin:0; color:#9333ea;">📦 Nodo Ingesta</h4><p style="font-size:24px; font-weight:bold; margin:0;">ACTIVO</p><small style="color:#4ade80;">Kafka 9092</small></div>', unsafe_allow_html=True)
@@ -387,27 +387,14 @@ else:
             st.markdown('<div class="metric-card"><h4 style="margin:0; color:#9333ea;">⚡ Rendimiento</h4><p style="font-size:24px; font-weight:bold; margin:0;">< 10ms</p><small style="color:#4ade80;">Latencia estable</small></div>', unsafe_allow_html=True)
 
         st.write("")
-        left_col, right_col = st.columns([2, 1])
-
-        with left_col:
-            st.subheader("Motor de Análisis de Logs")
-            url = f"{BACKEND_EXTERNAL}/dashboard?auth_token={st.session_state.auth['token']}"
-            st.markdown(f"""
-                <a href="{url}" target="_blank" style="text-decoration: none;">
-                    <div style="background: linear-gradient(90deg, #9333ea 0%, #c084fc 100%); padding: 20px; border-radius: 10px; text-align: center; color: white; font-weight: bold; font-size: 20px;">
-                        🚀 ABRIR CONSOLA EXTERNA DE AUDITORÍA
-                    </div>
-                </a>
-            """, unsafe_allow_html=True)
-
-        with right_col:
-            st.subheader("Configuración")
-            with st.expander("Ver credenciales de sesión"):
-                st.code(f"JWT_TOKEN: {st.session_state.auth['token'][:15]}...", language="bash")
-            st.warning("⚠️ El acceso requiere VPN activa para entornos remotos.")
+        st.write("---")
+        
+        # 🔄 CAMBIO: Se eliminó el botón que apuntaba a la URL externa rota del antiguo backend.
+        # En su lugar, ejecutamos de manera nativa y directa la consulta segura a la base de datos PostgreSQL.
+        mostrar_auditoria()
 
         st.write("---")
-        st.subheader("Últimas Alertas de Seguridad detectadas")
+        st.subheader("Últimas Alertas de Seguridad detectadas (Streaming)")
         mock_data = pd.DataFrame([
             {"Timestamp": "2026-04-01 20:15:02", "Evento": "Intento de Brute Force", "Nivel": "CRÍTICO", "Origen": "192.168.1.45"},
             {"Timestamp": "2026-04-01 21:05:12", "Evento": "Escaneo de Puertos", "Nivel": "ALTO", "Origen": "10.0.0.12"},
