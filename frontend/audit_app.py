@@ -19,7 +19,7 @@ def mostrar_auditoria():
     # 1. Conexión segura usando los secrets de la raíz
     try:
         # Busca en secrets, si no, usa el fallback local seguro
-        db_url = st.secrets.get("DATABASE_URL", "postgresql://admin:hyperion_secret@localhost:5432/hyperion_db")
+        db_url = st.secrets.get("DATABASE_URL", "postgresql://postgres.tyunqthoinamdlyhgmuq:zKxaQ4y2zNtaMnI3@aws-1-us-east-1.pooler.supabase.com:6543/postgres")
         engine = create_engine(db_url)
     except Exception as e:
         st.error(f"❌ Error de configuración de credenciales a la DB: {e}")
