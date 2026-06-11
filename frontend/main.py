@@ -27,7 +27,6 @@ token_sesion = query_params.get("session_token", None)
 
 # 1. Conexión Directa y Segura a la Base de Datos usando tus Secrets reales
 try:
-    # 🔄 CORRECCIÓN: Buscamos "URI_SUPABASE" que es como lo tienes guardado en la nube
     if "URI_SUPABASE" in st.secrets:
         db_url = st.secrets["URI_SUPABASE"]
     else:
@@ -55,7 +54,7 @@ with col2:
 with col3:
     actor_filter = st.text_input("Filtrar por Actor / Operador (Opcional)", "").strip()
 
-# 3. Construcción de Query Segura (Ajustada al nombre real exacto "AUDIT_LOGS")
+# 3. Construcción de Query Segura (Ajustada al nombre real exacto "audit_logs")
 query_str = """
     SELECT * FROM "audit_logs" 
     WHERE timestamp >= :desde AND timestamp <= :hasta
@@ -78,33 +77,30 @@ with st.spinner("Consultando registros inmutables de PostgreSQL..."):
         with engine.connect() as conn:
             df = pd.read_sql(text(query_str), conn, params=params)
             
-        # 5. Métricas Rápidas e Integridad de Nivel Ejecutivo
+        # 5. Métricas Rápidas e Integridad de Nivel Ejecutivo (CORREGIDO FLUJO E INDENTACIÓN)
         if not df.empty:
-            # Cálculos dinámicos basados en los datos reales de Supabase
             total_recs = len(df)
             
-            # 1. Identificar actores únicos (usuarios que han generado eventos)
-            # Adaptado por si tu columna se llama 'actor' o 'username'
+            # Identificar actores únicos adaptado a tu esquema dinámico
             col_actor = 'actor' if 'actor' in df.columns else df.columns[1]
             usuarios_unicos = df[col_actor].nunique()
             
-            # 2. Identificar la última acción y criticidad simulada
+            # Identificar la última acción
             col_action = 'action' if 'action' in df.columns else df.columns[2]
             ultima_accion = str(df[col_action].iloc[0]).upper()
             
-            # 3. Detectar anomalías simuladas (ej: acciones de "error", "failed" o "delete")
+            # Detectar anomalías reales en base al texto
             anomalias = df[df[col_action].str.lower().str.contains('fail|error|delete|drop', na=False)]
             total_anomalias = len(anomalias)
             
-            # --- RENDERIZADO DE TARJETAS EN PANTALLA ---
+            # --- RENDERIZADO DE TARJETAS ---
             m1, m2, m3, m4 = st.columns(4)
             
             with m1:
                 st.metric(
                     label="📊 Volumen de Eventos", 
                     value=f"{total_recs} registros", 
-                    delta="Flujo Normal", 
-                    delta_color="normal"
+                    delta="Flujo Normal"
                 )
             
             with m2:
@@ -116,12 +112,11 @@ with st.spinner("Consultando registros inmutables de PostgreSQL..."):
                 )
                 
             with m3:
-                # Si hay alertas/fallas, el indicador cambia de color de forma inteligente
                 color_alerta = "inverse" if total_anomalias > 0 else "normal"
                 st.metric(
                     label="🚨 Alertas de Seguridad", 
                     value=f"{total_anomalias} críticas", 
-                    delta="0 Incidentes Activos" if total_anomalias == 0 else "Requiere Revisión",
+                    delta="0 Incidentes" if total_anomalias == 0 else "Requiere Revisión",
                     delta_color=color_alerta
                 )
             
@@ -129,14 +124,25 @@ with st.spinner("Consultando registros inmutables de PostgreSQL..."):
                 st.metric(
                     label="🔒 Estado del Ledger", 
                     value="99.98%", 
-                    delta="Cumplimiento NIST / SOC2",
-                    delta_color="normal"
+                    delta="Norma NIST / SOC2"
                 )
 
             st.write("---")
             st.subheader("📋 Registro de Eventos Estructurado")
             st.dataframe(df, use_container_width=True)
             
+            # Botón de Descarga Oficial Recuperado
+            st.write("")
+            csv_data = df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Exportar Bitácora Legal (CSV Oficial)",
+                data=csv_data,
+                file_name=f"hyperion_bitacora_{fecha_desde}_al_{fecha_hasta}.csv",
+                mime="text/csv"
+            )
+        else:
+            st.warning("⚠️ No se encontraron eventos de seguridad en el rango de fechas seleccionado.")
+            
     except Exception as e:
-        st.error(f"❌ Error al consultar la tabla 'AUDIT_LOGS': {e}")
+        st.error(f"❌ Error al consultar la tabla 'audit_logs': {e}")
         st.info("💡 Nota técnica: El enlace a Supabase funciona, pero ocurrió un problema al mapear la estructura. Revisa la traza del error o las columnas de la tabla.")
