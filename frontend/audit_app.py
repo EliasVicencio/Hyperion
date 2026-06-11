@@ -22,7 +22,7 @@ st.markdown("""
 
 # 1. Conexión Directa y Segura a la Base de Datos
 try:
-    db_url = st.secrets.get("DATABASE_URL", "postgresql://admin:hyperion_secret@localhost:5432/hyperion_db")
+    db_url = st.secrets.get("DATABASE_URL", "postgresql://postgres.tyunqthoinamdlyhgmuq:zKxaQ4y2zNtaMnI3@aws-1-us-east-1.pooler.supabase.com:6543/postgres")
     engine = create_engine(db_url)
 except Exception as e:
     st.error(f"❌ Error crítico de conexión a la Base de Datos de Auditoría: {e}")
