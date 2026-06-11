@@ -59,8 +59,51 @@ st.markdown("""
         padding-bottom: 4px;
     }
     
-    /* Modificaciones estéticas de componentes nativos */
-    [data-testid="stSidebar"] { background-color: #090d14; border-right: 1px solid rgba(167, 139, 250, 0.15); }
+    /* MODIFICACIONES DEL SIDEBAR Y REDISEÑO DE MENÚ SIN PUNTOS */
+    [data-testid="stSidebar"] { 
+        background-color: #090d14; 
+        border-right: 1px solid rgba(167, 139, 250, 0.15); 
+    }
+    
+    /* Ocultar los círculos nativos (radio buttons) del menú */
+    [data-testid="stSidebar"] div[data-testid="stRadio"]  div[role="radiogroup"] > label > div:first-child {
+        display: none !important;
+    }
+    
+    /* Convertir las etiquetas de texto del radio en botones estilizados */
+    [data-testid="stSidebar"] div[data-testid="stRadio"] div[role="radiogroup"] > label {
+        background-color: #0c111d !important;
+        border: 1px solid rgba(255, 255, 255, 0.05) !important;
+        padding: 12px 16px !important;
+        margin-bottom: 8px !important;
+        border-radius: 8px !important;
+        cursor: pointer !important;
+        transition: all 0.2s ease-in-out !important;
+        display: block !important;
+        width: 100% !important;
+    }
+    
+    /* Efecto Hover sobre los elementos del menú */
+    [data-testid="stSidebar"] div[data-testid="stRadio"] div[role="radiogroup"] > label:hover {
+        border-color: rgba(167, 139, 250, 0.4) !important;
+        background-color: #111827 !important;
+    }
+    
+    /* Estilo para el elemento seleccionado de forma activa */
+    [data-testid="stSidebar"] div[data-testid="stRadio"] div[role="radiogroup"] [data-checked="true"] > label {
+        background-color: rgba(167, 139, 250, 0.15) !important;
+        border: 1px solid #a78bfa !important;
+        box-shadow: 0 0 12px rgba(167, 139, 250, 0.2) !important;
+    }
+    
+    /* Forzar que el texto interno no se rompa y mantenga legibilidad */
+    [data-testid="stSidebar"] div[data-testid="stRadio"] div[role="radiogroup"] > label div[data-testid="stMarkdownContainer"] p {
+        color: #e2e8f0 !important;
+        font-family: 'Segoe UI', sans-serif !important;
+        font-size: 0.95rem !important;
+        font-weight: 500 !important;
+    }
+    
     .stDataFrame { background-color: #0b0f17; border: 1px solid #1f2937; }
     footer { visibility: hidden; }
     </style>
@@ -137,7 +180,8 @@ with st.sidebar:
             "🌐 Centro Unificado de Amenazas",
             "⚡ SOAR Control Center",
             "⚙️ Falsos Positivos & Allowlist"
-        ]
+        ],
+        label_visibility="collapsed" # Ocultamos la etiqueta molesta para ganar espacio limpio
     )
     st.markdown("---")
     st.markdown("#### 🚀 Estado del Entorno")
@@ -187,7 +231,7 @@ elif menu_opcion == "📋 Bitácora Legal Histórica":
     else:
         st.warning("No se registran eventos de seguridad históricos en el intervalo seleccionado.")
 
-# MÓDULO 2: CENTRO DE AMENAZAS (CORREGIDO SIN INDENTACIÓN CONFLICTIVA)
+# MÓDULO 2: CENTRO DE AMENAZAS
 elif menu_opcion == "🌐 Centro Unificado de Amenazas":
     st.subheader("🌐 Visualizador de Inmunidad de Red Táctica")
     
@@ -195,12 +239,9 @@ elif menu_opcion == "🌐 Centro Unificado de Amenazas":
     vectores_criticos = len(darktrace_df)
     comportamientos_ip = len(anomalies_live_df)
     
-    # IMPORTANTE: El HTML se escribe pegado a la izquierda sin tabulaciones para evitar que Streamlit lo confunda con código markdown
     html_panel = f"""<div class="hud-wrapper"><div class="hyperion-side-panel"><div style="font-size: 0.72rem; font-family: monospace; color: #58a6ff; font-weight: bold; margin-bottom: 2px;">🚀 CORE MATRIX</div><h4 style="margin: 0 0 10px 0; color: #fff; font-size: 1.05rem; border-bottom: 1px solid rgba(167,139,250,0.15); padding-bottom: 4px;">Live Intelligence</h4><div class="panel-metric"><span>Eventos Correlacionados:</span><span style="color: #58a6ff; font-weight: bold;">{eventos_calculados}</span></div><div class="panel-metric"><span>Vectores Críticos:</span><span style="color: #f43f5e; font-weight: bold;">{vectores_criticos}</span></div><div class="panel-metric"><span>Comportamientos IP:</span><span style="color: #eab308; font-weight: bold;">{comportamientos_ip}</span></div><div class="panel-metric"><span>Estatus Nodo:</span><span style="color: #238636; font-weight: bold;">PROTECTED</span></div></div>"""
-    
     st.markdown(html_panel, unsafe_allow_html=True)
     
-    # Despliegue del Mapa Táctico dentro de la envoltura visual del HUD
     if not darktrace_df.empty:
         map_data = darktrace_df[['latitude', 'longitude']].dropna()
         map_data.columns = ['lat', 'lon']
@@ -211,7 +252,6 @@ elif menu_opcion == "🌐 Centro Unificado de Amenazas":
         
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # Sección táctica bajo demanda mediante Expander nativo
     st.markdown("<br>", unsafe_allow_html=True)
     if not darktrace_df.empty:
         with st.expander(f"🛠️ Analizar e Interrumpir Amenazas Activas ({len(darktrace_df)})", expanded=True):
