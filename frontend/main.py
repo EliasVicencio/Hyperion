@@ -171,12 +171,21 @@ with tab_immune:
                     # --- BOTÓN "🚫 Aislar e Inhabilitar" ---
                     if st.button("🚫 Aislar e Inhabilitar", key=f"block_{row['id']}"):
                         try:
+                            # Detectar dinámicamente qué columna descriptiva existe en la tabla
+                            col_desc = "context"
+                            if not df.empty:
+                                for col in ["context", "contexto", "description", "metadata", "detalles"]:
+                                    if col in df.columns:
+                                        col_desc = col
+                                        break
+                            
                             with engine.connect() as conn:
                                 with conn.begin(): 
-                                    # 1. Registrar mitigación (Cambiado 'context' por 'contexto')
+                                    # 1. Registrar mitigación usando la columna detectada
+                                    sql_ins = f'INSERT INTO "audit_logs" (actor, action, {col_desc}) VALUES (:actor, :action, :ctx)'
                                     conn.execute(
-                                        text('INSERT INTO "audit_logs" (actor, action, contexto) VALUES (:actor, :action, :contexto)'),
-                                        {"actor": "HYPERION_SOAR", "action": "USER_ISOLATED", "contexto": f"Mitigación armada contra {row['user_email']}"}
+                                        text(sql_ins),
+                                        {"actor": "HYPERION_SOAR", "action": "USER_ISOLATED", "ctx": f"Mitigación armada contra {row['user_email']}"}
                                     )
                                     # 2. Borrar anomalía activa
                                     conn.execute(
@@ -233,13 +242,20 @@ with tab_darktrace:
                     # --- BOTÓN KILLSWITCH ---
                     if st.button("✂️ Cortar Conexión (Killswitch)", key=f"dt_{row['id']}"):
                         try:
+                            # Detectar dinámicamente qué columna descriptiva existe en la tabla
+                            col_desc = "context"
+                            if not df.empty:
+                                for col in ["context", "contexto", "description", "metadata", "detalles"]:
+                                    if col in df.columns:
+                                        col_desc = col
+                                        break
+                                        
                             with engine.connect() as conn:
                                 with conn.begin(): 
-                                    # 1. Registrar en bitácora inmutable (Cambiado 'context' por 'contexto')
-                                    conn.execute(
-                                        text('INSERT INTO "audit_logs" (actor, action, description) VALUES (\'DARKTRACE_SOAR\', \'NETWORK_CONNECTION_TERMINATED\', :ctx)'),
-                                        {"ctx": f"Bloqueo de socket IP {row['source_ip']}"}
-                                    )
+                                    # 1. Registrar en bitácora inmutable usando la columna detectada
+                                    sql_ins = f'INSERT INTO "audit_logs" (actor, action, {col_desc}) VALUES (\'DARKTRACE_SOAR\', \'NETWORK_CONNECTION_TERMINATED\', :ctx)'
+                                    conn.execute(text(sql_ins), {"ctx": f"Bloqueo de socket IP {row['source_ip']}"})
+                                    
                                     # 2. Eliminar amenaza de red
                                     conn.execute(
                                         text("DELETE FROM darktrace_network_threats WHERE id = :id"), 
