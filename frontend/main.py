@@ -81,13 +81,19 @@ total_alertas_activas = len(anomalies_live_df) + len(darktrace_df)
 # 📊 MENÚ LATERAL ACCESIBLE (SIDEBAR NAV)
 # ==========================================
 with st.sidebar:
-    # Encabezado de Marca / Isologo Corporativo CORREGIDO
+    pure_svg = LOGO_SVG.replace("data:image/svg+xml,", "")
+    
     st.markdown(f"""
-        <div style="display: flex; align-items: center; gap: 10px;">
-            <div style="width: 32px; height: 32px;">{LOGO_SVG}</div>
-            <h2 style="margin: 0; padding: 0; color: #a78bfa;">HYPERION SEC</h2>
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+            <div style="width: 35px; height: 35px; display: flex; align-items: center;">
+                {pure_svg}
+            </div>
+            <h2 style="color: #a78bfa; margin: 0; font-size: 1.5rem; letter-spacing: 1px; font-family: 'Segoe UI', sans-serif; font-weight: 800;">
+                HYPERION <span style="color: white; font-size: 0.8rem; vertical-align: middle;">SEC</span>
+            </h2>
         </div>
     """, unsafe_allow_html=True)
+    
     st.caption("🤖 Autonomous Immune System")
     st.markdown("---")
     
