@@ -17,7 +17,9 @@ st.markdown("""
     <style>
     .stApp { background-color: #07090e; }
     h1 { color: #a78bfa !important; font-family: 'Segoe UI', sans-serif; font-weight: 800; letter-spacing: -0.5px; }
+    h2 { color: #a78bfa !important; font-family: 'Segoe UI', sans-serif; }
     h3 { color: #58a6ff !important; font-family: 'Courier New', monospace; font-weight: bold; }
+    h4 { color: #ffffff !important; }
     
     /* Contenedor del Escenario HUD */
     .hud-wrapper {
@@ -130,6 +132,7 @@ with st.sidebar:
     menu_opcion = st.radio(
         label="Módulos del Ecosistema:",
         options=[
+            "🎯 Dashboard General",
             "📋 Bitácora Legal Histórica",
             "🌐 Centro Unificado de Amenazas",
             "⚡ SOAR Control Center",
@@ -145,26 +148,33 @@ with st.sidebar:
 # 👑 ENCABEZADO CENTRAL DE LA PLATAFORMA
 # ==========================================
 st.title("🛡️ Hyperion Autonomous SOAR")
-st.markdown(f"🛰️ **Consola Unificada** | Inteligencia Defensiva en Capas")
-
-m1, m2, m3, m4 = st.columns(4)
-with m1:
-    st.metric(label="📊 Eventos Históricos", value=f"{len(df_ledger)} logs")
-with m2:
-    st.metric(label="🚨 Incidentes Activos", value=f"{total_alertas_activas} alertas", delta="Acción Crítica", delta_color="inverse")
-with m3:
-    st.metric(label="🔒 Bloqueos Firewalls", value=f"{len(firewall_blocks_df)} IPs")
-with m4:
-    st.metric(label="💀 Tokens Revocados", value=f"{len(jwt_blacklist_df)} JWT")
-
+st.markdown(f"🛰️ Consola Unificada | Inteligencia Defensiva")
 st.markdown("---")
 
 # ==========================================
-# 🔄 ENRUTAMIENTO DINÁMICO DE PÁGINAS
+# 🔄 ENRUTAMIENTO DINÁMICO DE PÁGINAS (SIN CONTENIDO DUPLICADO)
 # ==========================================
 
-if menu_opcion == "📋 Bitácora Legal Histórica":
-    st.subheader("📋 Registros de Auditoría Inmutable")
+# MÓDULO 0: DASHBOARD GENERAL (Las métricas críticas solo viven aquí)
+if menu_opcion == "🎯 Dashboard General":
+    st.subheader("📊 Resumen del Estado de Seguridad")
+    
+    m1, m2, m3, m4 = st.columns(4)
+    with m1:
+        st.metric(label="📊 Eventos Históricos", value=f"{len(df_ledger)} logs")
+    with m2:
+        st.metric(label="🚨 Incidentes Activos", value=f"{total_alertas_activas} alertas", delta="Acción Crítica", delta_color="inverse")
+    with m3:
+        st.metric(label="🔒 Bloqueos Firewalls", value=f"{len(firewall_blocks_df)} IPs")
+    with m4:
+        st.metric(label="💀 Tokens Revocados", value=f"{len(jwt_blacklist_df)} JWT")
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.info("💡 Utilice el menú lateral de navegación para gestionar cada módulo táctico e interactuar con la infraestructura.")
+
+# MÓDULO 1: BITÁCORA LEGAL HISTÓRICA
+elif menu_opcion == "📋 Bitácora Legal Histórica":
+    st.subheader("📋 Registros de Auditoría Inmutable (SOC2 / NIST Compliance)")
     if not df_ledger.empty:
         csv_data = df_ledger.to_csv(index=False).encode('utf-8')
         st.download_button(
@@ -174,12 +184,14 @@ if menu_opcion == "📋 Bitácora Legal Histórica":
             mime="text/csv",
         )
         st.dataframe(df_ledger, use_container_width=True, hide_index=True)
+    else:
+        st.warning("No se registran eventos de seguridad históricos en el intervalo seleccionado.")
 
-# MÓDULO 2: CENTRO DE AMENAZAS LIMPIO (MAPA HUD ENFOCADO + ENTRADAS BAJO DEMANDA)
+# MÓDULO 2: CENTRO DE AMENAZAS (MAPA TÁCTICO + ALERTAS NATIVAS)
 elif menu_opcion == "🌐 Centro Unificado de Amenazas":
     st.subheader("🌐 Visualizador de Inmunidad de Red Táctica")
     
-    # Renderizado limpio del panel superpuesto en el mapa sin el buffer inferior redundante
+    # Renderizado limpio del panel superpuesto en el mapa sin duplicidades
     st.markdown(f"""
         <div class="hud-wrapper">
             <div class="hyperion-side-panel">
@@ -193,7 +205,7 @@ elif menu_opcion == "🌐 Centro Unificado de Amenazas":
             </div>
     """, unsafe_allow_html=True)
     
-    # Despliegue del Mapa Táctico Basado en Coordenadas Reales
+    # Despliegue del mapa
     if not darktrace_df.empty:
         map_data = darktrace_df[['latitude', 'longitude']].dropna()
         map_data.columns = ['lat', 'lon']
@@ -204,13 +216,12 @@ elif menu_opcion == "🌐 Centro Unificado de Amenazas":
         
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # SECCIÓN TÁCTICA BAJO DEMANDA: Gestión limpia y no redundante mediante Expander nativo
+    # Gestión limpia de flujos mediante Expander nativo
     st.markdown("<br>", unsafe_allow_html=True)
     
     if not darktrace_df.empty:
         with st.expander(f"🛠️ Analizar e Interrumpir Amenazas Activas ({len(darktrace_df)})", expanded=True):
             for idx, row in darktrace_df.iterrows():
-                # Formateo nativo y limpio por fila
                 severity_color = "#f43f5e" if row['severity'].lower() in ['critical', 'high'] else "#eab308"
                 
                 c_info, c_kill = st.columns([4, 1])
@@ -233,7 +244,7 @@ elif menu_opcion == "🌐 Centro Unificado de Amenazas":
                         except Exception as ex:
                             st.error(f"Fallo en Mitigación: {ex}")
     else:
-        st.info("🟢 Perímetro normalizado: No hay flujos maliciosos pendientes de mitigación en este segmento.")
+        st.info("🟢 Perímetro normalizado: No hay flujos maliciosos detectados.")
 
 # MÓDULO 3: SOAR CONTROL CENTER
 elif menu_opcion == "⚡ SOAR Control Center":
@@ -256,7 +267,7 @@ elif menu_opcion == "⚡ SOAR Control Center":
 
 # MÓDULO 4: FALSOS POSITIVOS Y ALLOWLIST
 elif menu_opcion == "⚙️ Falsos Positivos & Allowlist":
-    st.subheader("⚙️ Reglas de Exclusión de Confianza y Eventos Mutados")
+    st.subheader("⚙️ Reglas de Exclusión de Confianza")
     
     with st.expander("➕ Añadir Nueva Exclusión"):
         with st.form("new_allowlist_form", clear_on_submit=True):
