@@ -82,8 +82,12 @@ total_alertas_activas = len(anomalies_live_df) + len(darktrace_df)
 # ==========================================
 with st.sidebar:
     # Encabezado de Marca / Isologo Corporativo CORREGIDO
-    # Usamos un f-string para inyectar el SVG y habilitamos unsafe_allow_html
-    st.markdown(f"## {LOGO_SVG} HYPERION SEC", unsafe_allow_html=True)
+    st.markdown(f"""
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 32px; height: 32px;">{LOGO_SVG}</div>
+            <h2 style="margin: 0; padding: 0; color: #a78bfa;">HYPERION SEC</h2>
+        </div>
+    """, unsafe_allow_html=True)
     st.caption("🤖 Autonomous Immune System")
     st.markdown("---")
     
