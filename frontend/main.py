@@ -391,7 +391,7 @@ else:
             st.info("Haga clic abajo para saltar de forma segura al nodo inmutable de auditoría legal.")
             
             # 🔄 CAMBIO: Cuando crees tu nueva app en Streamlit Cloud apuntando a la nueva rama, te dará una URL. Pégala aquí:
-            URL_DESPLIEGUE_RAMA_NUEVA = "https://hyperion-audit-node.streamlit.app" 
+            URL_DESPLIEGUE_RAMA_NUEVA = "https://hyperion-audit.streamlit.app/" 
             
             # Inyectamos el usuario y el token JWT de forma cifrada/parámetro en la URL para mantener la sesión
             usuario_actual = st.session_state.auth["user"]
