@@ -199,51 +199,77 @@ with st.sidebar:
     st.caption(f"**Operador:** `{operador_transferido}`")
 
 # ==========================================
-# 🤖 EJECUCIÓN DEL MODO AUTÓNOMO (CAPA 3)
+# 🤖 EJECUCIÓN DEL MODO AUTÓNOMO (CAPA 3) WITH ALLOWLIST FILTER
 # ==========================================
 if modo_soar and not darktrace_df.empty:
     try:
+        # 🛡️ 1. Crear conjuntos (sets) de IPs y Usuarios en Allowlist para búsqueda rápida O(1)
+        ips_permitidas = set()
+        usuarios_permitidos = set()
+        
+        if not allowlist_df.empty:
+            ips_permitidas = set(allowlist_df[allowlist_df['target_type'] == 'ip']['target'].astype(str).str.strip().tolist())
+            usuarios_permitidos = set(allowlist_df[allowlist_df['target_type'] == 'user']['target'].astype(str).str.strip().tolist())
+
         for idx, row in darktrace_df.iterrows():
+            ip_amenaza = str(row['source_ip']).strip()
             bloqueo_exitoso = False
             
-            # Operación 1: Intentar registrar el bloqueo en el cortafuegos usando la columna real 'blocked_ip'
+            # 🕵️ 2. FILTRO DE CONFIANZA: ¿La IP de origen está en la lista blanca?
+            if ip_amenaza in ips_permitidas:
+                # Registrar en la auditoría que se omitió la acción por estar en la lista de confianza
+                try:
+                    with engine.begin() as conn:
+                        conn.execute(text("""
+                            INSERT INTO "audit_logs" (actor, action) 
+                            VALUES ('HYPERION_ALLOWLIST', :action)
+                        """), {"action": f"OMISIÓN: Amenaza desde {ip_amenaza} ({row['mitre_tactic']}) detectada pero ignorada por regla de Allowlist activa."})
+                        
+                        # Limpiar la alerta de la cola para que no procese infinitamente
+                        conn.execute(text("DELETE FROM darktrace_network_threats WHERE id = :id"), {"id": int(row['id'])})
+                except Exception:
+                    pass
+                continue # Saltar a la siguiente amenaza sin bloquear nada
+            
+            # 🔒 3. PROCESAMIENTO ESTÁNDAR (Si no está en la lista blanca)
+            # Operación 1: Registrar el bloqueo en el cortafuegos
             try:
                 with engine.begin() as conn:
                     conn.execute(text("""
                         INSERT INTO firewall_network_blocks (blocked_ip, reason)
                         VALUES (:ip, :reason)
-                    """), {"ip": str(row['source_ip']), "reason": f"SOAR AUTÓNOMO: {row['mitre_tactic']}"})
+                    """), {"ip": ip_amenaza, "reason": f"SOAR AUTÓNOMO: {row['mitre_tactic']}"})
                 bloqueo_exitoso = True
-            except Exception as e:
+            except Exception:
                 pass
             
-            # Operación 2: Registrar auditoría en su transacción independiente
+            # Operación 2: Registrar auditoría de la mitigación o detección
             try:
                 with engine.begin() as conn:
                     if bloqueo_exitoso:
                         conn.execute(text("""
                             INSERT INTO "audit_logs" (actor, action) 
                             VALUES ('HYPERION_AUTONOMOUS', :action)
-                        """), {"action": f"IMMUNE_RESPONSE: Bloqueo de IP {row['source_ip']} ejecutado correctamente."})
+                        """), {"action": f"IMMUNE_RESPONSE: Bloqueo de IP {ip_amenaza} ejecutado correctamente por táctica {row['mitre_tactic']}."})
                     else:
                         conn.execute(text("""
                             INSERT INTO "audit_logs" (actor, action) 
                             VALUES ('HYPERION_ALERT', :action)
-                        """), {"action": f"DETECCIÓN: Amenaza de {row['source_ip']} ({row['mitre_tactic']}) interceptada por Core Engine."})
+                        """), {"action": f"DETECCIÓN: Amenaza de {ip_amenaza} ({row['mitre_tactic']}) interceptada por Core Engine."})
             except Exception:
                 pass
 
-            # Operación 3: Limpiar la alerta procesada para evitar bucles de renderizado
+            # Operación 3: Limpiar la alerta procesada
             try:
                 with engine.begin() as conn:
                     conn.execute(text("DELETE FROM darktrace_network_threats WHERE id = :id"), {"id": int(row['id'])})
             except Exception:
                 pass
                 
-        st.toast("⚡ Motor Autónomo: Amenazas procesadas con éxito.", icon="🤖")
+        st.toast("⚡ Motor Autónomo: Filtros de confianza aplicados y amenazas procesadas.", icon="🤖")
         st.rerun()
     except Exception as ex:
-        st.sidebar.error(f"Fallo crítico en autopiloto: {ex}")
+        st.sidebar.error(f"Fallo crítico en autopiloto con filtro: {ex}")
 
 # ==========================================
 # 👑 INTERFAZ PRINCIPAL DOCK
