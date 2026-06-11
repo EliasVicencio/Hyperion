@@ -293,19 +293,30 @@ elif menu_opcion == "🕵️ Capa 1: Perfilado UEBA":
     else:
         st.success("🟢 No se registran desviaciones de comportamiento en la plantilla de usuarios.")
 
-# MÓDULO 2: CAPA 2 (NTA)
+# MÓDULO 2: CAPA 2 (NTA) - ¡MAPA CORREGIDO DE FORMA DEFINITIVA!
 elif menu_opcion == "🌐 Capa 2: Detección NTA":
     st.subheader("🌐 Visualizador de Inmunidad de Red (NTA)")
     
     html_panel = f"""<div class="hud-wrapper"><div class="hyperion-side-panel"><div style="font-size: 0.72rem; font-family: monospace; color: #58a6ff; font-weight: bold; margin-bottom: 2px;">🚀 CORE MATRIX</div><h4 style="margin: 0 0 10px 0; color: #fff; font-size: 1.05rem; border-bottom: 1px solid rgba(167,139,250,0.15); padding-bottom: 4px;">Live Intelligence</h4><div class="panel-metric"><span>Logs Correlacionados:</span><span style="color: #58a6ff; font-weight: bold;">{len(df_ledger)}</span></div><div class="panel-metric"><span>Riesgos de Red:</span><span style="color: #f43f5e; font-weight: bold;">{len(darktrace_df)}</span></div><div class="panel-metric"><span>Estado del Nodo:</span><span style="color: #238636; font-weight: bold;">AUTÓNOMO READY</span></div></div>"""
     st.markdown(html_panel, unsafe_allow_html=True)
     
+    # 🕵️ REFINAMIENTO SEGURO DEL MAPA TÁCTICO:
+    # Evaluamos si hay datos de amenazas en tiempo real geolocalizados.
     if not darktrace_df.empty and 'latitude' in darktrace_df.columns and 'longitude' in darktrace_df.columns:
         map_data = darktrace_df[['latitude', 'longitude']].dropna()
         map_data.columns = ['lat', 'lon']
-        st.map(map_data, zoom=1, use_container_width=True)
+        
+        # Si el DataFrame filtrado tiene coordenadas válidas, pintamos las amenazas
+        if not map_data.empty:
+            st.map(map_data, zoom=1, use_container_width=True)
+        else:
+            # Si hay amenazas pero sin coordenadas, pasamos columnas vacías para una vista global neutral
+            st.map(pd.DataFrame(columns=['lat', 'lon']), zoom=1, use_container_width=True)
     else:
-        st.map(pd.DataFrame({'lat': [0.0], 'lon': [0.0]}), zoom=1, use_container_width=True)
+        # TRÁFICO LIMPIO: Se envía un DataFrame con columnas vacías sin puntos de coordenadas.
+        # Esto hace que Streamlit centre el mapa mundial de forma automática, eliminando el punto en África.
+        st.map(pd.DataFrame(columns=['lat', 'lon']), zoom=1, use_container_width=True)
+        
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
@@ -319,7 +330,6 @@ elif menu_opcion == "🌐 Capa 2: Detección NTA":
                 if st.button("✂️ Cortar Flujo", key=f"k_{idx}"):
                     try:
                         with engine.begin() as conn:
-                            # CORREGIDO AQUÍ TAMBIÉN: 'blocked_ip' en lugar de 'ip_address'
                             conn.execute(text("INSERT INTO firewall_network_blocks (blocked_ip, reason) VALUES (:ip, 'Mitigación manual SOC')"), {"ip": row['source_ip']})
                             conn.execute(text("DELETE FROM darktrace_network_threats WHERE id = :id"), {"id": row['id']})
                         st.toast("Línea cortada.", icon="🔒")
