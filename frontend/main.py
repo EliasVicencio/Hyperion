@@ -168,15 +168,15 @@ with tab_immune:
                 with c_action:
                     st.write("") 
                     
-                    # --- BOTÓN "🚫 Aislar e Inhabilitar" (Indentación corregida dentro de c_action) ---
+                    # --- BOTÓN "🚫 Aislar e Inhabilitar" ---
                     if st.button("🚫 Aislar e Inhabilitar", key=f"block_{row['id']}"):
                         try:
                             with engine.connect() as conn:
-                                with conn.begin(): # Transacción explícita segura
-                                    # 1. Registrar mitigación
+                                with conn.begin(): 
+                                    # 1. Registrar mitigación (Cambiado 'context' por 'contexto')
                                     conn.execute(
-                                        text('INSERT INTO "audit_logs" (actor, action, context) VALUES (:actor, :action, :context)'),
-                                        {"actor": "HYPERION_SOAR", "action": "USER_ISOLATED", "context": f"Mitigación armada contra {row['user_email']}"}
+                                        text('INSERT INTO "audit_logs" (actor, action, contexto) VALUES (:actor, :action, :contexto)'),
+                                        {"actor": "HYPERION_SOAR", "action": "USER_ISOLATED", "contexto": f"Mitigación armada contra {row['user_email']}"}
                                     )
                                     # 2. Borrar anomalía activa
                                     conn.execute(
@@ -188,7 +188,7 @@ with tab_immune:
                         except Exception as tx_err:
                             st.error(f"Error de base de datos en mitigación: {tx_err}")
                     
-                    # --- BOTÓN "✅ Falso Positivo" (Indentación corregida dentro de c_action) ---
+                    # --- BOTÓN "✅ Falso Positivo" ---
                     if st.button("✅ Falso Positivo", key=f"fp_{row['id']}"):
                         try:
                             with engine.connect() as conn:
@@ -230,14 +230,14 @@ with tab_darktrace:
                     st.caption(f"Origen: `{row['source_ip']}` ➔ Destino: `{row['dest_ip']}` ({row['country_code']})")
                     st.error(f"**Tipo:** {row['threat_type']}")
                     
-                    # --- BOTÓN KILLSWITCH (Garantizado dentro del loop y contenedor) ---
+                    # --- BOTÓN KILLSWITCH ---
                     if st.button("✂️ Cortar Conexión (Killswitch)", key=f"dt_{row['id']}"):
                         try:
                             with engine.connect() as conn:
                                 with conn.begin(): 
-                                    # 1. Registrar en bitácora inmutable
+                                    # 1. Registrar en bitácora inmutable (Cambiado 'context' por 'contexto')
                                     conn.execute(
-                                        text('INSERT INTO "audit_logs" (actor, action, context) VALUES (\'DARKTRACE_SOAR\', \'NETWORK_CONNECTION_TERMINATED\', :ctx)'),
+                                        text('INSERT INTO "audit_logs" (actor, action, contexto) VALUES (\'DARKTRACE_SOAR\', \'NETWORK_CONNECTION_TERMINATED\', :ctx)'),
                                         {"ctx": f"Bloqueo de socket IP {row['source_ip']}"}
                                     )
                                     # 2. Eliminar amenaza de red
