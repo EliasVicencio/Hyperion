@@ -369,9 +369,9 @@ else:
         except Exception as e:
             st.error(f"🚨 Error de conexión: {e}")
 
-    # 🔄 CAMBIO: Se restaura la vista externa independiente para la pestaña SIEM
+    # 🔄 CAMBIO: Configuración de la pestaña SIEM con botón inteligente que inyecta parámetros en la URL externa
     elif st.session_state.page == "SIEM":
-        st.title("📜 Hyperion SIEM Audit")
+        st.title("📜 Hyperion SIEM Audit Gateway")
         
         col_a, col_b, col_c = st.columns(3)
         with col_a:
@@ -379,42 +379,36 @@ else:
         with col_b:
             st.markdown('<div class="metric-card"><h4 style="margin:0; color:#9333ea;">🔒 Integridad</h4><p style="font-size:24px; font-weight:bold; margin:0;">SHA-256</p><small style="color:#4ade80;">Inmutable</small></div>', unsafe_allow_html=True)
         with col_c:
-            st.markdown('<div class="metric-card"><h4 style="margin:0; color:#9333ea;">⚡ Rendimiento</h4><p style="font-size:24px; font-weight:bold; margin:0;">< 10ms</p><small style="color:#4ade80;">Latencia estable</small></div>', unsafe_allow_html=True)
+            st.markdown('<div class="metric-card"><h4 style="margin:0; color:#9333ea;">⚡ Rendimiento</h4><p style="font-size:24px; font-weight:bold; margin:0;">< 10ms</p><small style="color:#4ade80;">Latencia de enlace</small></div>', unsafe_allow_html=True)
 
         st.write("")
+        st.write("---")
+        
         left_col, right_col = st.columns([2, 1])
 
         with left_col:
-            st.subheader("Motor de Análisis de Logs")
+            st.subheader("Enlace Desacoplado (Branch Externa)")
+            st.info("Haga clic abajo para saltar de forma segura al nodo inmutable de auditoría legal.")
             
-            # 🔄 CAMBIO: Cambia esta URL por la dirección real donde vas a levantar de forma externa tu `audit_app.py`
-            URL_PANEL_AUDITORIA_EXTERNO = "https://tu-app-de-auditoria-independiente.streamlit.app"
+            # 🔄 CAMBIO: Cuando crees tu nueva app en Streamlit Cloud apuntando a la nueva rama, te dará una URL. Pégala aquí:
+            URL_DESPLIEGUE_RAMA_NUEVA = "https://hyperion-audit-node.streamlit.app" 
             
-            # Botón de redirección estilizado para abrir la Bitácora Legal en una pestaña nueva
+            # Inyectamos el usuario y el token JWT de forma cifrada/parámetro en la URL para mantener la sesión
+            usuario_actual = st.session_state.auth["user"]
+            token_actual = st.session_state.auth["token"]
+            
+            url_destino_con_parametros = f"{URL_DESPLIEGUE_RAMA_NUEVA}/?operator={usuario_actual}&session_token={token_actual}"
+            
+            # Render del botón de salto de entorno de alto rendimiento
             st.markdown(f"""
-                <a href="{URL_PANEL_AUDITORIA_EXTERNO}" target="_blank" style="text-decoration: none;">
-                    <div style="background: linear-gradient(90deg, #9333ea 0%, #c084fc 100%); padding: 20px; border-radius: 10px; text-align: center; color: white; font-weight: bold; font-size: 20px; box-shadow: 0 4px 15px rgba(147, 51, 234, 0.3); transition: transform 0.2s;">
-                        🚀 ABRIR CONSOLA EXTERNA DE AUDITORÍA (NODO INDEPENDIENTE)
+                <a href="{url_destino_con_parametros}" target="_blank" style="text-decoration: none;">
+                    <div style="background: linear-gradient(90deg, #9333ea 0%, #c084fc 100%); padding: 25px; border-radius: 12px; text-align: center; color: white; font-weight: bold; font-size: 18px; box-shadow: 0 4px 20px rgba(147, 51, 234, 0.4); transition: transform 0.2s;">
+                        🔒 ABRIR BITÁCORA LEGAL (NODO RAMA SEPARADA) ↗️
                     </div>
                 </a>
             """, unsafe_allow_html=True)
 
         with right_col:
-            st.subheader("Configuración")
-            with st.expander("Ver credenciales de sesión"):
-                st.code(f"JWT_TOKEN: {st.session_state.auth['token'][:15]}...", language="bash")
-            st.warning("⚠️ El acceso requiere VPN activa para entornos remotos.")
-
-        st.write("---")
-        st.subheader("Últimas Alertas de Seguridad detectadas")
-        mock_data = pd.DataFrame([
-            {"Timestamp": "2026-04-01 20:15:02", "Evento": "Intento de Brute Force", "Nivel": "CRÍTICO", "Origen": "192.168.1.45"},
-            {"Timestamp": "2026-04-01 21:05:12", "Evento": "Escaneo de Puertos", "Nivel": "ALTO", "Origen": "10.0.0.12"},
-            {"Timestamp": "2026-04-01 21:10:45", "Evento": "Cambio de permisos", "Nivel": "MEDIO", "Origen": "admin_user"}
-        ])
-        
-        def color_level(val):
-            color = '#ef4444' if val == 'CRÍTICO' else ('#f59e0b' if val == 'ALTO' else '#3b82f6')
-            return f'color: {color}; font-weight: bold;'
-
-        st.table(mock_data.style.map(color_level, subset=['Nivel']))
+            st.subheader("Estatus de Conexión")
+            st.success(f"Sesión validada para: {st.session_state.auth['user']}")
+            st.caption("Los tokens de sesión expiran automáticamente conforme a las políticas NIST.")
