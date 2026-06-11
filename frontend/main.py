@@ -49,9 +49,18 @@ allowlist_df = pd.DataFrame()
 
 try:
     with engine.connect() as conn:
-        # Ledger Histórico
-        query_str = 'SELECT * FROM "audit_logs" WHERE timestamp >= :desde AND timestamp <= :hasta ORDER BY timestamp DESC'
-        df_ledger = pd.read_sql(text(query_str), conn, {"desde": fecha_desde, "hasta": fecha_hasta})
+        # Formateamos las fechas a string compatible con PostgreSQL estándar
+        desde_str = fecha_desde.strftime('%Y-%m-%d 00:00:00')
+        hasta_str = fecha_hasta.strftime('%Y-%m-%d 23:59:59')
+        
+        # Query directo sin parámetros bind que confundan a SQLAlchemy
+        query_str = f"""
+            SELECT * FROM "audit_logs" 
+            WHERE timestamp >= '{desde_str}' AND timestamp <= '{hasta_str}' 
+            ORDER BY timestamp DESC
+        """
+        df_ledger = pd.read_sql(text(query_str), conn)
+        
         # Capa 1: UEBA Anomalías
         anomalies_live_df = pd.read_sql(text("SELECT * FROM behavior_anomalies WHERE status = 'active' ORDER BY timestamp DESC"), conn)
         # Capa 2: Darktrace NTA
@@ -62,7 +71,7 @@ try:
         # Capa 4: Allowlist Exclusiones
         allowlist_df = pd.read_sql(text("SELECT * FROM security_allowlist ORDER BY created_at DESC"), conn)
 except Exception as e:
-    st.sidebar.error(f"Error cargando telemetría en vivo: {e}")
+    st.error(f"❌ Error crítico cargando telemetría: {e}")
 
 total_alertas_activas = len(anomalies_live_df) + len(darktrace_df)
 
