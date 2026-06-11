@@ -12,7 +12,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Estilo CSS personalizado oscuro, limpio y profesional
+# Estilo CSS personalizado oscuro, limpio y profesional (Tarjetas unificadas añadidas)
 st.markdown("""
     <style>
     .stApp { background-color: #0b0e14; }
@@ -22,6 +22,20 @@ st.markdown("""
     .stDataFrame { background-color: #0d1117; border: 1px solid #30363d; border-radius: 8px; }
     [data-testid="stSidebar"] { background-color: #0d1117; border-right: 1px solid #1f2937; }
     footer {visibility: hidden;}
+    
+    /* Contenedor estilo caja táctica para alertas simétricas (Inspirado en image_1056c1.png) */
+    .threat-card {
+        background-color: #0d1117;
+        border: 1px solid #21262d;
+        border-top: 3px solid #ef4444;
+        border-radius: 6px;
+        padding: 15px;
+        margin-bottom: 10px;
+        height: 190px;
+    }
+    .threat-card-medium {
+        border-top: 3px solid #f59e0b;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -41,7 +55,6 @@ except Exception as e:
 fecha_desde = datetime.now() - timedelta(days=7)
 fecha_hasta = datetime.now()
 
-# Esto lo dejamos global para alimentar los contadores del Sidebar y del Header
 df_ledger = pd.DataFrame()
 anomalies_live_df = pd.DataFrame()
 darktrace_df = pd.DataFrame()
@@ -51,26 +64,19 @@ allowlist_df = pd.DataFrame()
 
 try:
     with engine.connect() as conn:
-        # Formateamos las fechas a string compatible con PostgreSQL estándar
         desde_str = fecha_desde.strftime('%Y-%m-%d 00:00:00')
         hasta_str = fecha_hasta.strftime('%Y-%m-%d 23:59:59')
         
-        # Query directo sin parámetros bind que confundan a SQLAlchemy
         query_str = f"""
             SELECT * FROM "audit_logs" 
             WHERE timestamp >= '{desde_str}' AND timestamp <= '{hasta_str}' 
             ORDER BY timestamp DESC
         """
         df_ledger = pd.read_sql(text(query_str), conn)
-        
-        # Capa 1: UEBA Anomalías
         anomalies_live_df = pd.read_sql(text("SELECT * FROM behavior_anomalies WHERE status = 'active' ORDER BY timestamp DESC"), conn)
-        # Capa 2: Darktrace NTA
         darktrace_df = pd.read_sql(text("SELECT * FROM darktrace_network_threats ORDER BY timestamp DESC"), conn)
-        # Capa 3: Bloqueos SOAR
         firewall_blocks_df = pd.read_sql(text("SELECT * FROM firewall_network_blocks ORDER BY blocked_at DESC"), conn)
         jwt_blacklist_df = pd.read_sql(text("SELECT * FROM jwt_blacklist ORDER BY revoked_at DESC"), conn)
-        # Capa 4: Allowlist Exclusiones
         allowlist_df = pd.read_sql(text("SELECT * FROM security_allowlist ORDER BY created_at DESC"), conn)
 except Exception as e:
     st.error(f"❌ Error crítico cargando telemetría: {e}")
@@ -82,7 +88,6 @@ total_alertas_activas = len(anomalies_live_df) + len(darktrace_df)
 # ==========================================
 with st.sidebar:
     pure_svg = LOGO_SVG.replace("data:image/svg+xml,", "")
-    
     st.markdown(f"""
         <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
             <div style="width: 35px; height: 35px; display: flex; align-items: center;">
@@ -96,10 +101,8 @@ with st.sidebar:
     
     st.caption("🤖 Autonomous Immune System")
     st.markdown("---")
-    
     st.markdown("### 🎛️ Navegación Principal")
-    # Nota: Dentro de 'with st.sidebar:', usa directamente 'st.radio' en vez de 'st.sidebar.radio' 
-    # para evitar duplicaciones visuales o anidamientos extraños.
+    
     menu_opcion = st.radio(
         label="Selecciona un Módulo:",
         options=[
@@ -111,7 +114,6 @@ with st.sidebar:
     )
     
     st.markdown("---")
-    # Estado del Nodo en el Footer del Sidebar
     st.markdown("#### 🩺 Estado del Nodo")
     st.success("🟢 CORE_NODE_ONLINE")
     st.caption(f"**Operador:** `{operador_transferido}`")
@@ -123,7 +125,6 @@ st.title("🛡️ Hyperion Autonomous SOAR")
 st.markdown(f"📊 **Consola de Comando** | **Filtro Automático:** Últimos 7 días")
 st.caption("CONSOLIDACIÓN FINAL // SEMANA 4: MENÚ DE ACCESIBILIDAD LATERAL Y PLATAFORMA UNIFICADA")
 
-# --- RENDERIZADO DE KPI'S CORPORATIVOS ---
 m1, m2, m3, m4 = st.columns(4)
 with m1:
     st.metric(label="📊 Eventos Históricos", value=f"{len(df_ledger)} logs")
@@ -156,73 +157,64 @@ if menu_opcion == "📋 Bitácora Legal Histórica":
     else:
         st.warning("No se registran eventos de seguridad históricos en el intervalo seleccionado.")
 
-# MÓDULO 2: CENTRO UNIFICADO DE AMENAZAS (DARKTRACE + UEBA)
+# MÓDULO 2: CENTRO UNIFICADO DE AMENAZAS (MAPA GIGANTE + RECUADROS SIMÉTRICOS)
 elif menu_opcion == "🌐 Centro Unificado de Amenazas":
-    st.subheader("🌐 Monitoreo Perimetral e Interno en Tiempo Real")
+    st.subheader("🌐 Visualizador de Inmunidad Perimetral y de Red")
     
+    # 1. Mapa unificado a pantalla completa (Dominancia visual superior como en image_1056c1.png)
     if not darktrace_df.empty:
-        col_mapa, col_stats = st.columns([2, 1])
-        with col_mapa:
-            st.markdown("#### 🗺️ Geolocalización de Amenazas NTA (Darktrace)")
-            map_data = darktrace_df[['latitude', 'longitude']].dropna()
-            map_data.columns = ['lat', 'lon']
-            st.map(map_data, zoom=1, use_container_width=True)
-            
-        with col_stats:
-            st.markdown("#### 🚨 Vectores Críticos Destacados")
-            for idx, row in darktrace_df.head(3).iterrows():
-                st.error(f"**{row['severity'].upper()}** | Táctica: `{row['mitre_tactic']}`\n\n{row['threat_type']}")
+        map_data = darktrace_df[['latitude', 'longitude']].dropna()
+        map_data.columns = ['lat', 'lon']
+        st.map(map_data, zoom=1, use_container_width=True)
     else:
         st.info("💡 Sin coordenadas perimetrales activas para graficar en el mapa.")
-
-    st.write("---")
+        
+    st.markdown("### 🚨 Tarjeta de Incidentes de Red Detectados (DPI Live Feed)")
     
-    col_dt, col_ueba = st.columns(2)
-    with col_dt:
-        st.markdown("#### 🌐 Alertas Perimetrales Darktrace (NTA & Threat Intel)")
-        if not darktrace_df.empty:
-            for idx, row in darktrace_df.iterrows():
-                with st.container():
-                    st.markdown(f"**📍 Origen:** `{row['source_ip']}` ➔ **Destino:** `{row['dest_ip']}`")
-                    st.caption(f"🛡️ Táctica: `{row['mitre_tactic']}` | Severidad: `{row['severity'].upper()}`")
-                    st.markdown(f"**Detalle:** {row['threat_type']}")
-                    
-                    if st.button("✂️ Ejecutar Killswitch Manual", key=f"dt_side_{idx}"):
-                        try:
-                            with engine.connect() as conn:
-                                with conn.begin(): 
-                                    conn.execute(text('INSERT INTO "audit_logs" (actor, action) VALUES (\'DARKTRACE_SOAR\', :action)'),
-                                        {"action": f"MANUAL_KILLSWITCH: Flujo de la IP {row['source_ip']} terminado por el operador."})
-                                    conn.execute(text("DELETE FROM darktrace_network_threats WHERE id = :id"), {"id": row['id']})
-                            st.toast(f"💥 Killswitch inyectado para la IP {row['source_ip']}", icon="🚫")
-                            st.rerun()
-                        except Exception as tx_err: st.error(f"Error: {tx_err}")
-                    st.markdown("---")
-        else:
-            st.success("🟢 No hay amenazas perimetrales pendientes.")
-
-    with col_ueba:
-        st.markdown("#### 🕵️ Alertas de Comportamiento Interno (UEBA)")
-        if not anomalies_live_df.empty:
-            for idx, row in anomalies_live_df.iterrows():
-                with st.container():
-                    st.markdown(f"**👤 Usuario Comprometido:** `{row['user_email']}`")
-                    st.caption(f"⚠️ Severidad: `{row['severity'].upper()}`")
-                    st.warning(f"**Desvío:** {row['description']}")
-                    
-                    if st.button("🚫 Aislar Usuario Manualmente", key=f"ueba_side_{idx}"):
-                        try:
-                            with engine.connect() as conn:
-                                with conn.begin(): 
-                                    conn.execute(text('INSERT INTO "audit_logs" (actor, action) VALUES (:actor, :action)'),
-                                        {"actor": "HYPERION_SOAR", "action": f"USER_ISOLATED: Mitigación manual aplicada contra {row['user_email']}"})
-                                    conn.execute(text("DELETE FROM behavior_anomalies WHERE id = :id"), {"id": row['id']})
-                            st.toast(f"🔒 Sesión de {row['user_email']} aislada con éxito.", icon="🛡️")
-                            st.rerun()
-                        except Exception as e: st.error(f"Error: {e}")
-                    st.markdown("---")
-        else:
-            st.success("🟢 Matriz UEBA limpia. Comportamiento estable.")
+    # 2. Renderizado en grilla de recuadros horizontales independientes abajo
+    if not darktrace_df.empty:
+        # Generamos dinámicamente filas de hasta 4 columnas/tarjetas para emular el pie de la imagen
+        cols_tarjetas = st.columns(4)
+        
+        for idx, row in darktrace_df.iterrows():
+            # Asignamos la tarjeta a una de las 4 columnas de forma cíclica
+            col_actual = cols_tarjetas[idx % 4]
+            
+            with col_actual:
+                # Determinar clase CSS por gravedad del incidente
+                border_style = "threat-card-medium" if row['severity'].lower() in ['medium', 'high'] else ""
+                
+                # Render HTML estructurado del recuadro
+                st.markdown(f"""
+                    <div class="threat-card {border_style}">
+                        <span style="float: right; font-size: 0.75rem; font-weight: bold; padding: 2px 6px; border-radius: 4px; background-color: #1f2937; color: #f3f4f6;">
+                            {row['severity'].upper()}
+                        </span>
+                        <strong style="color: #f3f4f6; font-size: 0.95rem;">📍 Origen: {row['source_ip']}</strong><br>
+                        <span style="color: #9ca3af; font-size: 0.85rem;">➔ Destino: {row['dest_ip']}</span>
+                        <div style="margin-top: 8px; font-size: 0.8rem; color: #cbd5e1; line-height: 1.2; height: 40px; overflow: hidden;">
+                            <strong>Detalle:</strong> {row['threat_type']}
+                        </div>
+                        <div style="margin-top: 4px; font-size: 0.75rem; color: #a78bfa;">
+                            🏷️ Táctica: {row['mitre_tactic'].split(' (')[0]}
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                # Botón de acción embebido abajo de cada tarjeta
+                if st.button("🚫 Terminar Flujo", key=f"dt_box_{idx}", use_container_width=True):
+                    try:
+                        with engine.connect() as conn:
+                            with conn.begin(): 
+                                conn.execute(text('INSERT INTO "audit_logs" (actor, action) VALUES (\'DARKTRACE_SOAR\', :action)'),
+                                    {"action": f"MANUAL_KILLSWITCH: Flujo de la IP {row['source_ip']} terminado por el operador."})
+                                conn.execute(text("DELETE FROM darktrace_network_threats WHERE id = :id"), {"id": row['id']})
+                        st.toast(f"💥 Killswitch inyectado para {row['source_ip']}", icon="🚫")
+                        st.rerun()
+                    except Exception as tx_err: 
+                        st.error(f"Error: {tx_err}")
+    else:
+        st.success("🟢 No hay amenazas perimetrales pendientes en el buffer.")
 
 # MÓDULO 3: SOAR CONTROL CENTER
 elif menu_opcion == "⚡ SOAR Control Center":
