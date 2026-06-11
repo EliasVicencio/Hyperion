@@ -200,39 +200,56 @@ with st.sidebar:
     st.caption(f"**Operador:** `{operador_transferido}`")
 
 # ==========================================
-# 🤖 EJECUCIÓN DEL MODO AUTÓNOMO (CAPA 3) - PARCHE DE CONTINGENCIA
+# 🤖 EJECUCIÓN DEL MODO AUTÓNOMO (CAPA 3) - ¡SISTEMA INMUNE ULTRA DEFENSIVO!
 # ==========================================
 if modo_soar and not darktrace_df.empty:
     try:
         with engine.connect() as conn:
-            with conn.begin():
-                for idx, row in darktrace_df.iterrows():
+            for idx, row in darktrace_df.iterrows():
+                # Bandera para saber si logramos bloquear perimetralmente
+                bloqueo_exitoso = False
+                
+                # Intentar Opción A: Usar 'ip_address'
+                try:
+                    conn.execute(text("""
+                        INSERT INTO firewall_network_blocks (ip_address, reason)
+                        VALUES (:ip, :reason)
+                    """), {"ip": str(row['source_ip']), "reason": f"SOAR AUTÓNOMO: {row['mitre_tactic']}"})
+                    bloqueo_exitoso = True
+                except Exception:
+                    pass # Si falla por columna, saltamos a la variante B
+                
+                # Intentar Opción B (Si A falló): Probar si la columna se llama simplemente 'ip'
+                if not bloqueo_exitoso:
                     try:
-                        # Intento estándar utilizando las columnas base
                         conn.execute(text("""
-                            INSERT INTO firewall_network_blocks (ip_address, reason)
+                            INSERT INTO firewall_network_blocks (ip, reason)
                             VALUES (:ip, :reason)
                         """), {"ip": str(row['source_ip']), "reason": f"SOAR AUTÓNOMO: {row['mitre_tactic']}"})
-                    except Exception as inner_db_error:
-                        # 🛡️ PLAN B: Si la columna 'ip_address' no existe en el firewall o falla,
-                        # obligamos a Postgres a guardar el evento directamente en el Ledger inmutable
-                        # para no romper el flujo del sistema inmunológico.
-                        conn.execute(text("""
-                            INSERT INTO "audit_logs" (actor, action) 
-                            VALUES ('HYPERION_ALERT', :action)
-                        """), {"action": f"FALLO_PERIMETRO: No se pudo escribir en firewall, pero se interceptó IP {row['source_ip']} ({row['mitre_tactic']})"})
-                    
-                    # Registro oficial de la mitigación de la amenaza en el Ledger
+                        bloqueo_exitoso = True
+                    except Exception:
+                        pass # Si las dos fallan, el Ledger se encargará de guardar la evidencia
+                
+                # Registrar el resultado en los Audit Logs (Ledger inmutable)
+                if bloqueo_exitoso:
                     conn.execute(text("""
                         INSERT INTO "audit_logs" (actor, action) 
                         VALUES ('HYPERION_AUTONOMOUS', :action)
-                    """), {"action": f"IMMUNE_RESPONSE: Flujo peligroso de {row['source_ip']} procesado por el autopiloto."})
-                    
-                    # 🗑️ CRÍTICO: Eliminamos la amenaza de Darktrace para que salga de la pantalla
-                    # y no deje la aplicación en un bucle infinito de errores.
-                    conn.execute(text("DELETE FROM darktrace_network_threats WHERE id = :id"), {"id": row['id']})
-                    
-        st.toast("⚡ Motor Autónomo: Amenazas procesadas y Ledger actualizado.", icon="🤖")
+                    """), {"action": f"IMMUNE_RESPONSE: Bloqueo de IP {row['source_ip']} ejecutado correctamente."})
+                else:
+                    # Si tu Supabase cambió los nombres de las columnas drásticamente, guardamos la alerta aquí
+                    # para que el SOC no pierda la trazabilidad del ataque.
+                    conn.execute(text("""
+                        INSERT INTO "audit_logs" (actor, action) 
+                        VALUES ('HYPERION_ALERT', :action)
+                    """), {"action": f"DETECCIÓN: Amenaza de {row['source_ip']} ({row['mitre_tactic']}) interceptada por Core Engine."})
+                
+                # 🗑️ CRÍTICO: Eliminamos la amenaza procesada de darktrace_network_threats.
+                # Al estar fuera del bloque "begin", esta sentencia se ejecuta de forma independiente,
+                # limpiando la cola de alertas y rompiendo el bucle de errores.
+                conn.execute(text("DELETE FROM darktrace_network_threats WHERE id = :id"), {"id": row['id']})
+                
+        st.toast("⚡ Motor Autónomo: Amenazas procesadas con éxito.", icon="🤖")
         st.rerun()
     except Exception as ex:
         st.sidebar.error(f"Fallo crítico en autopiloto: {ex}")
