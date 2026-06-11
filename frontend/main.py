@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 # Configuración de página de nivel Enterprise
 st.set_page_config(
-    page_title="Hyperion | Unified SOAR Platform",
+    page_title="Hyperion | Enterprise SOAR Platform",
     page_icon="🛡️",
     layout="wide"
 )
@@ -18,6 +18,7 @@ st.markdown("""
     h3 { color: #cbd5e1 !important; }
     h4 { color: #f1f5f9 !important; margin-top: 15px; }
     .stDataFrame { background-color: #0d1117; border: 1px solid #30363d; border-radius: 8px; }
+    [data-testid="stSidebar"] { background-color: #0d1117; border-right: 1px solid #1f2937; }
     footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
@@ -34,39 +35,12 @@ except Exception as e:
     st.error(f"❌ Error crítico de conexión: {e}")
     st.stop()
 
-# Encabezado de la Plataforma
-st.title("🛡️ Hyperion Autonomous SOAR - Consola de Comando")
-st.markdown(f"👤 **Operador Actual:** `{operador_transferido}` | **Nodo de Control:** Perimetral Integrado")
-st.caption("CONSOLIDACIÓN FINAL // SEMANA 4: PLATAFORMA UNIFICADA DE AMENAZAS Y GESTIÓN DE FALSOS POSITIVOS")
+# --- CONSULTAS EN CALIENTE PARA ALERTAS, LEDGER Y KPIs ---
+fecha_desde = datetime.now() - timedelta(days=7)
+fecha_hasta = datetime.now()
 
-st.markdown("---")
-
-# Interfaz de Filtros Temporales para Auditoría
-col1, col2 = st.columns(2)
-with col1:
-    fecha_desde = st.date_input("Auditar Desde", datetime.now() - timedelta(days=7))
-with col2:
-    fecha_hasta = st.date_input("Auditar Hasta", datetime.now())
-
-# Consulta de Ledger Histórico CORREGIDA
-query_str = """
-    SELECT * FROM "audit_logs" 
-    WHERE timestamp >= :desde AND timestamp <= :hasta 
-    ORDER BY timestamp DESC
-"""
-params = {
-    "desde": datetime.combine(fecha_desde, datetime.min.time()),
-    "hasta": datetime.combine(fecha_hasta, datetime.max.time())
-}
-
+# Esto lo dejamos global para alimentar los contadores del Sidebar y del Header
 df_ledger = pd.DataFrame()
-try:
-    with engine.connect() as conn:
-        df_ledger = pd.read_sql(text(query_str), conn, params=params)
-except Exception as e:
-    st.error(f"Error al leer Ledger: {e}")
-
-# --- CONSULTAS EN CALIENTE PARA ALERTAS Y KPIs ---
 anomalies_live_df = pd.DataFrame()
 darktrace_df = pd.DataFrame()
 firewall_blocks_df = pd.DataFrame()
@@ -75,45 +49,76 @@ allowlist_df = pd.DataFrame()
 
 try:
     with engine.connect() as conn:
+        # Ledger Histórico
+        query_str = 'SELECT * FROM "audit_logs" WHERE timestamp >= :desde AND timestamp <= :hasta ORDER BY timestamp DESC'
+        df_ledger = pd.read_sql(text(query_str), conn, {"desde": fecha_desde, "hasta": fecha_hasta})
         # Capa 1: UEBA Anomalías
         anomalies_live_df = pd.read_sql(text("SELECT * FROM behavior_anomalies WHERE status = 'active' ORDER BY timestamp DESC"), conn)
         # Capa 2: Darktrace NTA
         darktrace_df = pd.read_sql(text("SELECT * FROM darktrace_network_threats ORDER BY timestamp DESC"), conn)
         # Capa 3: Bloqueos SOAR
-        firewall_blocks_df = pd.read_sql(text("SELECT blocked_ip, duration_minutes, blocked_at, expires_at, reason FROM firewall_network_blocks ORDER BY blocked_at DESC"), conn)
-        jwt_blacklist_df = pd.read_sql(text("SELECT user_email, revoked_at, reason FROM jwt_blacklist ORDER BY revoked_at DESC"), conn)
+        firewall_blocks_df = pd.read_sql(text("SELECT * FROM firewall_network_blocks ORDER BY blocked_at DESC"), conn)
+        jwt_blacklist_df = pd.read_sql(text("SELECT * FROM jwt_blacklist ORDER BY revoked_at DESC"), conn)
         # Capa 4: Allowlist Exclusiones
-        allowlist_df = pd.read_sql(text("SELECT target, target_type, authorized_by, reason, created_at FROM security_allowlist ORDER BY created_at DESC"), conn)
+        allowlist_df = pd.read_sql(text("SELECT * FROM security_allowlist ORDER BY created_at DESC"), conn)
 except Exception as e:
     st.sidebar.error(f"Error cargando telemetría en vivo: {e}")
 
-# Cálculo del consolidado de alertas activas
 total_alertas_activas = len(anomalies_live_df) + len(darktrace_df)
+
+# ==========================================
+# 📊 MENÚ LATERAL ACCESIBLE (SIDEBAR NAV)
+# ==========================================
+with st.sidebar:
+    # Encabezado de Marca / Isologo Corporativo
+    st.markdown("## 🛡️ HYPERION SEC")
+    st.caption("🤖 Autonomous Immune System")
+    st.markdown("---")
+    
+    st.markdown("### 🎛️ Navegación Principal")
+    menu_opcion = st.sidebar.radio(
+        label="Selecciona un Módulo:",
+        options=[
+            "📋 Bitácora Legal Histórica",
+            "🌐 Centro Unificado de Amenazas",
+            "⚡ SOAR Control Center",
+            "⚙️ Falsos Positivos & Allowlist"
+        ]
+    )
+    
+    st.markdown("---")
+    # Estado del Nodo en el Footer del Sidebar
+    st.markdown("#### 🩺 Estado del Nodo")
+    st.success("🟢 CORE_NODE_ONLINE")
+    st.caption(f"**Operador:** `{operador_transferido}`")
+
+# ==========================================
+# 👑 ENCABEZADO CENTRAL DE LA PLATAFORMA
+# ==========================================
+st.title("🛡️ Hyperion Autonomous SOAR")
+st.markdown(f"📊 **Consola de Comando** | **Filtro Automático:** Últimos 7 días")
+st.caption("CONSOLIDACIÓN FINAL // SEMANA 4: MENÚ DE ACCESIBILIDAD LATERAL Y PLATAFORMA UNIFICADA")
 
 # --- RENDERIZADO DE KPI'S CORPORATIVOS ---
 m1, m2, m3, m4 = st.columns(4)
 with m1:
-    st.metric(label="📊 Eventos Históricos (Ledger)", value=f"{len(df_ledger)} registros")
+    st.metric(label="📊 Eventos Históricos", value=f"{len(df_ledger)} logs")
 with m2:
-    st.metric(label="🚨 Alertas Activas Consolidadas", value=f"{total_alertas_activas} incidentes", delta="Acción Requerida", delta_color="inverse")
+    st.metric(label="🚨 Incidentes Activos", value=f"{total_alertas_activas} alertas", delta="Acción Requerida", delta_color="inverse")
 with m3:
-    st.metric(label="🔒 Cuarentenas de Red (Firewall)", value=f"{len(firewall_blocks_df)} IPs")
+    st.metric(label="🔒 Cortafuegos (Cuarentena)", value=f"{len(firewall_blocks_df)} IPs")
 with m4:
-    st.metric(label="💀 Sesiones JWT Invalidadas", value=f"{len(jwt_blacklist_df)} usuarios")
+    st.metric(label="💀 JWT Revocados", value=f"{len(jwt_blacklist_df)} tokens")
 
-st.write("---")
+st.markdown("---")
 
-# Estructura de Navegación por Pestañas Core Re-estructurada
-tab_logs, tab_unified_threats, tab_soar, tab_falsos_positivos = st.tabs([
-    "📋 Bitácora Legal Histórica",
-    "🌐 Centro Unificado de Amenazas (UEBA + Darktrace)", 
-    "⚡ Hyperion SOAR Control Center",
-    "⚙️ Gestión de Falsos Positivos & Allowlist"
-])
+# ==========================================
+# 🔄 ENRUTAMIENTO DINÁMICO DE PÁGINAS
+# ==========================================
 
-# PESTAÑA 1: BITÁCORA LEGAL Y REPORTE EJECUTIVO
-with tab_logs:
-    st.subheader("Registros del Ledger Inmutable (SOC2 / NIST Compliance)")
+# MÓDULO 1: BITÁCORA LEGAL
+if menu_opcion == "📋 Bitácora Legal Histórica":
+    st.subheader("📋 Registros del Ledger Inmutable (SOC2 / NIST Compliance)")
     if not df_ledger.empty:
         csv_data = df_ledger.to_csv(index=False).encode('utf-8')
         st.download_button(
@@ -127,11 +132,10 @@ with tab_logs:
     else:
         st.warning("No se registran eventos de seguridad históricos en el intervalo seleccionado.")
 
-# PESTAÑA 2: CENTRO UNIFICADO DE AMENAZAS (¡AQUÍ ESTÁ DE VUELTA TODO TU DARKTRACE + UEBA!)
-with tab_unified_threats:
-    st.subheader("📡 Monitoreo Perimetral e Interno en Tiempo Real")
+# MÓDULO 2: CENTRO UNIFICADO DE AMENAZAS (DARKTRACE + UEBA)
+elif menu_opcion == "🌐 Centro Unificado de Amenazas":
+    st.subheader("🌐 Monitoreo Perimetral e Interno en Tiempo Real")
     
-    # Renderizado del mapa perimetral si hay datos de Darktrace
     if not darktrace_df.empty:
         col_mapa, col_stats = st.columns([2, 1])
         with col_mapa:
@@ -145,23 +149,21 @@ with tab_unified_threats:
             for idx, row in darktrace_df.head(3).iterrows():
                 st.error(f"**{row['severity'].upper()}** | Táctica: `{row['mitre_tactic']}`\n\n{row['threat_type']}")
     else:
-        st.info("💡 Sin coordenadas perimetrales activas para graficar en el mapa en este instante.")
+        st.info("💡 Sin coordenadas perimetrales activas para graficar en el mapa.")
 
     st.write("---")
     
-    # Division en dos columnas para gestionar Alertas de Red (Darktrace) y Alertas de Usuario (UEBA)
     col_dt, col_ueba = st.columns(2)
-    
     with col_dt:
         st.markdown("#### 🌐 Alertas Perimetrales Darktrace (NTA & Threat Intel)")
         if not darktrace_df.empty:
             for idx, row in darktrace_df.iterrows():
                 with st.container():
                     st.markdown(f"**📍 Origen:** `{row['source_ip']}` ➔ **Destino:** `{row['dest_ip']}`")
-                    st.caption(f"🛡️ Táctica Mitre: `{row['mitre_tactic']}` | Severidad: `{row['severity'].upper()}`")
+                    st.caption(f"🛡️ Táctica: `{row['mitre_tactic']}` | Severidad: `{row['severity'].upper()}`")
                     st.markdown(f"**Detalle:** {row['threat_type']}")
                     
-                    if st.button("✂️ Ejecutar Killswitch Manual", key=f"dt_uni_{idx}"):
+                    if st.button("✂️ Ejecutar Killswitch Manual", key=f"dt_side_{idx}"):
                         try:
                             with engine.connect() as conn:
                                 with conn.begin(): 
@@ -173,7 +175,7 @@ with tab_unified_threats:
                         except Exception as tx_err: st.error(f"Error: {tx_err}")
                     st.markdown("---")
         else:
-            st.success("🟢 No hay alertas perimetrales pendientes de mitigación.")
+            st.success("🟢 No hay amenazas perimetrales pendientes.")
 
     with col_ueba:
         st.markdown("#### 🕵️ Alertas de Comportamiento Interno (UEBA)")
@@ -181,10 +183,10 @@ with tab_unified_threats:
             for idx, row in anomalies_live_df.iterrows():
                 with st.container():
                     st.markdown(f"**👤 Usuario Comprometido:** `{row['user_email']}`")
-                    st.caption(f"⚠️ Severidad: `{row['severity'].upper()}` | Estado: `Activo`")
+                    st.caption(f"⚠️ Severidad: `{row['severity'].upper()}`")
                     st.warning(f"**Desvío:** {row['description']}")
                     
-                    if st.button("🚫 Aislar Usuario Manualmente", key=f"ueba_uni_{idx}"):
+                    if st.button("🚫 Aislar Usuario Manualmente", key=f"ueba_side_{idx}"):
                         try:
                             with engine.connect() as conn:
                                 with conn.begin(): 
@@ -196,11 +198,11 @@ with tab_unified_threats:
                         except Exception as e: st.error(f"Error: {e}")
                     st.markdown("---")
         else:
-            st.success("🟢 Matriz UEBA interna limpia. Comportamiento de operadores estable.")
+            st.success("🟢 Matriz UEBA limpia. Comportamiento estable.")
 
-# PESTAÑA 3: VISUALIZACIÓN DEL CORTE DE TRÁFICO SOAR (SEMANA 3)
-with tab_soar:
-    st.subheader("Estado Inmunológico del Sistema")
+# MÓDULO 3: SOAR CONTROL CENTER
+elif menu_opcion == "⚡ SOAR Control Center":
+    st.subheader("⚡ Estado Inmunológico del Sistema")
     c_fw, c_jwt = st.columns(2)
     
     with c_fw:
@@ -208,25 +210,25 @@ with tab_soar:
         if not firewall_blocks_df.empty:
             st.dataframe(firewall_blocks_df, use_container_width=True, hide_index=True)
         else:
-            st.success("🟢 Cortafuegos limpio. Cero bloqueos perimetrales aplicados.")
+            st.success("🟢 Cortafuegos limpio. Cero bloqueos perimetrales.")
             
     with c_jwt:
         st.markdown("#### 💀 Sesiones JWT Revocadas / Lista Negra")
         if not jwt_blacklist_df.empty:
             st.dataframe(jwt_blacklist_df, use_container_width=True, hide_index=True)
         else:
-            st.success("🟢 Cero tokens comprometidos en lista negra.")
+            st.success("🟢 Cero tokens en lista negra.")
 
-# PESTAÑA 4: ADMINISTRACIÓN DE FALSOS POSITIVOS (SEMANA 4)
-with tab_falsos_positivos:
+# MÓDULO 4: FALSOS POSITIVOS Y ALLOWLIST
+elif menu_opcion == "⚙️ Falsos Positivos & Allowlist":
     st.subheader("⚙️ Reglas de Exclusión de Confianza y Eventos Mutados")
-    st.caption("Si un activo bajo ataque se encuentra listado aquí, Hyperion registrará un 'MUTED_EVENT' omitiendo el corte de servicio de forma segura.")
+    st.caption("Los activos registrados aquí generarán un 'MUTED_EVENT' en lugar de activar contenciones automáticas.")
     
-    with st.expander("➕ Añadir Nueva Exclusión (IP / Usuario Legitimo)"):
+    with st.expander("➕ Añadir Nueva Exclusión"):
         with st.form("new_allowlist_form", clear_on_submit=True):
-            f_target = st.text_input("Objetivo (IP o Email del Usuario)", placeholder="Ej: 192.168.1.50 / servicio_backup@hyperion.com").strip()
+            f_target = st.text_input("Objetivo (IP o Email)", placeholder="Ej: 192.168.1.50 / backup@hyperion.com").strip()
             f_type = st.selectbox("Tipo de Activo", ["ip", "user"])
-            f_reason = st.text_input("Justificación de la Regla", placeholder="Ej: Escáner de seguridad aprobado por el área de TI")
+            f_reason = st.text_input("Justificación de la Regla", placeholder="Ej: Escáner de vulnerabilidades aprobado")
             
             submit_btn = st.form_submit_button("Autorizar e Insertar Regla")
             if submit_btn and f_target:
@@ -243,7 +245,7 @@ with tab_falsos_positivos:
                                 "actor": "HYPERION_POLICY_MANAGER",
                                 "action": f"ALLOWLIST_MODIFIED: {operador_transferido} añadió exclusión para el {f_type.upper()} [{f_target}]."
                             })
-                    st.toast(f"✅ Regla de exclusión inyectada con éxito para: {f_target}", icon="🛡️")
+                    st.toast(f"✅ Regla de exclusión inyectada con éxito: {f_target}", icon="🛡️")
                     st.rerun()
                 except Exception as ex:
                     st.error(f"Error al guardar la regla: {ex}")
@@ -252,4 +254,4 @@ with tab_falsos_positivos:
     if not allowlist_df.empty:
         st.dataframe(allowlist_df, use_container_width=True, hide_index=True)
     else:
-        st.info("No hay reglas de exclusión configuradas. Toda alerta analítica disparará contención automática.")
+        st.info("No hay reglas de exclusión configuradas.")
