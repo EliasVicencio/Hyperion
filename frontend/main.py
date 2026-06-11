@@ -187,25 +187,33 @@ elif menu_opcion == "📋 Bitácora Legal Histórica":
     else:
         st.warning("No se registran eventos de seguridad históricos en el intervalo seleccionado.")
 
-# MÓDULO 2: CENTRO DE AMENAZAS (MAPA TÁCTICO + ALERTAS NATIVAS)
+# MÓDULO 2: CENTRO DE AMENAZAS (CORREGIDO)
 elif menu_opcion == "🌐 Centro Unificado de Amenazas":
     st.subheader("🌐 Visualizador de Inmunidad de Red Táctica")
     
-    # Renderizado limpio del panel superpuesto en el mapa sin duplicidades
-    st.markdown(f"""
-        <div class="hud-wrapper">
-            <div class="hyperion-side-panel">
-                <div style="font-size: 0.72rem; font-family: monospace; color: #58a6ff; font-weight: bold; margin-bottom: 2px;">🚀 CORE MATRIX</div>
-                <h4 style="margin: 0 0 10px 0; color: #fff; font-size: 1.05rem; border-bottom: 1px solid rgba(167,139,250,0.15); padding-bottom: 4px;">Live Intelligence</h4>
-                
-                <div class="panel-metric"><span>Eventos Correlacionados:</span><span style="color: #58a6ff; font-weight: bold;">{len(df_ledger) * 23}</span></div>
-                <div class="panel-metric"><span>Vectores Críticos:</span><span style="color: #f43f5e; font-weight: bold;">{len(darktrace_df)}</span></div>
-                <div class="panel-metric"><span>Comportamientos IP:</span><span style="color: #eab308; font-weight: bold;">{len(anomalies_live_df)}</span></div>
-                <div class="panel-metric"><span>Estatus Nodo:</span><span style="color: #238636; font-weight: bold;">PROTECTED</span></div>
-            </div>
-    """, unsafe_allow_html=True)
+    # 1. Definimos las métricas dinámicas calculadas previamente
+    eventos_calculados = len(df_ledger) * 23
+    vectores_criticos = len(darktrace_df)
+    comportamientos_ip = len(anomalies_live_df)
     
-    # Despliegue del mapa
+    # 2. Renderizado del panel flotante (Inyección limpia de HTML)
+    html_panel = f"""
+    <div class="hud-wrapper">
+        <div class="hyperion-side-panel">
+            <div style="font-size: 0.72rem; font-family: monospace; color: #58a6ff; font-weight: bold; margin-bottom: 2px;">🚀 CORE MATRIX</div>
+            <h4 style="margin: 0 0 10px 0; color: #fff; font-size: 1.05rem; border-bottom: 1px solid rgba(167,139,250,0.15); padding-bottom: 4px;">Live Intelligence</h4>
+            
+            <div class="panel-metric"><span>Eventos Correlacionados:</span><span style="color: #58a6ff; font-weight: bold;">{eventos_calculados}</span></div>
+            <div class="panel-metric"><span>Vectores Críticos:</span><span style="color: #f43f5e; font-weight: bold;">{vectores_criticos}</span></div>
+            <div class="panel-metric"><span>Comportamientos IP:</span><span style="color: #eab308; font-weight: bold;">{comportamientos_ip}</span></div>
+            <div class="panel-metric"><span>Estatus Nodo:</span><span style="color: #238636; font-weight: bold;">PROTECTED</span></div>
+        </div>
+    </div>
+    """
+    st.markdown(html_panel, unsafe_allow_html=True)
+    
+    # 3. Despliegue del Mapa Táctico (Fuera del contenedor HTML para evitar colisiones en el DOM)
+    st.markdown("<br>", unsafe_allow_html=True)
     if not darktrace_df.empty:
         map_data = darktrace_df[['latitude', 'longitude']].dropna()
         map_data.columns = ['lat', 'lon']
@@ -213,12 +221,9 @@ elif menu_opcion == "🌐 Centro Unificado de Amenazas":
     else:
         default_map = pd.DataFrame({'lat': [0.0], 'lon': [0.0]})
         st.map(default_map, zoom=1, use_container_width=True)
-        
-    st.markdown("</div>", unsafe_allow_html=True)
 
-    # Gestión limpia de flujos mediante Expander nativo
+    # 4. Sección táctica bajo demanda mediante Expander nativo
     st.markdown("<br>", unsafe_allow_html=True)
-    
     if not darktrace_df.empty:
         with st.expander(f"🛠️ Analizar e Interrumpir Amenazas Activas ({len(darktrace_df)})", expanded=True):
             for idx, row in darktrace_df.iterrows():
@@ -244,7 +249,7 @@ elif menu_opcion == "🌐 Centro Unificado de Amenazas":
                         except Exception as ex:
                             st.error(f"Fallo en Mitigación: {ex}")
     else:
-        st.info("🟢 Perímetro normalizado: No hay flujos maliciosos detectados.")
+        st.info("🟢 Perímetro normalizado: No hay flujos maliciosos pendientes de mitigación en este segmento.")
 
 # MÓDULO 3: SOAR CONTROL CENTER
 elif menu_opcion == "⚡ SOAR Control Center":
