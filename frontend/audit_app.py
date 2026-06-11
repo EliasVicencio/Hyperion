@@ -13,7 +13,7 @@ st.set_page_config(
 # Estilo CSS personalizado oscuro y profesional
 st.markdown("""
     <style>
-    .main { background-color: #0b0e14; }
+    .stApp { background-color: #0b0e14; }
     h1 { color: #a78bfa !important; font-family: 'Segoe UI', sans-serif; font-weight: 800; }
     .stDataFrame { background-color: #0d1117; border: 1px solid #30363d; border-radius: 8px; }
     footer {visibility: hidden;}
@@ -43,10 +43,10 @@ with col2:
 with col3:
     actor_filter = st.text_input("Filtrar por Actor / Operador (Opcional)", "").strip()
 
-# 3. Construcción de Query Segura
+# 3. Construcción de Query Segura (Ajustada al nombre real exacto "AUDIT_LOGS")
 query_str = """
     SELECT timestamp, actor, action, context, hash_this 
-    FROM audit_logs 
+    FROM "AUDIT_LOGS" 
     WHERE timestamp >= :desde AND timestamp <= :hasta
 """
 
@@ -94,5 +94,5 @@ with st.spinner("Consultando registros inmutables de PostgreSQL..."):
             st.warning("⚠️ No se encontraron eventos de seguridad en el rango de fechas seleccionado.")
             
     except Exception as e:
-        st.error(f"❌ Error al consultar la tabla 'audit_log': {e}")
-        st.info("💡 Nota técnica: El enlace a la base de datos es correcto, pero la tabla 'audit_log' no existe en este esquema actual. Verifica las migraciones de la DB.")
+        st.error(f"❌ Error al consultar la tabla 'AUDIT_LOGS': {e}")
+        st.info("💡 Nota técnica: El enlace a la base de datos es correcto, pero la tabla 'AUDIT_LOGS' devolvió un fallo en la estructura o el esquema actual. Verifica que las columnas coincidan.")
