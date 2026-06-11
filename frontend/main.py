@@ -150,6 +150,23 @@ with tab_logs:
     else:
         st.warning("⚠️ No se encontraron eventos de seguridad históricos en el rango de fechas seleccionado.")
 
+# FUNCIÓN AUXILIAR DE INSPECCIÓN REAL DE COLUMNAS (A PRUEBA DE BALAS)
+def obtener_columna_descriptiva():
+    """Pregunta a Postgres cuáles son las columnas reales de audit_logs para evitar fallos."""
+    columnas_validas = ["context", "contexto", "description", "metadata", "detalles"]
+    try:
+        query_cols = "SELECT column_name FROM information_schema.columns WHERE table_name = 'audit_logs';"
+        with engine.connect() as conn:
+            res = conn.execute(text(query_cols)).fetchall()
+            db_cols = [row[0].lower() for row in res]
+            
+            for c in columnas_validas:
+                if c in db_cols:
+                    return c
+    except:
+        pass
+    return "context" # Fallback por si acaso
+
 # PESTAÑA 2: INMUNIDAD INTERACTIVA (ELIMINACIÓN DE ANOMALÍAS EN VIVO)
 with tab_immune:
     st.subheader("🕵️ Análisis de Comportamiento de Usuarios (User Behavior Analytics)")
@@ -171,23 +188,14 @@ with tab_immune:
                     # --- BOTÓN "🚫 Aislar e Inhabilitar" ---
                     if st.button("🚫 Aislar e Inhabilitar", key=f"block_{row['id']}"):
                         try:
-                            # Detectar dinámicamente qué columna descriptiva existe en la tabla
-                            col_desc = "context"
-                            if not df.empty:
-                                for col in ["context", "contexto", "description", "metadata", "detalles"]:
-                                    if col in df.columns:
-                                        col_desc = col
-                                        break
-                            
+                            col_desc = obtener_columna_descriptiva()
                             with engine.connect() as conn:
                                 with conn.begin(): 
-                                    # 1. Registrar mitigación usando la columna detectada
                                     sql_ins = f'INSERT INTO "audit_logs" (actor, action, {col_desc}) VALUES (:actor, :action, :ctx)'
                                     conn.execute(
                                         text(sql_ins),
                                         {"actor": "HYPERION_SOAR", "action": "USER_ISOLATED", "ctx": f"Mitigación armada contra {row['user_email']}"}
                                     )
-                                    # 2. Borrar anomalía activa
                                     conn.execute(
                                         text("DELETE FROM behavior_anomalies WHERE id = :id"), 
                                         {"id": row['id']}
@@ -242,21 +250,12 @@ with tab_darktrace:
                     # --- BOTÓN KILLSWITCH ---
                     if st.button("✂️ Cortar Conexión (Killswitch)", key=f"dt_{row['id']}"):
                         try:
-                            # Detectar dinámicamente qué columna descriptiva existe en la tabla
-                            col_desc = "context"
-                            if not df.empty:
-                                for col in ["context", "contexto", "description", "metadata", "detalles"]:
-                                    if col in df.columns:
-                                        col_desc = col
-                                        break
-                                        
+                            col_desc = obtener_columna_descriptiva()
                             with engine.connect() as conn:
                                 with conn.begin(): 
-                                    # 1. Registrar en bitácora inmutable usando la columna detectada
                                     sql_ins = f'INSERT INTO "audit_logs" (actor, action, {col_desc}) VALUES (\'DARKTRACE_SOAR\', \'NETWORK_CONNECTION_TERMINATED\', :ctx)'
                                     conn.execute(text(sql_ins), {"ctx": f"Bloqueo de socket IP {row['source_ip']}"})
                                     
-                                    # 2. Eliminar amenaza de red
                                     conn.execute(
                                         text("DELETE FROM darktrace_network_threats WHERE id = :id"), 
                                         {"id": row['id']}
