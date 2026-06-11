@@ -142,16 +142,15 @@ except Exception as e:
 # 🧠 CAPA 1 AUTOMATIZADA: MOTOR ANALÍTICO UEBA (Backstage)
 # ==========================================
 if not df_ledger.empty and anomalies_live_df.empty:
-    usuarios_riesgo = df_ledger[df_ledger['actor'] != 'SYSTEM'].heading.unique()
+    usuarios_riesgo = df_ledger[df_ledger['actor'] != 'SYSTEM'].heading.unique() if 'heading' in df_ledger.columns else []
     if len(usuarios_riesgo) > 0:
-        target_user = random.choice(usuarios_riesgo) if len(usuarios_riesgo) > 0 else "user@enterprise.com"
+        target_user = random.choice(usuarios_riesgo)
         try:
-            with engine.connect() as conn:
-                with conn.begin():
-                    conn.execute(text("""
-                        INSERT INTO behavior_anomalies (user_id, description, status, severity)
-                        VALUES (:user, 'Acceso fuera de horario habitual detectado por Motor UEBA', 'active', 'medium')
-                    """), {"user": target_user})
+            with engine.begin() as conn:
+                conn.execute(text("""
+                    INSERT INTO behavior_anomalies (user_email, description, status, severity)
+                    VALUES (:user, 'Acceso fuera de horario habitual detectado por Motor UEBA', 'active', 'medium')
+                """), {"user": target_user})
             with engine.connect() as conn:
                 anomalies_live_df = pd.read_sql(text("SELECT * FROM behavior_anomalies WHERE status = 'active' ORDER BY timestamp DESC"), conn)
         except Exception:
@@ -200,54 +199,46 @@ with st.sidebar:
     st.caption(f"**Operador:** `{operador_transferido}`")
 
 # ==========================================
-# 🤖 EJECUCIÓN DEL MODO AUTÓNOMO (CAPA 3) - ¡SISTEMA INMUNE ULTRA DEFENSIVO!
+# 🤖 EJECUCIÓN DEL MODO AUTÓNOMO (CAPA 3)
 # ==========================================
 if modo_soar and not darktrace_df.empty:
     try:
-        with engine.connect() as conn:
-            for idx, row in darktrace_df.iterrows():
-                # Bandera para saber si logramos bloquear perimetralmente
-                bloqueo_exitoso = False
-                
-                # Intentar Opción A: Usar 'ip_address'
-                try:
+        for idx, row in darktrace_df.iterrows():
+            bloqueo_exitoso = False
+            
+            # Operación 1: Intentar registrar el bloqueo en el cortafuegos usando la columna real 'blocked_ip'
+            try:
+                with engine.begin() as conn:
                     conn.execute(text("""
-                        INSERT INTO firewall_network_blocks (ip_address, reason)
+                        INSERT INTO firewall_network_blocks (blocked_ip, reason)
                         VALUES (:ip, :reason)
                     """), {"ip": str(row['source_ip']), "reason": f"SOAR AUTÓNOMO: {row['mitre_tactic']}"})
-                    bloqueo_exitoso = True
-                except Exception:
-                    pass # Si falla por columna, saltamos a la variante B
-                
-                # Intentar Opción B (Si A falló): Probar si la columna se llama simplemente 'ip'
-                if not bloqueo_exitoso:
-                    try:
+                bloqueo_exitoso = True
+            except Exception as e:
+                pass
+            
+            # Operación 2: Registrar auditoría en su transacción independiente
+            try:
+                with engine.begin() as conn:
+                    if bloqueo_exitoso:
                         conn.execute(text("""
-                            INSERT INTO firewall_network_blocks (ip, reason)
-                            VALUES (:ip, :reason)
-                        """), {"ip": str(row['source_ip']), "reason": f"SOAR AUTÓNOMO: {row['mitre_tactic']}"})
-                        bloqueo_exitoso = True
-                    except Exception:
-                        pass # Si las dos fallan, el Ledger se encargará de guardar la evidencia
-                
-                # Registrar el resultado en los Audit Logs (Ledger inmutable)
-                if bloqueo_exitoso:
-                    conn.execute(text("""
-                        INSERT INTO "audit_logs" (actor, action) 
-                        VALUES ('HYPERION_AUTONOMOUS', :action)
-                    """), {"action": f"IMMUNE_RESPONSE: Bloqueo de IP {row['source_ip']} ejecutado correctamente."})
-                else:
-                    # Si tu Supabase cambió los nombres de las columnas drásticamente, guardamos la alerta aquí
-                    # para que el SOC no pierda la trazabilidad del ataque.
-                    conn.execute(text("""
-                        INSERT INTO "audit_logs" (actor, action) 
-                        VALUES ('HYPERION_ALERT', :action)
-                    """), {"action": f"DETECCIÓN: Amenaza de {row['source_ip']} ({row['mitre_tactic']}) interceptada por Core Engine."})
-                
-                # 🗑️ CRÍTICO: Eliminamos la amenaza procesada de darktrace_network_threats.
-                # Al estar fuera del bloque "begin", esta sentencia se ejecuta de forma independiente,
-                # limpiando la cola de alertas y rompiendo el bucle de errores.
-                conn.execute(text("DELETE FROM darktrace_network_threats WHERE id = :id"), {"id": row['id']})
+                            INSERT INTO "audit_logs" (actor, action) 
+                            VALUES ('HYPERION_AUTONOMOUS', :action)
+                        """), {"action": f"IMMUNE_RESPONSE: Bloqueo de IP {row['source_ip']} ejecutado correctamente."})
+                    else:
+                        conn.execute(text("""
+                            INSERT INTO "audit_logs" (actor, action) 
+                            VALUES ('HYPERION_ALERT', :action)
+                        """), {"action": f"DETECCIÓN: Amenaza de {row['source_ip']} ({row['mitre_tactic']}) interceptada por Core Engine."})
+            except Exception:
+                pass
+
+            # Operación 3: Limpiar la alerta procesada para evitar bucles de renderizado
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text("DELETE FROM darktrace_network_threats WHERE id = :id"), {"id": int(row['id'])})
+            except Exception:
+                pass
                 
         st.toast("⚡ Motor Autónomo: Amenazas procesadas con éxito.", icon="🤖")
         st.rerun()
@@ -277,7 +268,7 @@ if menu_opcion == "🎯 Dashboard General":
     st.markdown("<br>", unsafe_allow_html=True)
     
     st.markdown("### 📈 Tendencia de Eventos Recientes")
-    if not df_ledger.empty:
+    if not df_ledger.empty and 'timestamp' in df_ledger.columns:
         df_ledger['fecha'] = pd.to_datetime(df_ledger['timestamp']).dt.date
         chart_data = df_ledger.groupby('fecha').size().reset_index(name='Eventos')
         st.line_chart(chart_data.set_index('fecha'))
@@ -289,14 +280,14 @@ elif menu_opcion == "🕵️ Capa 1: Perfilado UEBA":
     
     if not anomalies_live_df.empty:
         for idx, row in anomalies_live_df.iterrows():
-            st.warning(f"🔔 **Usuario:** `{row['user_id']}` — {row['description']} | Severidad: **{row['severity'].upper()}**")
+            user_field = row['user_email'] if 'user_email' in anomalies_live_df.columns else row.get('user_id', 'Unknown')
+            st.warning(f"🔔 **Usuario:** `{user_field}` — {row['description']} | Severidad: **{str(row['severity']).upper()}**")
             if st.button("💀 Revocar Token JWT", key=f"jwt_{idx}"):
                 try:
-                    with engine.connect() as conn:
-                        with conn.begin():
-                            conn.execute(text("INSERT INTO jwt_blacklist (token, user_id) VALUES ('revoked_token_soar', :user)"), {"user": row['user_id']})
-                            conn.execute(text("DELETE FROM behavior_anomalies WHERE id = :id"), {"id": row['id']})
-                    st.toast(f"Token de {row['user_id']} destruido.", icon="💥")
+                    with engine.begin() as conn:
+                        conn.execute(text("INSERT INTO jwt_blacklist (token_jti, user_email) VALUES ('revoked_token_soar', :user)"), {"user": user_field})
+                        conn.execute(text("DELETE FROM behavior_anomalies WHERE id = :id"), {"id": row['id']})
+                    st.toast(f"Token de {user_field} destruido.", icon="💥")
                     st.rerun()
                 except Exception as e: st.error(e)
     else:
@@ -309,7 +300,7 @@ elif menu_opcion == "🌐 Capa 2: Detección NTA":
     html_panel = f"""<div class="hud-wrapper"><div class="hyperion-side-panel"><div style="font-size: 0.72rem; font-family: monospace; color: #58a6ff; font-weight: bold; margin-bottom: 2px;">🚀 CORE MATRIX</div><h4 style="margin: 0 0 10px 0; color: #fff; font-size: 1.05rem; border-bottom: 1px solid rgba(167,139,250,0.15); padding-bottom: 4px;">Live Intelligence</h4><div class="panel-metric"><span>Logs Correlacionados:</span><span style="color: #58a6ff; font-weight: bold;">{len(df_ledger)}</span></div><div class="panel-metric"><span>Riesgos de Red:</span><span style="color: #f43f5e; font-weight: bold;">{len(darktrace_df)}</span></div><div class="panel-metric"><span>Estado del Nodo:</span><span style="color: #238636; font-weight: bold;">AUTÓNOMO READY</span></div></div>"""
     st.markdown(html_panel, unsafe_allow_html=True)
     
-    if not darktrace_df.empty:
+    if not darktrace_df.empty and 'latitude' in darktrace_df.columns and 'longitude' in darktrace_df.columns:
         map_data = darktrace_df[['latitude', 'longitude']].dropna()
         map_data.columns = ['lat', 'lon']
         st.map(map_data, zoom=1, use_container_width=True)
@@ -327,10 +318,10 @@ elif menu_opcion == "🌐 Capa 2: Detección NTA":
             with c_kill:
                 if st.button("✂️ Cortar Flujo", key=f"k_{idx}"):
                     try:
-                        with engine.connect() as conn:
-                            with conn.begin():
-                                conn.execute(text("INSERT INTO firewall_network_blocks (ip_address, reason) VALUES (:ip, 'Mitigación manual SOC')", {"ip": row['source_ip']}))
-                                conn.execute(text("DELETE FROM darktrace_network_threats WHERE id = :id"), {"id": row['id']})
+                        with engine.begin() as conn:
+                            # CORREGIDO AQUÍ TAMBIÉN: 'blocked_ip' en lugar de 'ip_address'
+                            conn.execute(text("INSERT INTO firewall_network_blocks (blocked_ip, reason) VALUES (:ip, 'Mitigación manual SOC')"), {"ip": row['source_ip']})
+                            conn.execute(text("DELETE FROM darktrace_network_threats WHERE id = :id"), {"id": row['id']})
                         st.toast("Línea cortada.", icon="🔒")
                         st.rerun()
                     except Exception as e: st.error(e)
@@ -359,10 +350,9 @@ elif menu_opcion == "⚙️ Exclusiones & Confianza":
         t_reason = st.text_input("Motivo de la Exclusión")
         if st.form_submit_button("Añadir a la lista blanca") and t_target:
             try:
-                with engine.connect() as conn:
-                    with conn.begin():
-                        conn.execute(text("INSERT INTO security_allowlist (target, target_type, authorized_by, reason) VALUES (:t, :type, :auth, :r)"),
-                                     {"t": t_target, "type": t_type, "auth": operador_transferido, "r": t_reason})
+                with engine.begin() as conn:
+                    conn.execute(text("INSERT INTO security_allowlist (target, target_type, authorized_by, reason) VALUES (:t, :type, :auth, :r)"),
+                                 {"t": t_target, "type": t_type, "auth": operador_transferido, "r": t_reason})
                 st.toast("Lista actualizada.")
                 st.rerun()
             except Exception as e: st.error(e)
