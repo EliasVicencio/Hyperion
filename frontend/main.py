@@ -237,7 +237,7 @@ with tab_darktrace:
                                 with conn.begin(): 
                                     # 1. Registrar en bitácora inmutable (Cambiado 'context' por 'contexto')
                                     conn.execute(
-                                        text('INSERT INTO "audit_logs" (actor, action, contexto) VALUES (\'DARKTRACE_SOAR\', \'NETWORK_CONNECTION_TERMINATED\', :ctx)'),
+                                        text('INSERT INTO "audit_logs" (actor, action, description) VALUES (\'DARKTRACE_SOAR\', \'NETWORK_CONNECTION_TERMINATED\', :ctx)'),
                                         {"ctx": f"Bloqueo de socket IP {row['source_ip']}"}
                                     )
                                     # 2. Eliminar amenaza de red
