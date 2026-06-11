@@ -81,13 +81,16 @@ total_alertas_activas = len(anomalies_live_df) + len(darktrace_df)
 # 📊 MENÚ LATERAL ACCESIBLE (SIDEBAR NAV)
 # ==========================================
 with st.sidebar:
-    # Encabezado de Marca / Isologo Corporativo
-    st.markdown("## {LOGO_SVG} HYPERION SEC")
+    # Encabezado de Marca / Isologo Corporativo CORREGIDO
+    # Usamos un f-string para inyectar el SVG y habilitamos unsafe_allow_html
+    st.markdown(f"## {LOGO_SVG} HYPERION SEC", unsafe_allow_html=True)
     st.caption("🤖 Autonomous Immune System")
     st.markdown("---")
     
     st.markdown("### 🎛️ Navegación Principal")
-    menu_opcion = st.sidebar.radio(
+    # Nota: Dentro de 'with st.sidebar:', usa directamente 'st.radio' en vez de 'st.sidebar.radio' 
+    # para evitar duplicaciones visuales o anidamientos extraños.
+    menu_opcion = st.radio(
         label="Selecciona un Módulo:",
         options=[
             "📋 Bitácora Legal Histórica",
