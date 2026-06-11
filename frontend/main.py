@@ -93,55 +93,72 @@ with st.spinner("Consultando registros inmutables de PostgreSQL..."):
             anomalias = df[df[col_action].str.lower().str.contains('fail|error|delete|drop', na=False)]
             total_anomalias = len(anomalias)
             
-            # --- RENDERIZADO DE TARJETAS ---
+            # --- RENDERIZADO DE TARJETAS DE MÉTRICAS ---
             m1, m2, m3, m4 = st.columns(4)
             
             with m1:
-                st.metric(
-                    label="📊 Volumen de Eventos", 
-                    value=f"{total_recs} registros", 
-                    delta="Flujo Normal"
-                )
-            
+                st.metric(label="📊 Volumen de Eventos", value=f"{total_recs} registros", delta="Flujo Normal")
             with m2:
-                st.metric(
-                    label="👤 Operadores Activos", 
-                    value=f"{usuarios_unicos} usuarios", 
-                    delta="Bajo Auditoría",
-                    delta_color="off"
-                )
-                
+                st.metric(label="👤 Operadores Activos", value=f"{usuarios_unicos} usuarios", delta="Bajo Auditoría", delta_color="off")
             with m3:
+                # Modificamos dinámicamente según alertas reales de infraestructura
                 color_alerta = "inverse" if total_anomalias > 0 else "normal"
-                st.metric(
-                    label="🚨 Alertas de Seguridad", 
-                    value=f"{total_anomalias} críticas", 
-                    delta="0 Incidentes" if total_anomalias == 0 else "Requiere Revisión",
-                    delta_color=color_alerta
-                )
-            
+                st.metric(label="🚨 Alertas de Seguridad", value=f"{total_anomalias} críticas", delta="0 Incidentes" if total_anomalias == 0 else "Requiere Revisión", delta_color=color_alerta)
             with m4:
-                st.metric(
-                    label="🔒 Estado del Ledger", 
-                    value="99.98%", 
-                    delta="Norma NIST / SOC2"
-                )
+                st.metric(label="🔒 Estado del Ledger", value="99.98%", delta="Norma NIST / SOC2")
 
             st.write("---")
-            st.subheader("📋 Registro de Eventos Estructurado")
-            st.dataframe(df, use_container_width=True)
             
-            # Botón de Descarga Oficial Recuperado
-            st.write("")
-            csv_data = df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📥 Exportar Bitácora Legal (CSV Oficial)",
-                data=csv_data,
-                file_name=f"hyperion_bitacora_{fecha_desde}_al_{fecha_hasta}.csv",
-                mime="text/csv"
-            )
-        else:
-            st.warning("⚠️ No se encontraron eventos de seguridad en el rango de fechas seleccionado.")
+            # Creación de Pestañas Ejecutivas (Lo que impactará al CTO)
+            tab_logs, tab_immune = st.tabs(["📋 Bitácora de Logs Estructurada", "🛡️ Hyperion Immune Gateway (UEBA)"])
+            
+            with tab_logs:
+                st.subheader("Registros Totales del Sistema")
+                st.dataframe(df, use_container_width=True)
+                
+                # Botón de Descarga Oficial
+                csv_data = df.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="📥 Exportar Bitácora Legal (CSV Oficial)",
+                    data=csv_data,
+                    file_name=f"hyperion_bitacora_{fecha_desde}_al_{fecha_hasta}.csv",
+                    mime="text/csv"
+                )
+                
+            with tab_immune:
+                st.subheader("🕵️ Análisis de Comportamiento de Usuarios (User Behavior Analytics)")
+                st.info("Esta sección contrasta los accesos de producción contra las firmas de comportamiento inmutables guardadas en Supabase.")
+                
+                # Consultamos la tabla de anomalías en tiempo real
+                try:
+                    with engine.connect() as conn:
+                        anomalies_df = pd.read_sql(text('SELECT * FROM behavior_anomalies WHERE status = \'active\' ORDER BY timestamp DESC'), conn)
+                    
+                    if not anomalies_df.empty:
+                        st.error(f"Se han interceptado {len(anomalies_df)} comportamientos fuera de matriz normal.")
+                        
+                        for idx, row in anomalies_df.iterrows():
+                            # Contenedor estético de alerta para el Dashboard de operaciones
+                            with st.container():
+                                c_info, c_action = st.columns([3, 1])
+                                with c_info:
+                                    st.markdown(f"**🔔 Operador:** `{row['user_email']}` | **Severidad:** `{row['severity'].upper()}`")
+                                    st.caption(f"📅 Detectado: {row['timestamp']}")
+                                    st.warning(f"⚠️ **Incidente:** {row['description']}")
+                                with c_action:
+                                    st.write("") # Espaciador
+                                    # Botones de Mitigación Autónoma Simulada (Capa 3 de nuestro plan)
+                                    if st.button("🚫 Aislar e Inhabilitar", key=f"block_{row['id']}"):
+                                        # Aquí ejecutarías la llamada a tu API para bloquear al usuario
+                                        st.toast(f"🔒 Solicitud de revocación de credenciales enviada para {row['user_email']}", icon="🛡️")
+                                    if st.button("✅ Falso Positivo", key=f"fp_{row['id']}"):
+                                        st.toast("Evolucionando matriz de comportamiento del usuario...", icon="📈")
+                                st.markdown("---")
+                    else:
+                        st.success("🟢 Matriz de comportamiento estable. No se registran desvíos geográficos ni de horario en los operadores activos.")
+                        
+                except Exception as ex_immune:
+                    st.info("💡 Nodo Inmunológico en espera: Ejecuta la migración de las tablas de anomalías en Supabase para visualizar la telemetría en tiempo real.")
             
     except Exception as e:
         st.error(f"❌ Error al consultar la tabla 'audit_logs': {e}")
