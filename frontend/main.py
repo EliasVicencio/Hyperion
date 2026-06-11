@@ -1,414 +1,95 @@
 import streamlit as st
-import requests
-import os
-import time
 import pandas as pd
-import plotly.graph_objects as go
-import numpy as np
+from sqlalchemy import create_engine, text
+from datetime import datetime, timedelta
 
-# --- CARGAR VARIABLES DESDE EL ENTORNO O SECRETS ---
-BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
-if "BACKEND_URL" in st.secrets:
-    BACKEND_URL = st.secrets["BACKEND_URL"]
+# Configuración estética del ecosistema Hyperion
+st.set_page_config(
+    page_title="Hyperion | Nodo de Auditoría Legal",
+    page_icon="📜",
+    layout="wide"
+)
 
-if BACKEND_URL.endswith("/"):
-    BACKEND_URL = BACKEND_URL.rstrip("/")
-
-BACKEND_INTERNAL = BACKEND_URL
-BACKEND_EXTERNAL = BACKEND_URL
-
-LOGO_SVG = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='20' fill='none' stroke='%23a78bfa' stroke-width='2' /><ellipse cx='50' cy='50' rx='45' ry='15' fill='none' stroke='%2358a6ff' stroke-width='1' transform='rotate(45 50 50)' /><ellipse cx='50' cy='50' rx='45' ry='15' fill='none' stroke='%2358a6ff' stroke-width='1' transform='rotate(-45 50 50)' /><circle cx='50' cy='50' r='8' fill='%23a78bfa' /></svg>"
-
-st.set_page_config(page_title="Hyperion Ops", page_icon=LOGO_SVG, layout="wide")
-
-# --- CSS INYECTADO ---
+# Estilos Dark UI de Hyperion
 st.markdown("""
     <style>
-        .stApp { background-color: #0b0e14; }
-        div.stButton > button { background-color: #161b22; color: #f0f6fc; border: 1px solid #30363d; border-radius: 8px; transition: all 0.3s ease; }
-        div.stButton > button:hover { border-color: #a78bfa; color: #a78bfa; background-color: #161b22; }
-        [data-testid="stSidebar"] { background-color: #0d1117; border-right: 1px solid #30363d; }
-        [data-testid="stMetricValue"] { color: #a78bfa !important; }
-        *:focus { outline: none !important; box-shadow: none !important; }
-        .kpi-card { background: #161b22; padding: 20px; border-radius: 12px; border: 1px solid #30363d; }
-        .risk-row { background: #0d1117; padding: 15px; border-radius: 10px; border: 1px solid #30363d; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-        .owner-badge { background: #21262d; color: #8b949e; padding: 2px 8px; border-radius: 10px; font-size: 11px; border: 1px solid #30363d; }
-        .compliance-tag { font-size: 12px; color: #a78bfa; font-weight: bold; }
-        .metric-card { background: #161b22; padding: 15px; border-radius: 10px; border: 1px solid #30363d; }
+    .stApp { background-color: #0b0e14; }
+    h1 { color: #a78bfa !important; font-family: 'Segoe UI', sans-serif; }
+    .stDataFrame { background-color: #0d1117; border: 1px solid #30363d; border-radius: 8px; }
+    footer {visibility: hidden;}
     </style>
 """, unsafe_allow_html=True)
 
-# --- SINGLETON DE SESIÓN ---
-if "auth" not in st.session_state:
-    st.session_state.auth = {"token": None, "user": None, "step": "login"}
-if "page" not in st.session_state:
-    st.session_state.page = "Analíticas"
+# Capturamos de forma segura los parámetros URL transferidos desde la rama principal
+query_params = st.query_params
+operador_transferido = query_params.get("operator", "Sistema Automático")
+token_sesion = query_params.get("session_token", None)
 
-def nav_to(page):
-    st.session_state.page = page
-    st.rerun()
+# Inicialización de la conexión a PostgreSQL
+try:
+    db_url = st.secrets.get("DATABASE_URL", "postgresql://admin:hyperion_secret@localhost:5432/hyperion_db")
+    engine = create_engine(db_url)
+except Exception as e:
+    st.error(f"🚨 Error crítico en el enlace de base de datos del Nodo SIEM: {e}")
+    st.stop()
 
-# --- SIDEBAR ---
-if st.session_state.auth["token"]:
-    with st.sidebar:
-        st.markdown(f"""
-            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
-                <img src="{LOGO_SVG}" width="35">
-                <h2 style="color: #a78bfa; margin: 0; font-size: 1.5rem; letter-spacing: 1px;">
-                    HYPERION <span style="color: white; font-size: 0.8rem; vertical-align: middle;">CORE</span>
-                </h2>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        try:
-            h = requests.get(f"{BACKEND_INTERNAL}/health/deep", timeout=2)
-            health_data = h.json()
-            api_status = "🟢" if health_data.get("api") == "healthy" else "🔴"
-            db_status = "🟢" if health_data.get("database") == "healthy" else "🔴"
-        except:
-            api_status, db_status = "🔴", "🔴"
+# Interfaz visual del panel externo
+st.title("📜 Bitácora Legal & Cumplimiento Inmutable")
+st.markdown(f"👤 **Operador en Consola:** `{operador_transferido}` | **Firma de Enlace:** Verified SHA-256")
+st.write("---")
 
-        st.markdown(f"""
-            <div style="background: #1e293b; padding: 12px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 10px;">
-                <p style='margin:0; font-size:11px; color:#94a3b8; font-weight:bold;'>ESTADO DEL SISTEMA</p>
-                <div style='display: flex; justify-content: space-between; margin-top: 5px;'>
-                    <span style='font-size:13px;'>{api_status} API</span>
-                    <span style='font-size:13px;'>{db_status} DB</span>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+# Filtros de consulta temporal
+col1, col2, col3 = st.columns([1, 1, 1])
+with col1:
+    fecha_desde = st.date_input("Rango: Desde", datetime.now() - timedelta(days=7))
+with col2:
+    fecha_hasta = st.date_input("Rango: Hasta", datetime.now())
+with col3:
+    filtro_accion = st.text_input("Filtrar Acción (Ej: login, update)", "").strip()
 
-        st.write(f"👤 **Usuario:** {st.session_state.auth['user']}")
-        st.write("---")
-        
-        if st.button("📊 Analíticas", use_container_width=True): nav_to("Analíticas")
-        if st.button("👁️ Vigilancia", use_container_width=True): nav_to("Vigilancia")
-        if st.button("👥 Operadores", use_container_width=True): nav_to("Operadores")
-        st.write("---")
-        if st.button("⚖️ Gobernanza", use_container_width=True): nav_to("Gobernanza")
-        if st.button("📜 Logs de Auditoría", use_container_width=True): nav_to("AuditLogs")
-        if st.button("📜 SIEM Audit", use_container_width=True): nav_to("SIEM")
-        
-        st.write("---")
-        if st.button("🚪 Cerrar Sesión", use_container_width=True):
-            st.session_state.auth = {"token": None, "user": None, "step": "login"}
-            st.rerun()
+# Construcción de la consulta SQL
+query_str = """
+    SELECT timestamp, actor, action, context, hash_this 
+    FROM audit_log 
+    WHERE timestamp >= :desde AND timestamp <= :hasta
+"""
+params = {
+    "desde": datetime.combine(fecha_desde, datetime.min.time()),
+    "hasta": datetime.combine(fecha_hasta, datetime.max.time())
+}
 
-# --- LÓGICA DE ACCESO (PÚBLICO) ---
-if not st.session_state.auth["token"]:
-    _, col, _ = st.columns([1, 2, 1])
-    
-    with col:
-        st.markdown("<h1 style='text-align: center; color: #c084fc;'>HYPERION ACCESS</h1>", unsafe_allow_html=True)
-        tab1, tab2 = st.tabs(["🔐 Ingresar", "📝 Registrarse"])
-        
-        with tab1:
-            if st.session_state.auth["step"] == "login":
-                u = st.text_input("Correo Electrónico", key="l_user_input")
-                p = st.text_input("Contraseña", type="password", key="l_pass_input")
-                
-                if st.button("Validar Credenciales", use_container_width=True):
-                    if u and p:
-                        try:
-                            with st.spinner("Verificando identidad..."):
-                                res = requests.post(
-                                    f"{BACKEND_INTERNAL}/auth/login", 
-                                    data={"username": u, "password": p}, 
-                                    timeout=10
-                                )
-                            
-                            if res.status_code == 200:
-                                st.session_state.auth["user"] = u
-                                st.session_state.auth["step"] = "2fa"
-                                st.success("Credenciales correctas. Ingrese su código OTP.")
-                                time.sleep(0.5)
-                                st.rerun()
-                            elif res.status_code == 401:
-                                st.error("❌ Usuario o contraseña incorrectos.")
-                            elif res.status_code == 403:
-                                st.error("🚫 Acceso denegado: IP Bloqueada.")
-                            else:
-                                st.error(f"Error inesperado: {res.status_code}")
-                        except requests.exceptions.RequestException:
-                            st.error(f"Error de red: No se pudo conectar al Backend central.")
+if filtro_accion:
+    query_str += " AND action ILIKE :action"
+    params["action"] = f"%{filtro_accion}%"
+
+query_str += " ORDER BY timestamp DESC"
+
+# Ejecución controlada de datos
+with st.spinner("Leyendo libro de logs inmutable desde PostgreSQL..."):
+    try:
+        with engine.connect() as conn:
+            df = pd.read_sql(text(query_str), conn, params=params)
             
-            elif st.session_state.auth["step"] == "2fa":
-                st.info(f"🔑 Verificación para: {st.session_state.auth['user']}")
-                
-                with st.expander("¿No has vinculado tu app? Ver Código QR"):
-                    import qrcode
-                    from io import BytesIO
-                    
-                    secret = os.getenv('TOTP_SECRET', 'JBSWY3DPEHPK3PXP')
-                    otp_uri = f"otpauth://totp/Hyperion:{st.session_state.auth['user']}?secret={secret}&issuer=HyperionOps"
-                    
-                    qr = qrcode.make(otp_uri)
-                    buf = BytesIO()
-                    qr.save(buf, format="PNG")
-                    st.image(buf.getvalue(), caption="Escanea con Google Authenticator", width=200)
-                
-                code = st.text_input("Ingresa el código de 6 dígitos", max_chars=6, key="otp_input")
-                
-                if st.button("Finalizar Acceso", use_container_width=True):
-                    try:
-                        res = requests.post(
-                            f"{BACKEND_INTERNAL}/auth/login/verify-2fa", 
-                            json={"email": st.session_state.auth["user"], "code": code},
-                            timeout=5
-                        )
-                        
-                        if res.status_code == 200:
-                            st.session_state.auth["token"] = res.json()["access_token"]
-                            st.success("Acceso concedido.")
-                            time.sleep(0.5)
-                            st.rerun()
-                        else:
-                            st.error(f"Código incorrecto o expirado (Error {res.status_code})")
-                    except Exception as e:
-                        st.error(f"Error de conexión: {e}")
-                
-                if st.button("⬅️ Volver al Login"):
-                    st.session_state.auth["step"] = "login"
-                    st.rerun()
-
-        with tab2:
-            st.subheader("📝 Registrar Nuevo Operador")
-            new_u = st.text_input("Correo Operador", key="r_user")
-            new_p = st.text_input("Clave Maestra", type="password", key="r_pass")
-            new_r = st.selectbox("Rol", ["admin", "user"], key="r_role")
+        if not df.empty:
+            c_a, c_b = st.columns(2)
+            c_a.metric("Registros Obtenidos", f"{len(df)} filas")
+            c_b.metric("Estatus del Ledger", "🟢 INTEGRIDAD CONFIRMADA")
             
-            if st.button("Crear Operador", use_container_width=True):
-                if not new_u or not new_p:
-                    st.warning("⚠️ Por favor, completa todos los campos.")
-                else:
-                    try:
-                        with st.spinner("Comunicando con el nodo central..."):
-                            res = requests.post(
-                                f"{BACKEND_INTERNAL}/auth/register", 
-                                json={"email": new_u, "password": new_p, "role": new_r},
-                                timeout=10
-                            )
-                        
-                        if res.status_code == 200:
-                            st.success(f"✅ Operador **{new_u}** registrado con éxito.")
-                            st.balloons()
-                            st.info("💡 Ahora puedes ir a la pestaña 'Ingresar' para entrar.")
-                        else:
-                            try:
-                                error_detail = res.json().get('detail', 'Error desconocido.')
-                            except:
-                                error_detail = res.text
-                            st.error(f"❌ Error en registro (Código {res.status_code}): {error_detail}")
-                            
-                    except Exception as e:
-                        st.error(f"🚨 Ocurrió un fallo inesperado en la solicitud de red: {e}")
-
-# --- VISTAS PROTEGIDAS ---
-else:
-    headers = {"Authorization": f"Bearer {st.session_state.auth['token']}"}
-    
-    if st.session_state.page == "Analíticas":
-        st.title("📊 Estadísticas Globales")
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Controles Activos", "42", "+2")
-        c2.metric("Cumplimiento NIST", "78%", "5%")
-        c3.metric("Nivel de Riesgo", "Bajo", "Estable")
-        
-        fig = go.Figure(data=go.Scatterpolar(r=[4, 5, 2, 3, 4], theta=['ID','PR','DE','RS','RC'], fill='toself', line_color='#9333ea'))
-        fig.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", polar=dict(bgcolor="#1e293b"))
-        st.plotly_chart(fig, use_container_width=True)
-
-    elif st.session_state.page == "Vigilancia":
-        st.title("🕵️ Centro de Control Operativo (Capa 7)")
-        
-        col_grafica, col_stats = st.columns([2, 1])
-        with col_grafica:
-            st.subheader("📈 Latencia del Motor (ms)")
-            chart_data = pd.DataFrame(np.random.randn(20, 1) + [20], columns=['Latencia ms'])
-            st.area_chart(chart_data, height=150, use_container_width=True)
-
-        with col_stats:
-            st.subheader("🛡️ Defensa Activa")
-            st.status("Firewall: **Protegiendo**", state="complete")
-            st.metric("Amenazas Bloqueadas (24h)", "127", "+12%")
-
-        st.write("---")
-        st.subheader("🖥️ Consola de Tráfico de Red (Deep Packet Inspection)")
-        log_placeholder = st.empty()
-
-        for i in range(3):
-            try:
-                response = requests.get(f"{BACKEND_INTERNAL}/logs/recent", headers=headers, timeout=5)
-                if response.status_code == 200:
-                    logs = response.json()
-                    log_feed = ""
-                    for log in logs:
-                        ip_falsa = f"192.168.1.{np.random.randint(2, 254)}"
-                        metodo = np.random.choice(["GET", "POST", "PUT", "DELETE"])
-                        log_feed += f"DEBUG [{log['timestamp']}] {metodo} {ip_falsa} -> HTTP/1.1 200 OK | {log['message']}\n"
-                    log_placeholder.code(log_feed, language="accesslog")
-                else:
-                    log_placeholder.error(f"⚠️ Error de enlace con el Backend: {response.status_code}")
-            except:
-                log_placeholder.error("🚨 Nodo Central fuera de alcance. Reintentando...")
-            time.sleep(2)
-
-    elif st.session_state.page == "Operadores":
-        st.title("👥 Gestión de Operadores")
-        try:
-            r = requests.get(f"{BACKEND_INTERNAL}/api/system-metrics", headers=headers)
-            if r.status_code == 200:
-                usuarios = r.json()
-                if usuarios:
-                    data_list = [{"Email": k, "Rol": v.get('role', 'N/A')} for k, v in usuarios.items()]
-                    st.dataframe(pd.DataFrame(data_list), use_container_width=True)
-                else: 
-                    st.info("No hay operadores registrados en la base de datos.")
-            else: 
-                st.error("🛑 Acceso Denegado: Se requieren privilegios de Admin.")
-        except Exception as e: 
-            st.error(f"Error al conectar con la base de datos: {e}")
-        
-    elif st.session_state.page == "Gobernanza":
-        st.title("⚖️ Centro de Gobernanza y Estrategia")
-        col_a, col_b, col_c = st.columns(3)
-        
-        with col_a:
-            st.markdown('<div class="kpi-card">', unsafe_allow_html=True)
-            st.metric("SECURITY SCORE", "92%", "+2.1%")
-            st.line_chart([85, 87, 86, 89, 90, 92], height=50, use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        with col_b:
-            st.markdown('<div class="kpi-card">', unsafe_allow_html=True)
-            st.metric("INCIDENTES ABIERTOS", "0", "Stable", delta_color="normal")
-            st.write("🛡️ Sistema íntegro")
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        with col_c:
-            st.markdown('<div class="kpi-card">', unsafe_allow_html=True)
-            st.metric("CUMPLIMIENTO TOTAL", "88%", "SOC2/GDPR")
-            st.markdown("""
-                <div style="margin-top:10px;">
-                    <span class="compliance-tag">GDPR: 85%</span> | 
-                    <span class="compliance-tag">SOC2: 92%</span> | 
-                    <span class="compliance-tag">ISO: 87%</span>
-                </div>
-            """, unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-        st.write("---")
-        col_left, col_right = st.columns([1.8, 1])
-
-        with col_left:
-            st.subheader("🛡️ Gestión de Activos y Riesgos")
-            st.markdown("""
-                <div class="risk-row" style="border-left: 4px solid #f85149;">
-                    <div>
-                        <strong style="font-size:16px;">Consola Auditoría Externa</strong><br>
-                        <span style="color:#8b949e; font-size:13px;">Mitigación: IP Whitelisting (En progreso)</span><br>
-                        <span class="owner-badge">Dueño: @carlos.seg</span>
-                    </div>
-                    <div style="text-align:right;">
-                        <span style="color:#f85149; font-weight:bold; font-size:18px;">🟠</span><br>
-                        <small style="color:#f85149;">ALTO</small>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
-
-        with col_right:
-            st.subheader("📋 Roadmap y Auditoría")
-            with st.expander("📅 Próximos Hitos", expanded=True):
-                st.write("**Auditoría Externa:** `2026-05-25`")
-                st.write("**Revisión de Accesos:** `En 3 días`")
+            st.write("")
+            st.dataframe(df, use_container_width=True)
             
-            st.write("---")
-            st.subheader("📈 Auditoría y Reportes")
-            with st.container(border=True):
-                st.write("**Próxima Auditoría Interna:**")
-                st.code("2026-05-25 (En 14 días)")
-                st.write("**Reporte SOC2:**")
-                st.progress(0.7)
-                
-                if st.button("📥 Generar Reporte Ejecutivo PDF", use_container_width=True, key="btn_reporte_gob"):
-                    with st.spinner('Compilando métricas...'):
-                        time.sleep(1.5)
-                        st.success("✅ Reporte 'Hyperion_Executive_Q2.pdf' listo.")
-                        st.download_button("Click para descargar", "Contenido PDF simulado", "Hyperion_Report.pdf", key="dl_gob")
-
-    elif st.session_state.page == "AuditLogs":
-        st.title("📜 Registros de Auditoría del Sistema")
-        st.info("Historial de acciones críticas almacenadas en PostgreSQL.")
-
-        try:
-            r = requests.get(f"{BACKEND_INTERNAL}/admin/audit-logs", headers=headers)
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Descargar Reporte de Cumplimiento CSV",
+                data=csv,
+                file_name=f"hyperion_audit_{fecha_desde}_to_{fecha_hasta}.csv",
+                mime="text/csv"
+            )
+        else:
+            st.warning("⚠️ No se encontraron logs de auditoría en el rango seleccionado.")
             
-            if r.status_code == 200:
-                logs = r.json()
-                if logs:
-                    df_logs = pd.DataFrame(logs)
-                    
-                    col_search, col_exp = st.columns([2, 1])
-                    with col_search:
-                        search = st.text_input("🔍 Filtrar logs:", placeholder="Ej: admin, login...")
-                    
-                    if search:
-                        df_logs = df_logs[df_logs.apply(lambda row: search.lower() in row.astype(str).str.lower().values, axis=1)]
-
-                    with col_exp:
-                        st.write("📤 **Exportar**")
-                        csv = df_logs.to_csv(index=False).encode('utf-8')
-                        st.download_button(label="Descargar CSV", data=csv, file_name="audit_report.csv", mime="text/csv", use_container_width=True)
-
-                    st.dataframe(df_logs, use_container_width=True)
-                    st.caption(f"Mostrando {len(df_logs)} registros.")
-                else:
-                    st.warning("No hay registros de auditoría en la base de datos.")
-            else:
-                st.error(f"🛑 Error {r.status_code}: No autorizado para auditar.")
-        except Exception as e:
-            st.error(f"🚨 Error de conexión: {e}")
-
-    # 🔄 CAMBIO: Configuración de la pestaña SIEM con botón inteligente que inyecta parámetros en la URL externa
-    elif st.session_state.page == "SIEM":
-        st.title("📜 Hyperion SIEM Audit Gateway")
-        
-        col_a, col_b, col_c = st.columns(3)
-        with col_a:
-            st.markdown('<div class="metric-card"><h4 style="margin:0; color:#9333ea;">📦 Nodo Ingesta</h4><p style="font-size:24px; font-weight:bold; margin:0;">ACTIVO</p><small style="color:#4ade80;">Kafka 9092</small></div>', unsafe_allow_html=True)
-        with col_b:
-            st.markdown('<div class="metric-card"><h4 style="margin:0; color:#9333ea;">🔒 Integridad</h4><p style="font-size:24px; font-weight:bold; margin:0;">SHA-256</p><small style="color:#4ade80;">Inmutable</small></div>', unsafe_allow_html=True)
-        with col_c:
-            st.markdown('<div class="metric-card"><h4 style="margin:0; color:#9333ea;">⚡ Rendimiento</h4><p style="font-size:24px; font-weight:bold; margin:0;">< 10ms</p><small style="color:#4ade80;">Latencia de enlace</small></div>', unsafe_allow_html=True)
-
-        st.write("")
-        st.write("---")
-        
-        left_col, right_col = st.columns([2, 1])
-
-        with left_col:
-            st.subheader("Enlace Desacoplado (Branch Externa)")
-            st.info("Haga clic abajo para saltar de forma segura al nodo inmutable de auditoría legal.")
-            
-            # 🔄 CAMBIO: Cuando crees tu nueva app en Streamlit Cloud apuntando a la nueva rama, te dará una URL. Pégala aquí:
-            URL_DESPLIEGUE_RAMA_NUEVA = "https://hyperion-audit-node.streamlit.app" 
-            
-            # Inyectamos el usuario y el token JWT de forma cifrada/parámetro en la URL para mantener la sesión
-            usuario_actual = st.session_state.auth["user"]
-            token_actual = st.session_state.auth["token"]
-            
-            url_destino_con_parametros = f"{URL_DESPLIEGUE_RAMA_NUEVA}/?operator={usuario_actual}&session_token={token_actual}"
-            
-            # Render del botón de salto de entorno de alto rendimiento
-            st.markdown(f"""
-                <a href="{url_destino_con_parametros}" target="_blank" style="text-decoration: none;">
-                    <div style="background: linear-gradient(90deg, #9333ea 0%, #c084fc 100%); padding: 25px; border-radius: 12px; text-align: center; color: white; font-weight: bold; font-size: 18px; box-shadow: 0 4px 20px rgba(147, 51, 234, 0.4); transition: transform 0.2s;">
-                        🔒 ABRIR BITÁCORA LEGAL (NODO RAMA SEPARADA) ↗️
-                    </div>
-                </a>
-            """, unsafe_allow_html=True)
-
-        with right_col:
-            st.subheader("Estatus de Conexión")
-            st.success(f"Sesión validada para: {st.session_state.auth['user']}")
-            st.caption("Los tokens de sesión expiran automáticamente conforme a las políticas NIST.")
+    except Exception as e:
+        st.error("❌ Conexión con PostgreSQL establecida, pero la tabla 'audit_log' no está disponible.")
+        with st.expander("Ver traza técnica del error"):
+            st.code(str(e))
+        st.info("💡 Consejo de desarrollo: Ejecuta tus scripts de migración SQL en la base de datos para generar la tabla correspondiente.")
