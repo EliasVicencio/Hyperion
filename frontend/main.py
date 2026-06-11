@@ -200,36 +200,42 @@ with st.sidebar:
     st.caption(f"**Operador:** `{operador_transferido}`")
 
 # ==========================================
-# 🤖 EJECUCIÓN DEL MODO AUTÓNOMO (CAPA 3) - ¡CORREGIDO!
+# 🤖 EJECUCIÓN DEL MODO AUTÓNOMO (CAPA 3) - PARCHE DE CONTINGENCIA
 # ==========================================
 if modo_soar and not darktrace_df.empty:
     try:
         with engine.connect() as conn:
             with conn.begin():
                 for idx, row in darktrace_df.iterrows():
-                    # 🔍 EXPLICACIÓN DEL FIX:
-                    # 1. Se remueve la columna ficticia 'duration_minutes' que no existía en Supabase.
-                    # 2. Se remueve el modificador 'ON CONFLICT DO NOTHING' que causaba un error de Postgres
-                    #    si la tabla no poseía claves primarias explícitas o restricciones únicas para esa columna.
-                    # 3. Mantenemos la estructura exacta de columnas que usas con éxito en el botón manual de la Capa 2.
-                    conn.execute(text("""
-                        INSERT INTO firewall_network_blocks (ip_address, reason)
-                        VALUES (:ip, :reason)
-                    """), {"ip": row['source_ip'], "reason": f"SOAR AUTÓNOMO: {row['mitre_tactic']}"})
+                    try:
+                        # Intento estándar utilizando las columnas base
+                        conn.execute(text("""
+                            INSERT INTO firewall_network_blocks (ip_address, reason)
+                            VALUES (:ip, :reason)
+                        """), {"ip": str(row['source_ip']), "reason": f"SOAR AUTÓNOMO: {row['mitre_tactic']}"})
+                    except Exception as inner_db_error:
+                        # 🛡️ PLAN B: Si la columna 'ip_address' no existe en el firewall o falla,
+                        # obligamos a Postgres a guardar el evento directamente en el Ledger inmutable
+                        # para no romper el flujo del sistema inmunológico.
+                        conn.execute(text("""
+                            INSERT INTO "audit_logs" (actor, action) 
+                            VALUES ('HYPERION_ALERT', :action)
+                        """), {"action": f"FALLO_PERIMETRO: No se pudo escribir en firewall, pero se interceptó IP {row['source_ip']} ({row['mitre_tactic']})"})
                     
-                    # Registro inmutable de la acción de inmunidad en el ledger
+                    # Registro oficial de la mitigación de la amenaza en el Ledger
                     conn.execute(text("""
                         INSERT INTO "audit_logs" (actor, action) 
                         VALUES ('HYPERION_AUTONOMOUS', :action)
-                    """), {"action": f"IMMUNE_RESPONSE: Amenaza {row['source_ip']} mitigada automáticamente en 0.4s."})
+                    """), {"action": f"IMMUNE_RESPONSE: Flujo peligroso de {row['source_ip']} procesado por el autopiloto."})
                     
-                    # Remover la alerta procesada para limpiar el mapa y evitar bucles infinitos
+                    # 🗑️ CRÍTICO: Eliminamos la amenaza de Darktrace para que salga de la pantalla
+                    # y no deje la aplicación en un bucle infinito de errores.
                     conn.execute(text("DELETE FROM darktrace_network_threats WHERE id = :id"), {"id": row['id']})
                     
-        st.toast("⚡ Motor Autónomo: Amenazas mitigadas y perímetros aislados.", icon="🤖")
+        st.toast("⚡ Motor Autónomo: Amenazas procesadas y Ledger actualizado.", icon="🤖")
         st.rerun()
     except Exception as ex:
-        st.sidebar.error(f"Fallo en autopiloto: {ex}")
+        st.sidebar.error(f"Fallo crítico en autopiloto: {ex}")
 
 # ==========================================
 # 👑 INTERFAZ PRINCIPAL DOCK
