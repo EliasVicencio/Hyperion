@@ -169,26 +169,34 @@ with tab_immune:
                     st.write("") 
                     
                     # LOGICA ESTRATÉGICA DE DISPERSIÓN DE RIESGO
-                    if st.button("🚫 Aislar e Inhabilitar", key=f"block_{row['id']}"):
-                        with engine.connect() as conn:
-                            # 1. Registramos la mitigación en el log inmutable antes de borrarla
-                            conn.execute(text('INSERT INTO "audit_logs" (actor, action, context) VALUES (:actor, :action, :context)'),
-                                         {"actor": "HYPERION_SOAR", "action": "USER_ISOLATED", "context": f"Mitigación armada contra {row['user_email']}"})
-                            # 2. Borramos físicamente de la base de datos de anomalías activas
-                            conn.execute(text("DELETE FROM behavior_anomalies WHERE id = :id"), {"id": row['id']})
-                            conn.commit()
-                        st.toast(f"🔒 Operador {row['user_email']} mitigado y purgado de la cola activa.", icon="🛡️")
-                        st.rerun() # Recarga instantánea del frontend
-                        
-                    if st.button("✅ Falso Positivo", key=f"fp_{row['id']}"):
-                        with engine.connect() as conn:
-                            conn.execute(text("DELETE FROM behavior_anomalies WHERE id = :id"), {"id": row['id']})
-                            conn.commit()
-                        st.toast("Evolucionando matriz. Anomalía descartada de Supabase.", icon="📈")
-                        st.rerun()
-                st.markdown("---")
-    else:
-        st.success("🟢 Matriz de comportamiento estable. No se registran desvíos de operadores en los análisis UEBA activos.")
+                    # --- REEMPLAZA EL BOTÓN "🚫 Aislar e Inhabilitar" EN TAB_IMMUNE ---
+                if st.button("🚫 Aislar e Inhabilitar", key=f"block_{row['id']}"):
+                    with engine.connect() as conn:
+                        with conn.begin(): # 🔐 Esto abre una transacción explícita segura
+                            # 1. Registrar la mitigación en el log inmutable
+                            conn.execute(
+                                text('INSERT INTO "audit_logs" (actor, action, context) VALUES (:actor, :action, :context)'),
+                                {"actor": "HYPERION_SOAR", "action": "USER_ISOLATED", "context": f"Mitigación armada contra {row['user_email']}"}
+                            )
+                            # 2. Borrar físicamente de las anomalías activas
+                            conn.execute(
+                                text("DELETE FROM behavior_anomalies WHERE id = :id"), 
+                                {"id": row['id']}
+                            )
+                        # Al salir del bloque 'with conn.begin()', SQLAlchemy hace el COMMIT automático de TODO junto
+                    st.toast(f"🔒 Operador {row['user_email']} mitigado y purgado con éxito.", icon="🛡️")
+                    st.rerun()
+    
+                # --- REEMPLAZA EL BOTÓN "✅ Falso Positivo" EN TAB_IMMUNE ---
+                if st.button("✅ Falso Positivo", key=f"fp_{row['id']}"):
+                    with engine.connect() as conn:
+                        with conn.begin():
+                            conn.execute(
+                                text("DELETE FROM behavior_anomalies WHERE id = :id"), 
+                                {"id": row['id']}
+                            )
+                    st.toast("Evolucionando matriz. Anomalía descartada de Supabase.", icon="📈")
+                    st.rerun()
 
 # PESTAÑA 3: CLON COMPLETO DE DARKTRACE (ANÁLISIS DE TRÁFICO RED)
 with tab_darktrace:
@@ -217,12 +225,20 @@ with tab_darktrace:
                     st.caption(f"Origen: `{row['source_ip']}` ➔ Destino: `{row['dest_ip']}` ({row['country_code']})")
                     st.error(f"**Tipo:** {row['threat_type']}")
                     
+                    # --- REEMPLAZA EL BOTÓN "✂️ Cortar Conexión (Killswitch)" EN TAB_DARKTRACE ---
                     if st.button("✂️ Cortar Conexión (Killswitch)", key=f"dt_{row['id']}"):
                         with engine.connect() as conn:
-                            conn.execute(text('INSERT INTO "audit_logs" (actor, action, context) VALUES (\'DARKTRACE_SOAR\', \'NETWORK_CONNECTION_TERMINATED\', :ctx)'),
-                                         {"ctx": f"Bloqueo de socket IP {row['source_ip']}"})
-                            conn.execute(text("DELETE FROM darktrace_network_threats WHERE id = :id"), {"id": row['id']})
-                            conn.commit()
+                            with conn.begin(): # 🔐 Transacción segura para Darktrace
+                                # 1. Registrar en bitácora inmutable
+                                conn.execute(
+                                    text('INSERT INTO "audit_logs" (actor, action, context) VALUES (\'DARKTRACE_SOAR\', \'NETWORK_CONNECTION_TERMINATED\', :ctx)'),
+                                    {"ctx": f"Bloqueo de socket IP {row['source_ip']}"}
+                                )
+                                # 2. Eliminar amenaza de red
+                                conn.execute(
+                                    text("DELETE FROM darktrace_network_threats WHERE id = :id"), 
+                                    {"id": row['id']}
+                                )
                         st.toast(f"💥 Killswitch activado. Flujo bloqueado para la IP {row['source_ip']}", icon="🚫")
                         st.rerun()
                 st.markdown("---")
