@@ -1,53 +1,17 @@
 import pandas as pd
-from sqlalchemy import create_engine, text
-
-class ResponseEngine:
-    def __init__(self, db_engine):
-        self.engine = db_engine
-
-    def execute_autonomous_response(self, threat):
-        """
-        Orquestador SOAR de Hyperion: Ejecuta contención inmediata 
-        según la criticidad de la amenaza detectada.
-        """
-        # Si la amenaza es Crítica o Alta, aplicamos mitigación autónoma en < 30 segundos
-        if threat['severity'] in ['critical', 'high']:
-            print(f"[!] GATILLO SOAR: Amenaza {threat['severity'].upper()} detectada para IP {threat['source_ip']}. Iniciando contención...")
-            
-            try:
-                with self.engine.connect() as conn:
-                    with conn.begin():
-                        # 1. Registro inmutable en la bitácora legal (Cumplimiento SOC2)
-                        sql_log = 'INSERT INTO "audit_logs" (actor, action) VALUES (:actor, :action)'
-                        conn.execute(
-                            text(sql_log),
-                            {
-                                "actor": "HYPERION_AUTONOMOUS", 
-                                "action": f"AUTONOMOUS_KILLSWITCH: Flujo bloqueado de raíz para IP {threat['source_ip']}. Razón: {threat['threat_type']}."
-                            }
-                        )
-                        
-                        # 2. Desactivar / Mitigar la amenaza perimetral de forma inmediata
-                        # Nota: Como es una inserción en caliente en el script analítico, evitamos que se duplique 
-                        # o permanezca activa si el SOAR ya tomó el control.
-                        print(f"[+] IP {threat['source_ip']} bloqueada de manera autónoma en el Firewall lógico.")
-                        
-            except Exception as e:
-                print(f"[-] Error en el motor de respuesta autónoma (SOAR): {e}")
-
+from sqlalchemy import text
+from security.soar_core import HyperionSOARCore
 
 class HyperionNTAEngine:
     def __init__(self, db_engine):
         self.engine = db_engine
-        self.soar = ResponseEngine(db_engine) # Conexión nativa al módulo SOAR
+        self.soar = HyperionSOARCore(db_engine) # Inyección de la Capa 3 Avanzada
 
     def fetch_threat_intel(self):
-        """Obtiene las IPs reputacionales en lista negra de la Semana 2 de forma segura."""
+        """Obtiene las IPs reputacionales en lista negra de la Semana 2."""
         query = 'SELECT indicator, type, severity FROM threat_intel'
         try:
-            # Abrimos la conexión de SQLAlchemy
             with self.engine.connect() as conn:
-                # .connection extrae la conexión DBAPI nativa subyacente que Pandas requiere para no fallar
                 dbapi_conn = conn.connection
                 return pd.read_sql_query(query, con=dbapi_conn)
         except Exception as e:
@@ -55,9 +19,7 @@ class HyperionNTAEngine:
             return pd.DataFrame()
 
     def analyze_traffic_packet(self, raw_packet_logs):
-        """
-        Analiza logs crudos de red (DPI) y gatilla respuestas autónomas.
-        """
+        """Analiza logs crudos de red (DPI) y gatilla playbooks según severidad."""
         intel_df = self.fetch_threat_intel()
         blacklisted_ips = intel_df['indicator'].tolist() if not intel_df.empty else []
         
@@ -72,13 +34,12 @@ class HyperionNTAEngine:
                     "dest_ip": log['dest_ip'],
                     "threat_type": f"Conexión activa a C2 conocido ({intel_match['type']})",
                     "mitre_tactic": "Command and Control (TA0011)",
-                    "severity": intel_match['severity'],
-                    "latitude": 40.7128,
-                    "longitude": -74.0060,
-                    "country_code": "US"
+                    "severity": "critical", # Escalado a crítico por política de la Semana 3
+                    "latitude": 40.7128, "longitude": -74.0060, "country_code": "US",
+                    "user_email": "atila_hacker@hyperion.com" # Simulación de usuario comprometido usando la IP
                 }
-                # Ejecución de Respuesta Autónoma en tiempo real
-                self.soar.execute_autonomous_response(threat)
+                # Ejecución automatizada del Playbook Crítico
+                self.soar.execute_playbook('critical', threat)
                 threats_to_persist.append(threat)
 
         # --- REGLA 2: DETECCIÓN DE EXFILTRACIÓN DE DATOS ---
@@ -92,12 +53,11 @@ class HyperionNTAEngine:
                     "threat_type": f"Anomalía de volumen: Exfiltración de {round(row['bytes_sent']/1024/1024, 2)} MB",
                     "mitre_tactic": "Exfiltration (TA0010)",
                     "severity": "high",
-                    "latitude": -33.4489,
-                    "longitude": -70.6693,
-                    "country_code": "CL"
+                    "latitude": -33.4489, "longitude": -70.6693, "country_code": "CL",
+                    "user_email": "exfil_user@hyperion.com"
                 }
-                # Ejecución de Respuesta Autónoma en tiempo real
-                self.soar.execute_autonomous_response(threat)
+                # Ejecución automatizada del Playbook Alto
+                self.soar.execute_playbook('high', threat)
                 threats_to_persist.append(threat)
 
         # --- REGLA 3: ESCANEO DE PUERTOS (PORT SCANNING) ---
@@ -107,17 +67,15 @@ class HyperionNTAEngine:
                 threat = {
                     "source_ip": row['source_ip'],
                     "dest_ip": row['dest_ip'],
-                    "threat_type": f"Escaneo horizontal detectado ({row['dest_port']} puertos escaneados)",
+                    "threat_type": f"Escaneo horizontal detectado ({row['dest_port']} puertos)",
                     "mitre_tactic": "Discovery (TA0007)",
                     "severity": "medium",
-                    "latitude": 51.5074,
-                    "longitude": -0.1278,
-                    "country_code": "UK"
+                    "latitude": 51.5074, "longitude": -0.1278, "country_code": "UK"
                 }
-                # Las amenazas de severidad media (medium) solo se registran, no ejecutan corte automático
+                # Ejecución automatizada del Playbook Medio
+                self.soar.execute_playbook('medium', threat)
                 threats_to_persist.append(threat)
 
-        # Guardar en base de datos las amenazas que quedan pendientes de revisión manual en la consola
         if threats_to_persist:
             self.persist_threats(threats_to_persist)
 
@@ -131,7 +89,11 @@ class HyperionNTAEngine:
             with self.engine.connect() as conn:
                 with conn.begin():
                     for t in threats:
-                        conn.execute(text(query), t)
-            print(f"[+] {len(threats)} vectores de telemetría sincronizados con el panel perimetral.")
+                        conn.execute(text(query), {
+                            "source_ip": t["source_ip"], "dest_ip": t["dest_ip"],
+                            "threat_type": t["threat_type"], "mitre_tactic": t["mitre_tactic"],
+                            "severity": t["severity"], "latitude": t["latitude"],
+                            "longitude": t["longitude"], "country_code": t["country_code"]
+                        })
         except Exception as e:
-            print(f"[-] Error al guardar amenazas en la base de datos: {e}")
+            print(f"[-] Error al guardar amenazas perimetrales: {e}")
