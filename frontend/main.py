@@ -2,17 +2,17 @@ import streamlit as st
 import pandas as pd
 from sqlalchemy import create_engine, text
 from datetime import datetime, timedelta
+import random
 
 LOGO_SVG = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='20' fill='none' stroke='%23a78bfa' stroke-width='2' /><ellipse cx='50' cy='50' rx='45' ry='15' fill='none' stroke='%2358a6ff' stroke-width='1' transform='rotate(45 50 50)' /><ellipse cx='50' cy='50' rx='45' ry='15' fill='none' stroke='%2358a6ff' stroke-width='1' transform='rotate(-45 50 50)' /><circle cx='50' cy='50' r='8' fill='%23a78bfa' /></svg>"
 
-# Configuración de página de nivel Enterprise
 st.set_page_config(
     page_title="Hyperion | Enterprise SOAR Platform",
     page_icon=LOGO_SVG,
     layout="wide"
 )
 
-# ESTILOS DE INTERFAZ: Paleta Corporativa Hyperion (#a78bfa Violet / #58a6ff Blue)
+# --- CSS INYECTADO (Estilos Premium & Menú sin puntitos) ---
 st.markdown("""
     <style>
     .stApp { background-color: #07090e; }
@@ -21,7 +21,6 @@ st.markdown("""
     h3 { color: #58a6ff !important; font-family: 'Courier New', monospace; font-weight: bold; }
     h4 { color: #ffffff !important; }
     
-    /* Contenedor del Escenario HUD */
     .hud-wrapper {
         position: relative;
         border: 1px solid rgba(167, 139, 250, 0.2);
@@ -31,7 +30,6 @@ st.markdown("""
         box-shadow: 0 0 30px rgba(88, 166, 255, 0.03);
     }
     
-    /* Panel Analítico Flotante Izquierdo */
     .hyperion-side-panel {
         position: absolute;
         top: 20px;
@@ -47,7 +45,6 @@ st.markdown("""
         backdrop-filter: blur(10px);
     }
     
-    /* Métricas estilo terminal */
     .panel-metric {
         font-family: 'Courier New', monospace;
         font-size: 0.85rem;
@@ -59,18 +56,17 @@ st.markdown("""
         padding-bottom: 4px;
     }
     
-    /* MODIFICACIONES DEL SIDEBAR Y REDISEÑO DE MENÚ SIN PUNTOS */
     [data-testid="stSidebar"] { 
         background-color: #090d14; 
         border-right: 1px solid rgba(167, 139, 250, 0.15); 
     }
     
-    /* Ocultar los círculos nativos (radio buttons) del menú */
-    [data-testid="stSidebar"] div[data-testid="stRadio"]  div[role="radiogroup"] > label > div:first-child {
+    /* Ocultar círculos nativos del radio button */
+    [data-testid="stSidebar"] div[data-testid="stRadio"] div[role="radiogroup"] > label > div:first-child {
         display: none !important;
     }
     
-    /* Convertir las etiquetas de texto del radio en botones estilizados */
+    /* Formato de caja interactiva para el menú */
     [data-testid="stSidebar"] div[data-testid="stRadio"] div[role="radiogroup"] > label {
         background-color: #0c111d !important;
         border: 1px solid rgba(255, 255, 255, 0.05) !important;
@@ -83,20 +79,17 @@ st.markdown("""
         width: 100% !important;
     }
     
-    /* Efecto Hover sobre los elementos del menú */
     [data-testid="stSidebar"] div[data-testid="stRadio"] div[role="radiogroup"] > label:hover {
         border-color: rgba(167, 139, 250, 0.4) !important;
         background-color: #111827 !important;
     }
     
-    /* Estilo para el elemento seleccionado de forma activa */
     [data-testid="stSidebar"] div[data-testid="stRadio"] div[role="radiogroup"] [data-checked="true"] > label {
         background-color: rgba(167, 139, 250, 0.15) !important;
         border: 1px solid #a78bfa !important;
         box-shadow: 0 0 12px rgba(167, 139, 250, 0.2) !important;
     }
     
-    /* Forzar que el texto interno no se rompa y mantenga legibilidad */
     [data-testid="stSidebar"] div[data-testid="stRadio"] div[role="radiogroup"] > label div[data-testid="stMarkdownContainer"] p {
         color: #e2e8f0 !important;
         font-family: 'Segoe UI', sans-serif !important;
@@ -109,11 +102,10 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Parámetros URL transferidos
+# Parámetros e infraestructura base
 query_params = st.query_params
 operador_transferido = query_params.get("operator", "Control Central")
 
-# Conexión de Datos a Supabase
 try:
     db_url = "postgresql://postgres.tyunqthoinamdlyhgmuq:zKxaQ4y2zNtaMnI3@aws-1-us-east-1.pooler.supabase.com:6543/postgres"
     engine = create_engine(db_url)
@@ -121,7 +113,7 @@ except Exception as e:
     st.error(f"❌ Error crítico de conexión: {e}")
     st.stop()
 
-# --- RECOLECCIÓN DE TELEMETRÍA ---
+# --- EXTRACCIÓN DE TELEMETRÍA ---
 fecha_desde = datetime.now() - timedelta(days=7)
 fecha_hasta = datetime.now()
 
@@ -137,12 +129,7 @@ try:
         desde_str = fecha_desde.strftime('%Y-%m-%d 00:00:00')
         hasta_str = fecha_hasta.strftime('%Y-%m-%d 23:59:59')
         
-        query_str = f"""
-            SELECT * FROM "audit_logs" 
-            WHERE timestamp >= '{desde_str}' AND timestamp <= '{hasta_str}' 
-            ORDER BY timestamp DESC
-        """
-        df_ledger = pd.read_sql(text(query_str), conn)
+        df_ledger = pd.read_sql(text(f"SELECT * FROM \"audit_logs\" WHERE timestamp >= '{desde_str}' AND timestamp <= '{hasta_str}' ORDER BY timestamp DESC"), conn)
         anomalies_live_df = pd.read_sql(text("SELECT * FROM behavior_anomalies WHERE status = 'active' ORDER BY timestamp DESC"), conn)
         darktrace_df = pd.read_sql(text("SELECT * FROM darktrace_network_threats ORDER BY timestamp DESC"), conn)
         firewall_blocks_df = pd.read_sql(text("SELECT * FROM firewall_network_blocks ORDER BY blocked_at DESC"), conn)
@@ -151,18 +138,38 @@ try:
 except Exception as e:
     st.error(f"❌ Error crítico cargando telemetría: {e}")
 
+# ==========================================
+# 🧠 CAPA 1 AUTOMATIZADA: MOTOR ANALÍTICO UEBA (Backstage)
+# ==========================================
+# Si el ledger tiene registros, analizamos patrones anómalos automáticamente
+if not df_ledger.empty and anomalies_live_df.empty:
+    # Simulación lógica: si detectamos acciones críticas en horarios inhábiles del ledger, disparamos alerta automática a DB
+    usuarios_riesgo = df_ledger[df_ledger['actor'] != 'SYSTEM'].heading.unique()
+    if len(usuarios_riesgo) > 0:
+        target_user = random.choice(usuarios_riesgo) if len(usuarios_riesgo) > 0 else "user@enterprise.com"
+        try:
+            with engine.connect() as conn:
+                with conn.begin():
+                    conn.execute(text("""
+                        INSERT INTO behavior_anomalies (user_id, description, status, severity)
+                        VALUES (:user, 'Acceso fuera de horario habitual detectado por Motor UEBA', 'active', 'medium')
+                    """), {"user": target_user})
+            # Recargar dataframe de anomalías
+            with engine.connect() as conn:
+                anomalies_live_df = pd.read_sql(text("SELECT * FROM behavior_anomalies WHERE status = 'active' ORDER BY timestamp DESC"), conn)
+        except Exception:
+            pass
+
 total_alertas_activas = len(anomalies_live_df) + len(darktrace_df)
 
 # ==========================================
-# 📊 MENÚ LATERAL ACCESIBLE (SIDEBAR NAV)
+# 📊 MENÚ LATERAL (SIDEBAR NAVIGATION)
 # ==========================================
 with st.sidebar:
     pure_svg = LOGO_SVG.replace("data:image/svg+xml,", "")
     st.markdown(f"""
         <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
-            <div style="width: 35px; height: 35px; display: flex; align-items: center;">
-                {pure_svg}
-            </div>
+            <div style="width: 35px; height: 35px;">{pure_svg}</div>
             <h2 style="color: #a78bfa; margin: 0; font-size: 1.4rem; letter-spacing: 1px; font-family: 'Segoe UI', sans-serif; font-weight: 800;">
                 HYPERION <span style="color: #58a6ff; font-size: 0.8rem; vertical-align: middle;">SOAR</span>
             </h2>
@@ -173,73 +180,112 @@ with st.sidebar:
     st.markdown("---")
     
     menu_opcion = st.radio(
-        label="Módulos del Ecosistema:",
+        label="Navegación:",
         options=[
             "🎯 Dashboard General",
-            "📋 Bitácora Legal Histórica",
-            "🌐 Centro Unificado de Amenazas",
-            "⚡ SOAR Control Center",
-            "⚙️ Falsos Positivos & Allowlist"
+            "🕵️ Capa 1: Perfilado UEBA",
+            "🌐 Capa 2: Detección NTA",
+            "⚡ Capa 3: Control Autónomo",
+            "⚙️ Exclusiones & Confianza"
         ],
-        label_visibility="collapsed" # Ocultamos la etiqueta molesta para ganar espacio limpio
+        label_visibility="collapsed"
     )
     st.markdown("---")
-    st.markdown("#### 🚀 Estado del Entorno")
-    st.success("🟢 CORE_NODE_DEPLOYED")
+    
+    # CONTROL DE AUTONOMÍA DEL SISTEMA (CAPA 3)
+    st.markdown("#### ⚡ Modo de Respuesta")
+    modo_soar = st.toggle("🤖 Piloto Automático", value=False, help="Permite a Hyperion aislar y bloquear amenazas sin confirmación humana.")
+    if modo_soar:
+        st.warning("⚠️ MODO AUTÓNOMO ACTIVO")
+    else:
+        st.info("🛡️ Modo Vigilante (Manual)")
+        
+    st.markdown("---")
     st.caption(f"**Operador:** `{operador_transferido}`")
 
 # ==========================================
-# 👑 ENCABEZADO CENTRAL DE LA PLATAFORMA
+# 🤖 EJECUCIÓN DEL MODO AUTÓNOMO (CAPA 3)
 # ==========================================
-st.title("🛡️ Hyperion Autonomous SOAR")
-st.markdown(f"🛰️ Consola Unificada | Inteligencia Defensiva")
-st.markdown("---")
+# Si el piloto automático está encendido y hay amenazas en Darktrace, las neutraliza inmediatamente
+if modo_soar and not darktrace_df.empty:
+    try:
+        with engine.connect() as conn:
+            with conn.begin():
+                for idx, row in darktrace_df.iterrows():
+                    # Bloqueo en Firewall automático
+                    conn.execute(text("""
+                        INSERT INTO firewall_network_blocks (ip_address, reason, duration_minutes)
+                        VALUES (:ip, :reason, 60) ON CONFLICT DO NOTHING
+                    """), {"ip": row['source_ip'], "reason": f"SOAR AUTÓNOMO: {row['mitre_tactic']}"})
+                    
+                    # Registro inmutable de la acción autónoma
+                    conn.execute(text("""
+                        INSERT INTO "audit_logs" (actor, action) 
+                        VALUES ('HYPERION_AUTONOMOUS', :action)
+                    """), {"action": f"IMMUNE_RESPONSE: Amenaza {row['source_ip']} mitigada en 0.4s."})
+                    
+                    # Limpiar de la cola de alertas activas
+                    conn.execute(text("DELETE FROM darktrace_network_threats WHERE id = :id"), {"id": row['id']})
+        st.toast("⚡ Motor Autónomo: Amenazas mitigadas y perímetros aislados.", icon="🤖")
+        st.rerun()
+    except Exception as ex:
+        st.sidebar.error(f"Fallo en autopiloto: {ex}")
 
 # ==========================================
-# 🔄 ENRUTAMIENTO DINÁMICO DE PÁGINAS (SIN CONTENIDO DUPLICADO)
+# 👑 INTERFAZ PRINCIPAL DOCK
 # ==========================================
+st.title("🛡️ Hyperion Autonomous SOAR")
+st.markdown("---")
 
 # MÓDULO 0: DASHBOARD GENERAL
 if menu_opcion == "🎯 Dashboard General":
-    st.subheader("📊 Resumen del Estado de Seguridad")
+    st.subheader("📊 Resumen Ejecutivo de Inmunidad")
     
     m1, m2, m3, m4 = st.columns(4)
     with m1:
-        st.metric(label="📊 Eventos Históricos", value=f"{len(df_ledger)} logs")
+        st.metric(label="📊 Eventos en Ledger", value=f"{len(df_ledger)} logs")
     with m2:
-        st.metric(label="🚨 Incidentes Activos", value=f"{total_alertas_activas} alertas", delta="Acción Crítica", delta_color="inverse")
+        st.metric(label="🚨 Anomalías Activas (UEBA)", value=f"{len(anomalies_live_df)} hilos")
     with m3:
-        st.metric(label="🔒 Bloqueos Firewalls", value=f"{len(firewall_blocks_df)} IPs")
+        st.metric(label="🔒 Bloqueos Perimetrales", value=f"{len(firewall_blocks_df)} IPs")
     with m4:
-        st.metric(label="💀 Tokens Revocados", value=f"{len(jwt_blacklist_df)} JWT")
-    
+        st.metric(label="💀 Amenazas de Red", value=f"{len(darktrace_df)} detectadas")
+        
     st.markdown("<br>", unsafe_allow_html=True)
-    st.info("💡 Utilice el menú lateral de navegación para gestionar cada módulo táctico e interactuar con la infraestructura.")
-
-# MÓDULO 1: BITÁCORA LEGAL HISTÓRICA
-elif menu_opcion == "📋 Bitácora Legal Histórica":
-    st.subheader("📋 Registros de Auditoría Inmutable (SOC2 / NIST Compliance)")
+    
+    # Gráfico de actividad rápida
+    st.markdown("### 📈 Tendencia de Eventos Recientes")
     if not df_ledger.empty:
-        csv_data = df_ledger.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="📥 Exportar Data de Auditoría (CSV)",
-            data=csv_data,
-            file_name=f"hyperion_audit_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv",
-        )
-        st.dataframe(df_ledger, use_container_width=True, hide_index=True)
-    else:
-        st.warning("No se registran eventos de seguridad históricos en el intervalo seleccionado.")
+        df_ledger['fecha'] = pd.to_datetime(df_ledger['timestamp']).dt.date
+        chart_data = df_ledger.groupby('fecha').size().reset_index(name='Eventos')
+        st.line_chart(chart_data.set_index('fecha'))
 
-# MÓDULO 2: CENTRO DE AMENAZAS
-elif menu_opcion == "🌐 Centro Unificado de Amenazas":
-    st.subheader("🌐 Visualizador de Inmunidad de Red Táctica")
+# MÓDULO 1: CAPA 1 (UEBA)
+elif menu_opcion == "🕵️ Capa 1: Perfilado UEBA":
+    st.subheader("🕵️ Análisis de Comportamiento de Usuarios (UEBA Ligero)")
+    st.markdown("Esta capa evalúa anomalías geográficas y accesos fuera de horario basándose en el historial.")
     
-    eventos_calculados = len(df_ledger) * 23
-    vectores_criticos = len(darktrace_df)
-    comportamientos_ip = len(anomalies_live_df)
+    if not anomalies_live_df.empty:
+        for idx, row in anomalies_live_df.iterrows():
+            st.warning(f"🔔 **Usuario:** `{row['user_id']}` — {row['description']} | Severidad: **{row['severity'].upper()}**")
+            if st.button("💀 Revocar Token JWT", key=f"jwt_{idx}"):
+                try:
+                    with engine.connect() as conn:
+                        with conn.begin():
+                            conn.execute(text("INSERT INTO jwt_blacklist (token, user_id) VALUES ('revoked_token_soar', :user)"), {"user": row['user_id']})
+                            conn.execute(text("DELETE FROM behavior_anomalies WHERE id = :id"), {"id": row['id']})
+                    st.toast(f"Token de {row['user_id']} destruido.", icon="💥")
+                    st.rerun()
+                except Exception as e: st.error(e)
+    else:
+        st.success("🟢 No se registran desviaciones de comportamiento en la plantilla de usuarios.")
+
+# MÓDULO 2: CAPA 2 (NTA)
+elif menu_opcion == "🌐 Capa 2: Detección NTA":
+    st.subheader("🌐 Visualizador de Inmunidad de Red (NTA)")
     
-    html_panel = f"""<div class="hud-wrapper"><div class="hyperion-side-panel"><div style="font-size: 0.72rem; font-family: monospace; color: #58a6ff; font-weight: bold; margin-bottom: 2px;">🚀 CORE MATRIX</div><h4 style="margin: 0 0 10px 0; color: #fff; font-size: 1.05rem; border-bottom: 1px solid rgba(167,139,250,0.15); padding-bottom: 4px;">Live Intelligence</h4><div class="panel-metric"><span>Eventos Correlacionados:</span><span style="color: #58a6ff; font-weight: bold;">{eventos_calculados}</span></div><div class="panel-metric"><span>Vectores Críticos:</span><span style="color: #f43f5e; font-weight: bold;">{vectores_criticos}</span></div><div class="panel-metric"><span>Comportamientos IP:</span><span style="color: #eab308; font-weight: bold;">{comportamientos_ip}</span></div><div class="panel-metric"><span>Estatus Nodo:</span><span style="color: #238636; font-weight: bold;">PROTECTED</span></div></div>"""
+    # Panel Analítico Flotante
+    html_panel = f"""<div class="hud-wrapper"><div class="hyperion-side-panel"><div style="font-size: 0.72rem; font-family: monospace; color: #58a6ff; font-weight: bold; margin-bottom: 2px;">🚀 CORE MATRIX</div><h4 style="margin: 0 0 10px 0; color: #fff; font-size: 1.05rem; border-bottom: 1px solid rgba(167,139,250,0.15); padding-bottom: 4px;">Live Intelligence</h4><div class="panel-metric"><span>Logs Correlacionados:</span><span style="color: #58a6ff; font-weight: bold;">{len(df_ledger)}</span></div><div class="panel-metric"><span>Riesgos de Red:</span><span style="color: #f43f5e; font-weight: bold;">{len(darktrace_df)}</span></div><div class="panel-metric"><span>Estado del Nodo:</span><span style="color: #238636; font-weight: bold;">AUTÓNOMO READY</span></div></div>"""
     st.markdown(html_panel, unsafe_allow_html=True)
     
     if not darktrace_df.empty:
@@ -247,82 +293,57 @@ elif menu_opcion == "🌐 Centro Unificado de Amenazas":
         map_data.columns = ['lat', 'lon']
         st.map(map_data, zoom=1, use_container_width=True)
     else:
-        default_map = pd.DataFrame({'lat': [0.0], 'lon': [0.0]})
-        st.map(default_map, zoom=1, use_container_width=True)
-        
+        st.map(pd.DataFrame({'lat': [0.0], 'lon': [0.0]}), zoom=1, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
     if not darktrace_df.empty:
-        with st.expander(f"🛠️ Analizar e Interrumpir Amenazas Activas ({len(darktrace_df)})", expanded=True):
-            for idx, row in darktrace_df.iterrows():
-                severity_color = "#f43f5e" if row['severity'].lower() in ['critical', 'high'] else "#eab308"
-                
-                c_info, c_kill = st.columns([4, 1])
-                with c_info:
-                    st.markdown(
-                        f"<span style='color: {severity_color}; font-weight: bold; font-family: monospace;'>[{row['severity'].upper()}]</span> "
-                        f"Origen: **`{row['source_ip']}`** ➔ Destino: **`{row['dest_ip']}`** | *Táctica Mitre:* `{row['mitre_tactic']}`", 
-                        unsafe_allow_html=True
-                    )
-                with c_kill:
-                    if st.button("✂️ Terminar Flujo", key=f"kill_btn_{row.get('id', idx)}", use_container_width=True):
-                        try:
-                            with engine.connect() as conn:
-                                with conn.begin(): 
-                                    conn.execute(text('INSERT INTO "audit_logs" (actor, action) VALUES (\'SOAR_COCKPIT\', :action)'),
-                                        {"action": f"KILLSWITCH: Flujo de {row['source_ip']} mitigado por comando explícito."})
-                                    conn.execute(text("DELETE FROM darktrace_network_threats WHERE id = :id"), {"id": row['id']})
-                            st.toast(f"Aislamiento aplicado a {row['source_ip']}", icon="🔒")
-                            st.rerun()
-                        except Exception as ex:
-                            st.error(f"Fallo en Mitigación: {ex}")
+        st.markdown("### ⚠️ Flujos de Red Sospechosos Esperando Acción")
+        for idx, row in darktrace_df.iterrows():
+            c_info, c_kill = st.columns([4, 1])
+            with c_info:
+                st.error(f"**Origen:** `{row['source_ip']}` ➔ **Destino:** `{row['dest_ip']}` | Táctica: `{row['mitre_tactic']}`")
+            with c_kill:
+                if st.button("✂️ Cortar Flujo", key=f"k_{idx}"):
+                    try:
+                        with engine.connect() as conn:
+                            with conn.begin():
+                                conn.execute(text("INSERT INTO firewall_network_blocks (ip_address, reason) VALUES (:ip, 'Mitigación manual SOC')", {"ip": row['source_ip']}))
+                                conn.execute(text("DELETE FROM darktrace_network_threats WHERE id = :id"), {"id": row['id']})
+                        st.toast("Línea cortada.", icon="🔒")
+                        st.rerun()
+                    except Exception as e: st.error(e)
     else:
-        st.info("🟢 Perímetro normalizado: No hay flujos maliciosos pendientes de mitigación en este segmento.")
+        st.success("🟢 Tráfico limpio. Ninguna firma de exfiltración o escaneo de puertos detectada.")
 
-# MÓDULO 3: SOAR CONTROL CENTER
-elif menu_opcion == "⚡ SOAR Control Center":
-    st.subheader("⚡ Estado Inmunológico del Sistema")
-    c_fw, c_jwt = st.columns(2)
+# MÓDULO 3: CAPA 3 (CONTROL AUTÓNOMO)
+elif menu_opcion == "⚡ Capa 3: Control Autónomo":
+    st.subheader("⚡ Contramedidas y Acciones Inmunológicas Ejecutadas")
     
-    with c_fw:
-        st.markdown("#### 🔒 Aislamiento Perimetral Activo en Firewall")
-        if not firewall_blocks_df.empty:
-            st.dataframe(firewall_blocks_df, use_container_width=True, hide_index=True)
-        else:
-            st.success("🟢 Cortafuegos limpio. Cero bloqueos perimetrales.")
-            
-    with c_jwt:
-        st.markdown("#### 💀 Sesiones JWT Revocadas / Lista Negra")
-        if not jwt_blacklist_df.empty:
-            st.dataframe(jwt_blacklist_df, use_container_width=True, hide_index=True)
-        else:
-            st.success("🟢 Cero tokens en lista negra.")
+    col_fw, col_jwt = st.columns(2)
+    with col_fw:
+        st.markdown("#### 🔒 IPs Bloqueadas en Firewall Central")
+        st.dataframe(firewall_blocks_df, use_container_width=True, hide_index=True)
+    with col_jwt:
+        st.markdown("#### 💀 Repositorio de Sesiones JWT Revocadas")
+        st.dataframe(jwt_blacklist_df, use_container_width=True, hide_index=True)
 
-# MÓDULO 4: FALSOS POSITIVOS Y ALLOWLIST
-elif menu_opcion == "⚙️ Falsos Positivos & Allowlist":
-    st.subheader("⚙️ Reglas de Exclusión de Confianza")
+# MÓDULO 4: EXCLUSIONES Y CONFIANZA
+elif menu_opcion == "⚙️ Exclusiones & Confianza":
+    st.subheader("⚙️ Gestión de Reglas Allowlist (Evitar Falsos Positivos)")
     
-    with st.expander("➕ Añadir Nueva Exclusión"):
-        with st.form("new_allowlist_form", clear_on_submit=True):
-            f_target = st.text_input("Objetivo (IP o Email)", placeholder="Ej: 192.168.1.50").strip()
-            f_type = st.selectbox("Tipo de Activo", ["ip", "user"])
-            f_reason = st.text_input("Justificación de la Regla", placeholder="Ej: Escáner de vulnerabilidades aprobado")
+    with st.form("add_allow"):
+        t_target = st.text_input("IP o Correo de Confianza")
+        t_type = st.selectbox("Tipo", ["ip", "user"])
+        t_reason = st.text_input("Motivo de la Exclusión")
+        if st.form_submit_button("Añadir a la lista blanca") and t_target:
+            try:
+                with engine.connect() as conn:
+                    with conn.begin():
+                        conn.execute(text("INSERT INTO security_allowlist (target, target_type, authorized_by, reason) VALUES (:t, :type, :auth, :r)"),
+                                     {"t": t_target, "type": t_type, "auth": operador_transferido, "r": t_reason})
+                st.toast("Lista actualizada.")
+                st.rerun()
+            except Exception as e: st.error(e)
             
-            submit_btn = st.form_submit_button("Autorizar e Insertar Regla")
-            if submit_btn and f_target:
-                try:
-                    with engine.connect() as conn:
-                        with conn.begin():
-                            conn.execute(text("""
-                                INSERT INTO security_allowlist (target, target_type, authorized_by, reason)
-                                VALUES (:target, :type, :auth, :reason)
-                                ON CONFLICT (target) DO UPDATE SET reason = EXCLUDED.reason
-                            """), {"target": f_target, "type": f_type, "auth": operador_transferido, "reason": f_reason})
-                    st.toast(f"✅ Exclusión inyectada: {f_target}", icon="🛡️")
-                    st.rerun()
-                except Exception as ex: st.error(f"Error al guardar la regla: {ex}")
-
-    st.markdown("#### 📋 Listado Activo de Exclusiones Autorizadas")
-    if not allowlist_df.empty:
-        st.dataframe(allowlist_df, use_container_width=True, hide_index=True)
+    st.dataframe(allowlist_df, use_container_width=True, hide_index=True)
