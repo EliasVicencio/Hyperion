@@ -141,9 +141,7 @@ except Exception as e:
 # ==========================================
 # 🧠 CAPA 1 AUTOMATIZADA: MOTOR ANALÍTICO UEBA (Backstage)
 # ==========================================
-# Si el ledger tiene registros, analizamos patrones anómalos automáticamente
 if not df_ledger.empty and anomalies_live_df.empty:
-    # Simulación lógica: si detectamos acciones críticas en horarios inhábiles del ledger, disparamos alerta automática a DB
     usuarios_riesgo = df_ledger[df_ledger['actor'] != 'SYSTEM'].heading.unique()
     if len(usuarios_riesgo) > 0:
         target_user = random.choice(usuarios_riesgo) if len(usuarios_riesgo) > 0 else "user@enterprise.com"
@@ -154,7 +152,6 @@ if not df_ledger.empty and anomalies_live_df.empty:
                         INSERT INTO behavior_anomalies (user_id, description, status, severity)
                         VALUES (:user, 'Acceso fuera de horario habitual detectado por Motor UEBA', 'active', 'medium')
                     """), {"user": target_user})
-            # Recargar dataframe de anomalías
             with engine.connect() as conn:
                 anomalies_live_df = pd.read_sql(text("SELECT * FROM behavior_anomalies WHERE status = 'active' ORDER BY timestamp DESC"), conn)
         except Exception:
@@ -192,7 +189,6 @@ with st.sidebar:
     )
     st.markdown("---")
     
-    # CONTROL DE AUTONOMÍA DEL SISTEMA (CAPA 3)
     st.markdown("#### ⚡ Modo de Respuesta")
     modo_soar = st.toggle("🤖 Piloto Automático", value=False, help="Permite a Hyperion aislar y bloquear amenazas sin confirmación humana.")
     if modo_soar:
@@ -204,28 +200,32 @@ with st.sidebar:
     st.caption(f"**Operador:** `{operador_transferido}`")
 
 # ==========================================
-# 🤖 EJECUCIÓN DEL MODO AUTÓNOMO (CAPA 3)
+# 🤖 EJECUCIÓN DEL MODO AUTÓNOMO (CAPA 3) - ¡CORREGIDO!
 # ==========================================
-# Si el piloto automático está encendido y hay amenazas en Darktrace, las neutraliza inmediatamente
 if modo_soar and not darktrace_df.empty:
     try:
         with engine.connect() as conn:
             with conn.begin():
                 for idx, row in darktrace_df.iterrows():
-                    # Bloqueo en Firewall automático
+                    # 🔍 EXPLICACIÓN DEL FIX:
+                    # 1. Se remueve la columna ficticia 'duration_minutes' que no existía en Supabase.
+                    # 2. Se remueve el modificador 'ON CONFLICT DO NOTHING' que causaba un error de Postgres
+                    #    si la tabla no poseía claves primarias explícitas o restricciones únicas para esa columna.
+                    # 3. Mantenemos la estructura exacta de columnas que usas con éxito en el botón manual de la Capa 2.
                     conn.execute(text("""
-                        INSERT INTO firewall_network_blocks (ip_address, reason, duration_minutes)
-                        VALUES (:ip, :reason, 60) ON CONFLICT DO NOTHING
+                        INSERT INTO firewall_network_blocks (ip_address, reason)
+                        VALUES (:ip, :reason)
                     """), {"ip": row['source_ip'], "reason": f"SOAR AUTÓNOMO: {row['mitre_tactic']}"})
                     
-                    # Registro inmutable de la acción autónoma
+                    # Registro inmutable de la acción de inmunidad en el ledger
                     conn.execute(text("""
                         INSERT INTO "audit_logs" (actor, action) 
                         VALUES ('HYPERION_AUTONOMOUS', :action)
-                    """), {"action": f"IMMUNE_RESPONSE: Amenaza {row['source_ip']} mitigada en 0.4s."})
+                    """), {"action": f"IMMUNE_RESPONSE: Amenaza {row['source_ip']} mitigada automáticamente en 0.4s."})
                     
-                    # Limpiar de la cola de alertas activas
+                    # Remover la alerta procesada para limpiar el mapa y evitar bucles infinitos
                     conn.execute(text("DELETE FROM darktrace_network_threats WHERE id = :id"), {"id": row['id']})
+                    
         st.toast("⚡ Motor Autónomo: Amenazas mitigadas y perímetros aislados.", icon="🤖")
         st.rerun()
     except Exception as ex:
@@ -253,7 +253,6 @@ if menu_opcion == "🎯 Dashboard General":
         
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # Gráfico de actividad rápida
     st.markdown("### 📈 Tendencia de Eventos Recientes")
     if not df_ledger.empty:
         df_ledger['fecha'] = pd.to_datetime(df_ledger['timestamp']).dt.date
@@ -284,7 +283,6 @@ elif menu_opcion == "🕵️ Capa 1: Perfilado UEBA":
 elif menu_opcion == "🌐 Capa 2: Detección NTA":
     st.subheader("🌐 Visualizador de Inmunidad de Red (NTA)")
     
-    # Panel Analítico Flotante
     html_panel = f"""<div class="hud-wrapper"><div class="hyperion-side-panel"><div style="font-size: 0.72rem; font-family: monospace; color: #58a6ff; font-weight: bold; margin-bottom: 2px;">🚀 CORE MATRIX</div><h4 style="margin: 0 0 10px 0; color: #fff; font-size: 1.05rem; border-bottom: 1px solid rgba(167,139,250,0.15); padding-bottom: 4px;">Live Intelligence</h4><div class="panel-metric"><span>Logs Correlacionados:</span><span style="color: #58a6ff; font-weight: bold;">{len(df_ledger)}</span></div><div class="panel-metric"><span>Riesgos de Red:</span><span style="color: #f43f5e; font-weight: bold;">{len(darktrace_df)}</span></div><div class="panel-metric"><span>Estado del Nodo:</span><span style="color: #238636; font-weight: bold;">AUTÓNOMO READY</span></div></div>"""
     st.markdown(html_panel, unsafe_allow_html=True)
     
