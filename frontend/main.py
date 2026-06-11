@@ -3,10 +3,12 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 from datetime import datetime, timedelta
 
+LOGO_SVG = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='20' fill='none' stroke='%23a78bfa' stroke-width='2' /><ellipse cx='50' cy='50' rx='45' ry='15' fill='none' stroke='%2358a6ff' stroke-width='1' transform='rotate(45 50 50)' /><ellipse cx='50' cy='50' rx='45' ry='15' fill='none' stroke='%2358a6ff' stroke-width='1' transform='rotate(-45 50 50)' /><circle cx='50' cy='50' r='8' fill='%23a78bfa' /></svg>"
+
 # Configuración de página de nivel Enterprise
 st.set_page_config(
     page_title="Hyperion | Enterprise SOAR Platform",
-    page_icon="🛡️",
+    page_icon=LOGO_SVG,
     layout="wide"
 )
 
@@ -80,7 +82,7 @@ total_alertas_activas = len(anomalies_live_df) + len(darktrace_df)
 # ==========================================
 with st.sidebar:
     # Encabezado de Marca / Isologo Corporativo
-    st.markdown("## 🛡️ HYPERION SEC")
+    st.markdown("## {LOGO_SVG} HYPERION SEC")
     st.caption("🤖 Autonomous Immune System")
     st.markdown("---")
     
