@@ -48,8 +48,12 @@ with col1:
 with col2:
     fecha_hasta = st.date_input("Auditar Hasta", datetime.now())
 
-# Consulta de Ledger Histórico
-query_str = "SELECT * FROM 'audit_logs' WHERE timestamp >= :desde AND timestamp <= :hasta ORDER BY timestamp DESC"
+# Consulta de Ledger Histórico CORREGIDA
+query_str = """
+    SELECT * FROM "audit_logs" 
+    WHERE timestamp >= :desde AND timestamp <= :hasta 
+    ORDER BY timestamp DESC
+"""
 params = {
     "desde": datetime.combine(fecha_desde, datetime.min.time()),
     "hasta": datetime.combine(fecha_hasta, datetime.max.time())
@@ -98,7 +102,6 @@ tab_logs, tab_soar, tab_falsos_positivos = st.tabs([
 with tab_logs:
     st.subheader("Registros del Ledger Inmutable (SOC2 / NIST Compliance)")
     
-    # Botón de Descarga del Reporte Ejecutivo Corporativo
     if not df_ledger.empty:
         csv_data = df_ledger.to_csv(index=False).encode('utf-8')
         st.download_button(
@@ -112,7 +115,7 @@ with tab_logs:
     else:
         st.warning("No se registran eventos de seguridad históricos en el intervalo seleccionado.")
 
-# PESTAÑA 2: VISUALIZACIÓN DEL CORTE DE TRÁFICO SOAR (SEMANA 3 CONSOLIDADO)
+# PESTAÑA 2: VISUALIZACIÓN DEL CORTE DE TRÁFICO SOAR
 with tab_soar:
     st.subheader("Estado Inmunológico del Sistema")
     c_fw, c_jwt = st.columns(2)
@@ -131,12 +134,11 @@ with tab_soar:
         else:
             st.success("🟢 Cero tokens comprometidos en lista negra.")
 
-# PESTAÑA 3: ADMINISTRACIÓN DE FALSOS POSITIVOS (NUEVO REQUERIMIENTO SEMANA 4)
+# PESTAÑA 3: ADMINISTRACIÓN DE FALSOS POSITIVOS
 with tab_falsos_positivos:
     st.subheader("⚙️ Reglas de Exclusión de Confianza y Eventos Mutados")
     st.caption("Si un activo bajo ataque se encuentra listado aquí, Hyperion registrará un 'MUTED_EVENT' omitiendo el corte de servicio de forma segura.")
     
-    # Formulario para inyectar nuevas exclusiones en vivo
     with st.expander("➕ Añadir Nueva Exclusión (IP / Usuario Legitimo)"):
         with st.form("new_allowlist_form", clear_on_submit=True):
             f_target = st.text_input("Objetivo (IP o Email del Usuario)", placeholder="Ej: 192.168.1.50 / servicio_backup@hyperion.com").strip()
@@ -154,7 +156,6 @@ with tab_falsos_positivos:
                                 ON CONFLICT (target) DO UPDATE SET reason = EXCLUDED.reason
                             """), {"target": f_target, "type": f_type, "auth": operador_transferido, "reason": f_reason})
                             
-                            # Logear la alteración de la política en la bitácora legal
                             conn.execute(text('INSERT INTO "audit_logs" (actor, action) VALUES (:actor, :action)'), {
                                 "actor": "HYPERION_POLICY_MANAGER",
                                 "action": f"ALLOWLIST_MODIFIED: {operador_transferido} añadió exclusión para el {f_type.upper()} [{f_target}]."
@@ -164,7 +165,6 @@ with tab_falsos_positivos:
                 except Exception as ex:
                     st.error(f"Error al guardar la regla: {ex}")
 
-    # Visualización de la Tabla Actual de Falsos Positivos Protegidos
     st.markdown("#### 📋 Listado Activo de Exclusiones Autorizadas")
     if not allowlist_df.empty:
         st.dataframe(allowlist_df, use_container_width=True, hide_index=True)
