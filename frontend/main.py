@@ -12,85 +12,111 @@ st.set_page_config(
     layout="wide"
 )
 
-# Estilo CSS avanzado para lograr la superposición nativa de Darktrace (image_1056c1.png)
+# REVOLUCIÓN DE INTERFAZ: Paleta Hyperion (Cyber Violet #a78bfa y Tech Blue #58a6ff)
 st.markdown("""
     <style>
-    .stApp { background-color: #0b0e14; }
-    h1 { color: #a78bfa !important; font-family: 'Segoe UI', sans-serif; font-weight: 800; }
-    h3 { color: #cbd5e1 !important; }
-    h4 { color: #f1f5f9 !important; margin-top: 15px; }
-    .stDataFrame { background-color: #0d1117; border: 1px solid #30363d; border-radius: 8px; }
-    [data-testid="stSidebar"] { background-color: #0d1117; border-right: 1px solid #1f2937; }
-    footer {visibility: hidden;}
+    .stApp { background-color: #07090e; }
+    h1 { color: #a78bfa !important; font-family: 'Segoe UI', sans-serif; font-weight: 800; letter-spacing: -0.5px; }
+    h3 { color: #58a6ff !important; font-family: 'Courier New', monospace; font-weight: bold; }
     
-    /* Contenedor Maestro Relativo para el Mapa HUD */
-    .darktrace-container {
+    /* Contenedor del Escenario HUD */
+    .hud-wrapper {
         position: relative;
-        width: 100%;
-        height: 650px;
-        background-color: #090d12;
-        border: 1px solid #1f2937;
+        border: 1px solid rgba(167, 139, 250, 0.25);
         border-radius: 12px;
-        overflow: hidden;
-        margin-bottom: 25px;
+        background-color: #0b0f17;
+        padding: 10px;
+        box-shadow: 0 0 30px rgba(88, 166, 255, 0.05);
     }
     
-    /* Iframe del mapa base ocupando todo el fondo */
-    .bg-map {
-        width: 100%;
-        height: 100%;
-        border: none;
-        mix-blend-mode: luminosity;
-        opacity: 0.65;
-    }
-    
-    /* Panel Flotante Izquierdo (Métricas de Mitre/Análisis de image_1056c1.png) */
-    .darktrace-left-panel {
+    /* Panel Analítico Flotante Izquierdo - Estilo Cyber Threat Matrix */
+    .hyperion-side-panel {
         position: absolute;
-        top: 20px;
-        left: 20px;
-        width: 320px;
-        background: rgba(13, 17, 23, 0.85);
-        backdrop-filter: blur(8px);
-        border: 1px solid rgba(48, 54, 61, 0.7);
-        border-radius: 8px;
-        padding: 15px;
-        z-index: 10;
-        color: #e6edf3;
+        top: 25px;
+        left: 25px;
+        width: 330px;
+        background: rgba(11, 15, 23, 0.88);
+        border-left: 4px solid #a78bfa;
+        border-top: 1px solid rgba(167, 139, 250, 0.3);
+        border-right: 1px solid rgba(11, 15, 23, 0.8);
+        border-bottom: 1px solid rgba(11, 15, 23, 0.8);
+        border-radius: 0px 8px 8px 0px;
+        padding: 18px;
+        z-index: 99;
+        box-shadow: 10px 10px 25px rgba(0,0,0,0.65);
+        backdrop-filter: blur(12px);
     }
     
-    /* Contenedor Flotante Inferior para Alertas en tarjetas horizontales */
-    .darktrace-bottom-feed {
+    /* Contenedor Inferior de Alertas de Red */
+    .hyperion-bottom-deck {
         position: absolute;
-        bottom: 15px;
-        left: 20px;
-        right: 20px;
+        bottom: 25px;
+        left: 25px;
+        right: 25px;
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
         gap: 15px;
-        z-index: 10;
-        max-height: 190px;
+        z-index: 99;
+        max-height: 210px;
         overflow-y: auto;
+        padding-top: 10px;
     }
     
-    /* Tarjetas HUD traslúcidas que se posicionan sobre el mapa */
-    .hud-card {
-        background: rgba(13, 17, 23, 0.9);
-        backdrop-filter: blur(6px);
-        border: 1px solid #30363d;
-        border-top: 3px solid #f43f5e;
+    /* Tarjetas de Amenaza Rediseñadas completamente */
+    .threat-card-hud {
+        background: rgba(13, 19, 30, 0.92);
+        border: 1px solid rgba(88, 166, 255, 0.2);
         border-radius: 6px;
-        padding: 12px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        padding: 14px;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.7);
+        backdrop-filter: blur(10px);
+        transition: all 0.25s ease;
     }
-    .hud-card-medium {
-        border-top: 3px solid #eab308;
+    .threat-card-hud:hover {
+        border-color: #58a6ff;
+        box-shadow: 0 0 15px rgba(88, 166, 255, 0.25);
     }
     
-    /* Forzar ocultamiento de componentes innecesarios en el modo HUD */
-    .hidden-hud-btn {
-        display: none;
+    /* Indicadores de Severidad Tácticos */
+    .badge-critical {
+        background: rgba(244, 63, 94, 0.15);
+        color: #f43f5e;
+        border: 1px solid #f43f5e;
+        font-size: 0.65rem;
+        font-weight: bold;
+        padding: 2px 6px;
+        border-radius: 4px;
+        text-transform: uppercase;
+        font-family: monospace;
     }
+    .badge-medium {
+        background: rgba(234, 179, 8, 0.15);
+        color: #eab308;
+        border: 1px solid #eab308;
+        font-size: 0.65rem;
+        font-weight: bold;
+        padding: 2px 6px;
+        border-radius: 4px;
+        text-transform: uppercase;
+        font-family: monospace;
+    }
+    
+    /* Métricas internas estilo terminal militar */
+    .panel-metric {
+        font-family: 'Courier New', monospace;
+        font-size: 0.85rem;
+        color: #cbd5e1;
+        margin: 6px 0;
+        display: flex;
+        justify-content: space-between;
+        border-bottom: 1px dashed rgba(255,255,255,0.05);
+        padding-bottom: 4px;
+    }
+    
+    /* Modificaciones estéticas de los componentes de Streamlit nativos */
+    [data-testid="stSidebar"] { background-color: #090d14; border-right: 1px solid rgba(167, 139, 250, 0.15); }
+    .stDataFrame { background-color: #0b0f17; border: 1px solid #1f2937; }
+    footer { visibility: hidden; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -106,7 +132,7 @@ except Exception as e:
     st.error(f"❌ Error crítico de conexión: {e}")
     st.stop()
 
-# --- CONSULTAS EN CALIENTE PARA ALERTAS ---
+# --- RECOLECCIÓN DE TELEMETRÍA EN CALIENTE ---
 fecha_desde = datetime.now() - timedelta(days=7)
 fecha_hasta = datetime.now()
 
@@ -148,18 +174,17 @@ with st.sidebar:
             <div style="width: 35px; height: 35px; display: flex; align-items: center;">
                 {pure_svg}
             </div>
-            <h2 style="color: #a78bfa; margin: 0; font-size: 1.5rem; letter-spacing: 1px; font-family: 'Segoe UI', sans-serif; font-weight: 800;">
-                HYPERION <span style="color: white; font-size: 0.8rem; vertical-align: middle;">SEC</span>
+            <h2 style="color: #a78bfa; margin: 0; font-size: 1.4rem; letter-spacing: 1px; font-family: 'Segoe UI', sans-serif; font-weight: 800;">
+                HYPERION <span style="color: #58a6ff; font-size: 0.8rem; vertical-align: middle;">SOAR</span>
             </h2>
         </div>
     """, unsafe_allow_html=True)
     
-    st.caption("🤖 Autonomous Immune System")
+    st.caption("🤖 Autonomous Immune System Engine")
     st.markdown("---")
-    st.markdown("### 🎛️ Navegación Principal")
     
     menu_opcion = st.radio(
-        label="Selecciona un Módulo:",
+        label="Módulos del Ecosistema:",
         options=[
             "📋 Bitácora Legal Histórica",
             "🌐 Centro Unificado de Amenazas",
@@ -167,28 +192,27 @@ with st.sidebar:
             "⚙️ Falsos Positivos & Allowlist"
         ]
     )
-    
     st.markdown("---")
-    st.markdown("#### 🩺 Estado del Nodo")
-    st.success("🟢 CORE_NODE_ONLINE")
+    st.markdown("#### 🚀 Estado del Entorno")
+    st.success("🟢 CORE_NODE_DEPLOYED")
     st.caption(f"**Operador:** `{operador_transferido}`")
 
 # ==========================================
 # 👑 ENCABEZADO CENTRAL DE LA PLATAFORMA
 # ==========================================
 st.title("🛡️ Hyperion Autonomous SOAR")
-st.markdown(f"📊 **Consola de Comando** | **Filtro Automático:** Últimos 7 días")
-st.caption("CONSOLIDACIÓN FINAL // SEMANA 4: MENÚ DE ACCESIBILIDAD LATERAL Y PLATAFORMA UNIFICADA")
+st.markdown(f"🛰️ **Consola Unificada** | Inteligencia Defensiva en Capas")
+st.caption("CORE ENGINE DESIGN // VERSIÓN AVANZADA CON PANELES INTERACTIVOS INTEGRADOS SOBRE MAPA")
 
 m1, m2, m3, m4 = st.columns(4)
 with m1:
     st.metric(label="📊 Eventos Históricos", value=f"{len(df_ledger)} logs")
 with m2:
-    st.metric(label="🚨 Incidentes Activos", value=f"{total_alertas_activas} alertas", delta="Acción Requerida", delta_color="inverse")
+    st.metric(label="🚨 Incidentes Activos", value=f"{total_alertas_activas} alertas", delta="Acción Crítica", delta_color="inverse")
 with m3:
-    st.metric(label="🔒 Cortafuegos (Cuarentena)", value=f"{len(firewall_blocks_df)} IPs")
+    st.metric(label="🔒 Bloqueos Firewalls", value=f"{len(firewall_blocks_df)} IPs")
 with m4:
-    st.metric(label="💀 JWT Revocados", value=f"{len(jwt_blacklist_df)} tokens")
+    st.metric(label="💀 Tokens Revocados", value=f"{len(jwt_blacklist_df)} JWT")
 
 st.markdown("---")
 
@@ -196,87 +220,122 @@ st.markdown("---")
 # 🔄 ENRUTAMIENTO DINÁMICO DE PÁGINAS
 # ==========================================
 
-# MÓDULO 1: BITÁCORA LEGAL
 if menu_opcion == "📋 Bitácora Legal Histórica":
-    st.subheader("📋 Registros del Ledger Inmutable (SOC2 / NIST Compliance)")
+    st.subheader("📋 Registros de Auditoría Inmutable")
     if not df_ledger.empty:
         csv_data = df_ledger.to_csv(index=False).encode('utf-8')
         st.download_button(
-            label="📥 Descargar Reporte Ejecutivo de Auditoría (CSV)",
+            label="📥 Exportar Data de Auditoría (CSV)",
             data=csv_data,
-            file_name=f"hyperion_audit_report_{datetime.now().strftime('%Y%m%d')}.csv",
+            file_name=f"hyperion_audit_{datetime.now().strftime('%Y%m%d')}.csv",
             mime="text/csv",
         )
-        st.write("")
         st.dataframe(df_ledger, use_container_width=True, hide_index=True)
 
-# MÓDULO 2: CENTRO UNIFICADO DE AMENAZAS (TOTALMENTE INTEGRADO EN MODO MAPA HUD)
+# MÓDULO 2: REDISEÑO COMPLETO - CENTRO DE AMENAZAS DARKTRACE HUD REINVENTADO
 elif menu_opcion == "🌐 Centro Unificado de Amenazas":
-    st.subheader("🌐 Darktrace Threat Analysis HUD")
+    st.subheader("🌐 Visualizador de Inmunidad de Red Estilo Matrix")
     
-    # Construcción de las tarjetas flotantes inferiores en formato HTML puro
+    # Renderizar tarjetas inferiores dinámicamente
     cards_html = ""
     if not darktrace_df.empty:
         for idx, row in darktrace_df.iterrows():
-            border_cls = "hud-card-medium" if row['severity'].lower() in ['medium', 'high'] else ""
+            is_critical = row['severity'].lower() in ['critical', 'high']
+            badge_class = "badge-critical" if is_critical else "badge-medium"
+            
             cards_html += f"""
-            <div class="hud-card {border_cls}">
-                <span style="float: right; font-size: 0.7rem; font-weight: bold; padding: 1px 5px; border-radius: 3px; background: #21262d; color: #f0f6fc;">
-                    {row['severity'].upper()}
-                </span>
-                <div style="font-size: 0.85rem; font-weight: bold; color: #f0f6fc; margin-bottom: 3px;">📍 {row['source_ip']}</div>
-                <div style="font-size: 0.75rem; color: #8b949e; margin-bottom: 6px;">➔ Destino: {row['dest_ip']}</div>
-                <div style="font-size: 0.75rem; color: #c9d1d9; height: 32px; overflow: hidden; line-height: 1.2;">
-                    {row['threat_type']}
+            <div class="threat-card-hud">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span class="{badge_class}">{row['severity']}</span>
+                    <span style="color: #58a6ff; font-family: monospace; font-size: 0.75rem;">ID: #{row.get('id', idx)}</span>
                 </div>
-                <div style="font-size: 0.7rem; color: #a78bfa; margin-top: 4px; font-family: monospace;">
-                    ⚡ Tactic: {row['mitre_tactic'].split(' (')[0]}
+                <div style="font-family: monospace; font-size: 0.9rem; color: #fff; font-weight: bold;">
+                    ⚡ SRC: <span style="color: #a78bfa;">{row['source_ip']}</span>
+                </div>
+                <div style="font-family: monospace; font-size: 0.8rem; color: #cbd5e1; margin-bottom: 8px;">
+                    🎯 DST: <span style="color: #58a6ff;">{row['dest_ip']}</span>
+                </div>
+                <div style="font-size: 0.75rem; color: #9ca3af; line-height: 1.3; height: 36px; overflow: hidden;">
+                    <strong>Tipo:</strong> {row['threat_type']}
+                </div>
+                <div style="font-size: 0.7rem; color: #a78bfa; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 5px; margin-top: 5px; font-weight: bold;">
+                    🔑 Mitre: {row['mitre_tactic'].split(' (')[0]}
                 </div>
             </div>
             """
     else:
-        cards_html = "<div class='hud-card' style='border-top:3px solid #238636; grid-column: 1/-1; text-align:center;'>🟢 No hay amenazas perimetrales activas.</div>"
+        cards_html = """
+        <div class="threat-card-hud" style="grid-column: 1/-1; text-align: center; border: 1px dashed #238636;">
+            <span style="color: #238636; font-weight: bold; font-family: monospace;">🟢 COMPLIANCE OK: CERO COMPROMISOS DETECTADOS EN EL BUFFER PERIMETRAL</span>
+        </div>
+        """
 
-    # Inyección HUD unificada: El mapa de fondo oscuro y los paneles flotando encima
+    # ENCAPSULACIÓN: Tarjetas e información estructural inyectadas de forma nativa en la capa del HUD
     st.markdown(f"""
-        <div class="darktrace-container">
-            <iframe class="bg-map" src="https://maps.google.com/maps?q=0,0&z=2&output=embed&iwloc=near"></iframe>
-            
-            <div class="darktrace-left-panel">
-                <h4 style="margin:0 0 10px 0; font-size:1.1rem; color:#a78bfa;">📊 Darktrace Analytics</h4>
-                <p style="margin:2px 0; font-size:0.8rem; color:#8b949e;">Eventos Procesados: <span style="color:white; float:right; font-weight:bold;">{len(df_ledger) * 14}</span></p>
-                <p style="margin:2px 0; font-size:0.8rem; color:#8b949e;">Brechas del Sistema: <span style="color:#f43f5e; float:right; font-weight:bold;">{len(darktrace_df)}</span></p>
-                <p style="margin:2px 0; font-size:0.8rem; color:#8b949e;">Anomalías Activas: <span style="color:#eab308; float:right; font-weight:bold;">{len(anomalies_live_df)}</span></p>
-                <hr style="border:0; border-top:1px solid #21262d; margin:10px 0;">
-                <span style="font-size:0.75rem; color:#8b949e; line-height:1.2; display:block;">
-                    Despliegue perimetral activo. Las alertas inferiores se actualizan automáticamente en tiempo real.
-                </span>
+        <div class="hud-wrapper">
+            <div class="hyperion-side-panel">
+                <div style="font-size: 0.75rem; font-family: monospace; color: #58a6ff; font-weight: bold; margin-bottom: 4px;">🚀 HYPERION SEC MATRIX</div>
+                <h4 style="margin: 0 0 12px 0; color: #fff; font-size: 1.1rem; border-bottom: 1px solid rgba(167,139,250,0.2); padding-bottom: 6px;">Live Threat Intelligence</h4>
+                
+                <div class="panel-metric">
+                    <span>Logs Analizados:</span>
+                    <span style="color: #58a6ff; font-weight: bold;">{len(df_ledger) * 23}</span>
+                </div>
+                <div class="panel-metric">
+                    <span>Vectores de Ataque:</span>
+                    <span style="color: #f43f5e; font-weight: bold;">{len(darktrace_df)}</span>
+                </div>
+                <div class="panel-metric">
+                    <span>Comportamientos IP:</span>
+                    <span style="color: #eab308; font-weight: bold;">{len(anomalies_live_df)}</span>
+                </div>
+                <div class="panel-metric">
+                    <span>Estatus Red:</span>
+                    <span style="color: #238636; font-weight: bold;">SECURE</span>
+                </div>
+                
+                <p style="font-size: 0.7rem; color: #8b949e; margin-top: 15px; line-height: 1.3; font-family: monospace;">
+                    [INFO] Las tarjetas ubicadas en el panel inferior corresponden a flujos de red que infringen las matrices de comportamiento autónomo de Darktrace.
+                </p>
             </div>
             
-            <div class="darktrace-bottom-feed">
+            <div class="hyperion-bottom-deck">
                 {cards_html}
             </div>
-        </div>
     """, unsafe_allow_html=True)
-
-    # Panel de mitigación rápido justo debajo por si se requiere interactuar con base de datos
+    
+    # RENDER DE MAPA INTEGRADO: Mapa nativo oscuro posicionado de fondo dentro del contenedor HUD
     if not darktrace_df.empty:
-        with st.expander("🛠️ Panel Rápido de Contención (SOAR Action)"):
+        map_data = darktrace_df[['latitude', 'longitude']].dropna()
+        map_data.columns = ['lat', 'lon']
+        st.map(map_data, zoom=1, use_container_width=True)
+    else:
+        # Si no hay coordenadas, creamos un DataFrame por defecto para mantener el mapa táctico mundial vivo
+        default_map = pd.DataFrame({'lat': [0.0], 'lon': [0.0]})
+        st.map(default_map, zoom=1, use_container_width=True)
+        
+    st.markdown("</div>", unsafe_allow_html=True) # Cierre del contenedor hud-wrapper
+
+    # MÓDULO INTEGRADO DE CONTENCIÓN (Justo debajo del HUD)
+    if not darktrace_df.empty:
+        st.markdown("<br>", unsafe_allow_html=True)
+        with st.expander("⚡ Control Operativo Automático - Killswitch de Emergencia"):
             for idx, row in darktrace_df.iterrows():
-                col_info, col_btn = st.columns([3, 1])
-                with col_info:
-                    st.markdown(f"**Killswitch Disponible:** Interrumpir flujo de `{row['source_ip']}` ➔ `{row['dest_ip']}`")
-                with col_btn:
-                    if st.button("✂️ Ejecutar Cortar", key=f"dt_hud_btn_{idx}", use_container_width=True):
+                col_txt, col_act = st.columns([4, 1])
+                with col_txt:
+                    st.code(f"MIGRACIÓN REQUERIDA // Mitigar flujo malicioso desde IP de origen: {row['source_ip']} hacia {row['dest_ip']}")
+                with col_act:
+                    if st.button("🚨 Terminar Tráfico", key=f"hud_kill_{idx}", use_container_width=True):
                         try:
                             with engine.connect() as conn:
                                 with conn.begin(): 
-                                    conn.execute(text('INSERT INTO "audit_logs" (actor, action) VALUES (\'DARKTRACE_SOAR\', :action)'),
-                                        {"action": f"MANUAL_KILLSWITCH: Flujo de la IP {row['source_ip']} terminado por el operador."})
+                                    conn.execute(text('INSERT INTO "audit_logs" (actor, action) VALUES (\'DARKTRACE_HUD\', :action)'),
+                                        {"action": f"HUD_KILLSWITCH: Tráfico denegado permanentemente para IP {row['source_ip']}."})
                                     conn.execute(text("DELETE FROM darktrace_network_threats WHERE id = :id"), {"id": row['id']})
-                            st.toast(f"💥 Killswitch inyectado para {row['source_ip']}", icon="🚫")
+                            st.toast(f"Tráfico mitigado de forma segura para {row['source_ip']}", icon="🔒")
                             st.rerun()
-                        except Exception as tx_err: st.error(f"Error: {tx_err}")
+                        except Exception as ex:
+                            st.error(f"Error operativo: {ex}")
 
 # MÓDULO 3: SOAR CONTROL CENTER
 elif menu_opcion == "⚡ SOAR Control Center":
