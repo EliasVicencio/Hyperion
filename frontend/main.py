@@ -58,7 +58,7 @@ with col3:
 # 3. Construcción de Query Segura (Ajustada al nombre real exacto "AUDIT_LOGS")
 query_str = """
     SELECT timestamp, actor, action, context, hash_this 
-    FROM "AUDIT_LOGS" 
+    FROM "audit_logs" 
     WHERE timestamp >= :desde AND timestamp <= :hasta
 """
 
