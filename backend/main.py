@@ -1,11 +1,14 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Request
+from fastapi import FastAPI, APIRouter, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from datetime import datetime
 import uuid
+from sqlalchemy.orm import Session
 
+
+router = APIRouter(prefix="/api/v1/immune", tags=["Immune System"])
 app = FastAPI(title="Hyperion Core Backend", version="2.0.0")
 
 # --- MIDDLEWARE CORS ---
@@ -18,6 +21,11 @@ app.add_middleware(
 )
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+class LoginAttempt(BaseModel):
+    user_email: str
+    hour: int
+    country: str
 
 # --- BASES DE DATOS SIMULADAS / EN MEMORIA (GARANTIZA FUNCIONALIDAD) ---
 USERS_DB = {
@@ -258,6 +266,59 @@ async def external_dashboard(auth_token: str = None):  # <--- CAMBIO: Cambiado d
         </body>
     </html>
     """
+    
+
+@router.post("/evaluate-behavior")
+async def evaluate_behavior(attempt: LoginAttempt):
+    # NOTA: Aquí mapeamos la query directa usando SQLAlchemy Text para mantener compatibilidad con Supabase
+    query_profile = text('SELECT typical_hours, typical_countries FROM user_behavior_profile WHERE user_email = :email')
+    
+    with engine.connect() as conn:
+        result = conn.execute(query_profile, {"email": attempt.user_email}).fetchone()
+        
+        if not result:
+            # Si el usuario no tiene perfil, lo registramos con un perfil base por defecto
+            insert_profile = text('''
+                INSERT INTO user_behavior_profile (user_email, typical_hours, typical_countries)
+                VALUES (:email, ARRAY[8,9,10,11,12,13,14,15,16,17,18], ARRAY[:country])
+            ''')
+            conn.execute(insert_profile, {"email": attempt.user_email, "country": attempt.country})
+            conn.commit()
+            return {"status": "profile_created", "anomalies": []}
+        
+        typical_hours = result[0]      # Formato lista de Python gracias al driver
+        typical_countries = result[1]  # Formato lista de Python
+        
+        anomalies = []
+        
+        # Validación Capa 1.A: Horario inusual
+        if attempt.hour not in typical_hours:
+            anomalies.append(f"Acceso a hora inusual: {attempt.hour}:00 hrs.")
+            
+        # Validación Capa 1.B: Ubicación geográfica anómala
+        if attempt.country not in typical_countries:
+            anomalies.append(f"Acceso desde país no habitual: {attempt.country}.")
+            
+        # Correlación: Si se disparan ambas anomalías en el mismo evento, se cataloga como amenaza
+        if len(anomalies) >= 2:
+            description = " | ".join(anomalies)
+            insert_anomaly = text('''
+                INSERT INTO behavior_anomalies (user_email, description, severity, status)
+                VALUES (:email, :desc, 'medium', 'active')
+            ''')
+            conn.execute(insert_anomaly, {"email": attempt.user_email, "desc": description})
+            
+            # ATENCIÓN: Automatización con tu tabla inmutable AUDIT_LOGS
+            insert_audit = text('''
+                INSERT INTO "audit_logs" (actor, action, context, hash_this)
+                VALUES ('HYPERION_UEBA', 'ANOMALOUS_BEHAVIOR_DETECTED', :context, 'SHA256_SIMULADO_IMMUNE_LAYER')
+            ''')
+            conn.execute(insert_audit, {"context": f"Alerta crítica para {attempt.user_email}: {description}"})
+            conn.commit()
+            
+            return {"status": "threat_detected", "anomalies": anomalies}
+            
+    return {"status": "clear", "anomalies": []}
     
 if __name__ == "__main__":
 
