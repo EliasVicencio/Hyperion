@@ -113,6 +113,18 @@ except Exception as e:
     st.error(f"❌ Error crítico de conexión: {e}")
     st.stop()
 
+# ==========================================
+# ♻️ MOTOR DE LIMPIEZA PERIMETRAL AUTOMÁTICO
+# ==========================================
+try:
+    with engine.begin() as conn:
+        conn.execute(text("""
+            DELETE FROM firewall_network_blocks 
+            WHERE expires_at IS NOT NULL AND expires_at <= NOW()
+        """))
+except Exception:
+    pass
+
 # --- EXTRACCIÓN DE TELEMETRÍA ---
 fecha_desde = datetime.now() - timedelta(days=7)
 fecha_hasta = datetime.now()
@@ -232,12 +244,12 @@ if modo_soar and not darktrace_df.empty:
                 continue # Saltar a la siguiente amenaza sin bloquear nada
             
             # 🔒 3. PROCESAMIENTO ESTÁNDAR (Si no está en la lista blanca)
-            # Operación 1: Registrar el bloqueo en el cortafuegos
+            # Operación 1: Registrar el bloqueo en el cortafuegos con duración determinada (30 minutos)
             try:
                 with engine.begin() as conn:
                     conn.execute(text("""
-                        INSERT INTO firewall_network_blocks (blocked_ip, reason)
-                        VALUES (:ip, :reason)
+                        INSERT INTO firewall_network_blocks (blocked_ip, reason, blocked_at, expires_at, duration_minutes)
+                        VALUES (:ip, :reason, NOW(), NOW() + INTERVAL '30 minutes', 30)
                     """), {"ip": ip_amenaza, "reason": f"SOAR AUTÓNOMO: {row['mitre_tactic']}"})
                 bloqueo_exitoso = True
             except Exception:
@@ -319,28 +331,22 @@ elif menu_opcion == "🕵️ Capa 1: Perfilado UEBA":
     else:
         st.success("🟢 No se registran desviaciones de comportamiento en la plantilla de usuarios.")
 
-# MÓDULO 2: CAPA 2 (NTA) - ¡MAPA CORREGIDO DE FORMA DEFINITIVA!
+# MÓDULO 2: CAPA 2 (NTA)
 elif menu_opcion == "🌐 Capa 2: Detección NTA":
     st.subheader("🌐 Visualizador de Inmunidad de Red (NTA)")
     
     html_panel = f"""<div class="hud-wrapper"><div class="hyperion-side-panel"><div style="font-size: 0.72rem; font-family: monospace; color: #58a6ff; font-weight: bold; margin-bottom: 2px;">🚀 CORE MATRIX</div><h4 style="margin: 0 0 10px 0; color: #fff; font-size: 1.05rem; border-bottom: 1px solid rgba(167,139,250,0.15); padding-bottom: 4px;">Live Intelligence</h4><div class="panel-metric"><span>Logs Correlacionados:</span><span style="color: #58a6ff; font-weight: bold;">{len(df_ledger)}</span></div><div class="panel-metric"><span>Riesgos de Red:</span><span style="color: #f43f5e; font-weight: bold;">{len(darktrace_df)}</span></div><div class="panel-metric"><span>Estado del Nodo:</span><span style="color: #238636; font-weight: bold;">AUTÓNOMO READY</span></div></div>"""
     st.markdown(html_panel, unsafe_allow_html=True)
     
-    # 🕵️ REFINAMIENTO SEGURO DEL MAPA TÁCTICO:
-    # Evaluamos si hay datos de amenazas en tiempo real geolocalizados.
     if not darktrace_df.empty and 'latitude' in darktrace_df.columns and 'longitude' in darktrace_df.columns:
         map_data = darktrace_df[['latitude', 'longitude']].dropna()
         map_data.columns = ['lat', 'lon']
         
-        # Si el DataFrame filtrado tiene coordenadas válidas, pintamos las amenazas
         if not map_data.empty:
             st.map(map_data, zoom=1, use_container_width=True)
         else:
-            # Si hay amenazas pero sin coordenadas, pasamos columnas vacías para una vista global neutral
             st.map(pd.DataFrame(columns=['lat', 'lon']), zoom=1, use_container_width=True)
     else:
-        # TRÁFICO LIMPIO: Se envía un DataFrame con columnas vacías sin puntos de coordenadas.
-        # Esto hace que Streamlit centre el mapa mundial de forma automática, eliminando el punto en África.
         st.map(pd.DataFrame(columns=['lat', 'lon']), zoom=1, use_container_width=True)
         
     st.markdown("</div>", unsafe_allow_html=True)
@@ -356,7 +362,11 @@ elif menu_opcion == "🌐 Capa 2: Detección NTA":
                 if st.button("✂️ Cortar Flujo", key=f"k_{idx}"):
                     try:
                         with engine.begin() as conn:
-                            conn.execute(text("INSERT INTO firewall_network_blocks (blocked_ip, reason) VALUES (:ip, 'Mitigación manual SOC')"), {"ip": row['source_ip']})
+                            # Mitigación manual calculando dinámicamente ventana de expiración de 30 minutos
+                            conn.execute(text("""
+                                INSERT INTO firewall_network_blocks (blocked_ip, reason, blocked_at, expires_at, duration_minutes) 
+                                VALUES (:ip, 'Mitigación manual SOC', NOW(), NOW() + INTERVAL '30 minutes', 30)
+                            """), {"ip": row['source_ip']})
                             conn.execute(text("DELETE FROM darktrace_network_threats WHERE id = :id"), {"id": row['id']})
                         st.toast("Línea cortada.", icon="🔒")
                         st.rerun()
