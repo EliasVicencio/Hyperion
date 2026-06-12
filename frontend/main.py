@@ -112,24 +112,41 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🔒 ESCUDO DE CONTROL DE ACCESO (GATEKEEPER SECURITY)
+# 🔒 ESCUDO DE CONTROL DE ACCESO (GATEKEEPER SECURITY - COMPATIBILIDAD FIX)
 # ==========================================
-MASTER_ACCESS_TOKEN = "HyperionSecretSecureToken2026" # Llave compartida con el portal principal
+MASTER_ACCESS_TOKEN = "HyperionSecretSecureToken2026"
 
-query_params = st.query_params
-token_ingresado = query_params.get("auth_token", None)
-operador_transferido = query_params.get("operator", "Control Central")
+# Extraemos los parámetros controlando variaciones de tipos de datos en Streamlit
+try:
+    query_params = st.query_params
+    
+    raw_token = query_params.get("auth_token", None)
+    # Si viene como lista o tupla debido al middleware, extraemos el primer elemento
+    if isinstance(raw_token, (list, tuple)) and len(raw_token) > 0:
+        token_ingresado = str(raw_token[0]).strip()
+    else:
+        token_ingresado = str(raw_token).strip() if raw_token is not None else None
 
+    raw_operator = query_params.get("operator", "Control Central")
+    if isinstance(raw_operator, (list, tuple)) and len(raw_operator) > 0:
+        operador_transferido = str(raw_operator[0]).strip()
+    else:
+        operador_transferido = str(raw_operator).strip()
+
+except Exception:
+    token_ingresado = None
+    operador_transferido = "Control Central"
+
+# Validación estricta contra strings vacíos o nulos
 if token_ingresado != MASTER_ACCESS_TOKEN:
-    # Si alguien intenta acceder de forma directa sin pasar por el portal maestro
     st.markdown("<br><br><br>", unsafe_allow_html=True)
-    st.error("🛑 ACESS DENIED: Sesión de Operador No Autenticada en Hyperion Core.")
+    st.error("🛑 ACCESS DENIED: Sesión de Operador No Autenticada en Hyperion Core.")
     st.info("⚠️ Para acceder a la consola SOAR de producción, debe iniciar sesión previamente a través del portal de gestión de accesos corporativo.")
     st.caption("Incidente registrado y reportado automáticamente al módulo de auditoría del sistema.")
-    st.stop() # Mata la ejecución aquí, protegiendo las conexiones a bases de datos y la UI.
+    st.stop()
 
 
-# === A PARTIR DE AQUÍ EL ACCESO ESTÁ VALIDADO ===
+# === A PARTIR DE AQUÍ EL ACCESO ESTÁ COMPLETAMENTE VALIDADO ===
 
 try:
     db_url = "postgresql://postgres.tyunqthoinamdlyhgmuq:zKxaQ4y2zNtaMnI3@aws-1-us-east-1.pooler.supabase.com:6543/postgres"
@@ -467,7 +484,7 @@ elif menu_opcion == "🤝 Threat Intel Exchange":
 
 # MÓDULO 4: EXCLUSIONES Y CONFIANZA
 elif menu_opcion == "⚙️ Exclusiones & Confianza":
-    st.subheader("⚙️ Gestión de Reglas Allowlist (Evitar Falsos Positivos)")
+    st.subheader("⚙️ Gestión de Reglas Allowlist (Evitar Falsos Positives)")
     with st.form("add_allow"):
         t_target = st.text_input("IP o Correo de Confianza")
         t_type = st.selectbox("Tipo", ["ip", "user"])
