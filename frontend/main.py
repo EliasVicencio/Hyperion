@@ -116,36 +116,59 @@ st.markdown("""
 # ==========================================
 MASTER_ACCESS_TOKEN = "SESION_ADMIN_HYPERION_ULTRA_SECRETA"
 
-query_params = st.query_params
+# Inicializamos las variables en un estado totalmente inválido/vacío por defecto
+token_ingresado = None
+operador_transferido = None
 
-# 1. IDENTIFICACIÓN: Extraemos el token validando si existe en la URL
-raw_token = query_params.get("session_token", None)
-if isinstance(raw_token, (list, tuple)) and len(raw_token) > 0:
-    token_ingresado = str(raw_token[0]).strip()
-else:
-    token_ingresado = str(raw_token).strip() if raw_token is not None else None
-
-# Extraemos el operador con un valor por defecto seguro
-raw_operator = query_params.get("operator", "Control Central")
-operador_transferido = str(raw_operator[0]).strip() if isinstance(raw_operator, (list, tuple)) and len(raw_operator) > 0 else str(raw_operator).strip()
-
-
-# 2. VALIDACIÓN (Estructura IF / ELSE)
-if token_ingresado == MASTER_ACCESS_TOKEN:
-    # 🔓 SI se ingresó el token correcto en el panel principal -> Dar acceso al panel externo
-    st.toast(f"🔑 Acceso concedido para: {operador_transferido}", icon="🔓")
+try:
+    # Capturamos los parámetros directamente desde la URL activa
+    query_params = st.query_params
     
-    # Nota: Aquí no ponemos un st.stop(), permitiendo que todo el código de abajo 
-    # (la conexión a la base de datos y la interfaz de Hyperion) se ejecute normalmente.
+    # Extracción segura del token de sesión
+    raw_token = query_params.get("session_token", None)
+    if isinstance(raw_token, (list, tuple)) and len(raw_token) > 0:
+        token_ingresado = str(raw_token[0]).strip()
+    elif raw_token is not None:
+        token_ingresado = str(raw_token).strip()
+
+    # Extracción segura del operador
+    raw_operator = query_params.get("operator", None)
+    if isinstance(raw_operator, (list, tuple)) and len(raw_operator) > 0:
+        operador_transferido = str(raw_operator[0]).strip()
+    elif raw_operator is not None:
+        operador_transferido = str(raw_operator).strip()
+
+except Exception:
+    # Ante cualquier error inesperado en la lectura, aseguramos el cierre patronal
+    token_ingresado = None
+    operador_transferido = None
+
+
+# ==========================================
+# ⚖️ EVALUACIÓN DE CREDENCIALES (IF / ELSE)
+# ==========================================
+
+# El IF evalúa la condición de éxito de manera estricta
+if token_ingresado and token_ingresado == MASTER_ACCESS_TOKEN:
+    
+    # 🔓 CASO EXITOSO: El token existe, coincide y es válido.
+    # El operador inició sesión correctamente en https://hyperion-system.streamlit.app/
+    st.toast(f"🔑 Sesión verificada para: {operador_transferido or 'Operador Autorizado'}", icon="🔓")
+    
+    # [Aquí continúa el resto de tu código del panel externo: Mapas, Logs, Supabase, etc.]
+    # Al no haber un st.stop(), Streamlit sigue leyendo el script hacia abajo.
 
 else:
-    # 🔒 SI NO se ingresó el token (o es incorrecto) -> El panel externo se bloquea por completo
+    
+    # 🔒 CASO FALLIDO (ELSE): Si el token es inválido, no se envió, está vacío o es erróneo.
+    # El panel se bloquea por completo de inmediato.
     st.markdown("<br><br><br>", unsafe_allow_html=True)
     st.error("🛑 ACCESS DENIED: Sesión de Operador No Autenticada en Hyperion Core.")
     st.info("⚠️ Para acceder a la consola SOAR de producción, debe iniciar sesión previamente a través del portal de gestión de accesos corporativo.")
     st.caption("Incidente registrado y reportado automáticamente al módulo de auditoría del sistema.")
     
-    st.stop() # 🛑 Bloqueo absoluto. Detiene la ejecución aquí y no renderiza nada de la app.
+    # 🛑 DETENCIÓN ABSOLUTA: Esto impide que Streamlit renderice una sola línea de código adicional.
+    st.stop()
 
 
 # === A PARTIR DE AQUÍ EL ACCESO ESTÁ COMPLETAMENTE VALIDADO ===
