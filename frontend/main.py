@@ -112,39 +112,40 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🔒 ESCUDO DE CONTROL DE ACCESO (GATEKEEPER SECURITY - COMPATIBILIDAD CON TU URL)
+# 🔒 ESCUDO DE CONTROL DE ACCESO (GATEKEEPER SECURITY - IF/ELSE COMPLETION)
 # ==========================================
-# Cambiamos el secreto para que coincida exactamente con lo que envía tu portal principal
 MASTER_ACCESS_TOKEN = "SESION_ADMIN_HYPERION_ULTRA_SECRETA"
 
-try:
-    query_params = st.query_params
+query_params = st.query_params
+
+# 1. IDENTIFICACIÓN: Extraemos el token validando si existe en la URL
+raw_token = query_params.get("session_token", None)
+if isinstance(raw_token, (list, tuple)) and len(raw_token) > 0:
+    token_ingresado = str(raw_token[0]).strip()
+else:
+    token_ingresado = str(raw_token).strip() if raw_token is not None else None
+
+# Extraemos el operador con un valor por defecto seguro
+raw_operator = query_params.get("operator", "Control Central")
+operador_transferido = str(raw_operator[0]).strip() if isinstance(raw_operator, (list, tuple)) and len(raw_operator) > 0 else str(raw_operator).strip()
+
+
+# 2. VALIDACIÓN (Estructura IF / ELSE)
+if token_ingresado == MASTER_ACCESS_TOKEN:
+    # 🔓 SI se ingresó el token correcto en el panel principal -> Dar acceso al panel externo
+    st.toast(f"🔑 Acceso concedido para: {operador_transferido}", icon="🔓")
     
-    # Buscamos 'session_token' (en lugar de 'auth_token') para hacer match con tu URL
-    raw_token = query_params.get("session_token", None)
-    if isinstance(raw_token, (list, tuple)) and len(raw_token) > 0:
-        token_ingresado = str(raw_token[0]).strip()
-    else:
-        token_ingresado = str(raw_token).strip() if raw_token is not None else None
+    # Nota: Aquí no ponemos un st.stop(), permitiendo que todo el código de abajo 
+    # (la conexión a la base de datos y la interfaz de Hyperion) se ejecute normalmente.
 
-    # Buscamos el operador
-    raw_operator = query_params.get("operator", "Control Central")
-    if isinstance(raw_operator, (list, tuple)) and len(raw_operator) > 0:
-        operador_transferido = str(raw_operator[0]).strip()
-    else:
-        operador_transferido = str(raw_operator).strip()
-
-except Exception:
-    token_ingresado = None
-    operador_transferido = "Control Central"
-
-# Validación estricta con las credenciales de tu URL real
-if token_ingresado != MASTER_ACCESS_TOKEN:
+else:
+    # 🔒 SI NO se ingresó el token (o es incorrecto) -> El panel externo se bloquea por completo
     st.markdown("<br><br><br>", unsafe_allow_html=True)
     st.error("🛑 ACCESS DENIED: Sesión de Operador No Autenticada en Hyperion Core.")
     st.info("⚠️ Para acceder a la consola SOAR de producción, debe iniciar sesión previamente a través del portal de gestión de accesos corporativo.")
     st.caption("Incidente registrado y reportado automáticamente al módulo de auditoría del sistema.")
-    st.stop()
+    
+    st.stop() # 🛑 Bloqueo absoluto. Detiene la ejecución aquí y no renderiza nada de la app.
 
 
 # === A PARTIR DE AQUÍ EL ACCESO ESTÁ COMPLETAMENTE VALIDADO ===
