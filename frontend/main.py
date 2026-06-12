@@ -112,39 +112,33 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🔒 ESCUDO DE CONTROL DE ACCESO (GATEKEEPER SECURITY - COMPATIBILIDAD FIX)
+# 🔒 ESCUDO DE CONTROL DE ACCESO (GATEKEEPER SECURITY - COMPATIBILIDAD CON TU URL)
 # ==========================================
-# ==========================================
-# 🔒 ESCUDO DE CONTROL DE ACCESO (GATEKEEPER SECURITY - ULTRA COMPATIBLE)
-# ==========================================
-MASTER_ACCESS_TOKEN = "HyperionSecretSecureToken2026"
-
-token_ingresado = None
-operador_transferido = "Control Central"
+# Cambiamos el secreto para que coincida exactamente con lo que envía tu portal principal
+MASTER_ACCESS_TOKEN = "SESION_ADMIN_HYPERION_ULTRA_SECRETA"
 
 try:
-    # 1. Intentar con la API moderna de Streamlit
-    if hasattr(st, "query_params"):
-        dict_params = st.query_params
-        if "auth_token" in dict_params:
-            raw_t = dict_params["auth_token"]
-            token_ingresado = str(raw_t[0]).strip() if isinstance(raw_t, list) else str(raw_t).strip()
-        if "operator" in dict_params:
-            raw_o = dict_params["operator"]
-            operador_transferido = str(raw_o[0]).strip() if isinstance(raw_o, list) else str(raw_o).strip()
+    query_params = st.query_params
+    
+    # Buscamos 'session_token' (en lugar de 'auth_token') para hacer match con tu URL
+    raw_token = query_params.get("session_token", None)
+    if isinstance(raw_token, (list, tuple)) and len(raw_token) > 0:
+        token_ingresado = str(raw_token[0]).strip()
+    else:
+        token_ingresado = str(raw_token).strip() if raw_token is not None else None
 
-    # 2. Fallback si la API moderna falló o devolvió vacío (Retrocompatibilidad activa)
-    if not token_ingresado:
-        # Usamos dict normal por si las moscas
-        legacy_params = st.experimental_get_query_params() if hasattr(st, "experimental_get_query_params") else {}
-        if "auth_token" in legacy_params:
-            token_ingresado = str(legacy_params["auth_token"][0]).strip()
-        if "operator" in legacy_params:
-            operador_transferido = str(legacy_params["operator"][0]).strip()
-except Exception as e:
-    st.sidebar.error(f"Error interno leyendo parámetros: {e}")
+    # Buscamos el operador
+    raw_operator = query_params.get("operator", "Control Central")
+    if isinstance(raw_operator, (list, tuple)) and len(raw_operator) > 0:
+        operador_transferido = str(raw_operator[0]).strip()
+    else:
+        operador_transferido = str(raw_operator).strip()
 
-# Validación estricta contra la llave maestra corporativa
+except Exception:
+    token_ingresado = None
+    operador_transferido = "Control Central"
+
+# Validación estricta con las credenciales de tu URL real
 if token_ingresado != MASTER_ACCESS_TOKEN:
     st.markdown("<br><br><br>", unsafe_allow_html=True)
     st.error("🛑 ACCESS DENIED: Sesión de Operador No Autenticada en Hyperion Core.")
