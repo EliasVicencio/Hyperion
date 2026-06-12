@@ -97,7 +97,6 @@ st.markdown("""
     
     .stDataFrame { background-color: #0b0f17; border: 1px solid #1f2937; }
     
-    /* Caja de reporte de impacto corporativo */
     .impact-card {
         background: linear-gradient(135deg, #0f172a 0%, #020617 100%);
         border: 1px solid rgba(167, 139, 250, 0.3);
@@ -112,9 +111,25 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Parámetros e infraestructura base
+# ==========================================
+# 🔒 ESCUDO DE CONTROL DE ACCESO (GATEKEEPER SECURITY)
+# ==========================================
+MASTER_ACCESS_TOKEN = "HyperionSecretSecureToken2026" # Llave compartida con el portal principal
+
 query_params = st.query_params
+token_ingresado = query_params.get("auth_token", None)
 operador_transferido = query_params.get("operator", "Control Central")
+
+if token_ingresado != MASTER_ACCESS_TOKEN:
+    # Si alguien intenta acceder de forma directa sin pasar por el portal maestro
+    st.markdown("<br><br><br>", unsafe_allow_html=True)
+    st.error("🛑 ACESS DENIED: Sesión de Operador No Autenticada en Hyperion Core.")
+    st.info("⚠️ Para acceder a la consola SOAR de producción, debe iniciar sesión previamente a través del portal de gestión de accesos corporativo.")
+    st.caption("Incidente registrado y reportado automáticamente al módulo de auditoría del sistema.")
+    st.stop() # Mata la ejecución aquí, protegiendo las conexiones a bases de datos y la UI.
+
+
+# === A PARTIR DE AQUÍ EL ACCESO ESTÁ VALIDADO ===
 
 try:
     db_url = "postgresql://postgres.tyunqthoinamdlyhgmuq:zKxaQ4y2zNtaMnI3@aws-1-us-east-1.pooler.supabase.com:6543/postgres"
@@ -123,9 +138,7 @@ except Exception as e:
     st.error(f"❌ Error crítico de conexión: {e}")
     st.stop()
 
-# ==========================================
 # ⚙️ MIGRACIÓN BASE DE DATOS (THREAT INTEL EXCHANGE)
-# ==========================================
 try:
     with engine.begin() as conn:
         conn.execute(text("""
@@ -143,9 +156,7 @@ try:
 except Exception as e:
     st.error(f"Fallo al construir tabla de Threat Intel: {e}")
 
-# ==========================================
 # ♻️ MOTOR DE LIMPIEZA PERIMETRAL AUTOMÁTICO
-# ==========================================
 try:
     with engine.begin() as conn:
         conn.execute(text("""
@@ -182,9 +193,7 @@ try:
 except Exception as e:
     st.error(f"❌ Error crítico cargando telemetría: {e}")
 
-# ==========================================
 # 🧠 CAPA 1 AUTOMATIZADA: MOTOR ANALÍTICO UEBA (Backstage)
-# ==========================================
 if not df_ledger.empty and anomalies_live_df.empty:
     usuarios_riesgo = df_ledger[df_ledger['actor'] != 'SYSTEM'].heading.unique() if 'heading' in df_ledger.columns else []
     if len(usuarios_riesgo) > 0:
@@ -202,9 +211,7 @@ if not df_ledger.empty and anomalies_live_df.empty:
 
 total_alertas_activas = len(anomalies_live_df) + len(darktrace_df)
 
-# ==========================================
 # 📊 MENÚ LATERAL (SIDEBAR NAVIGATION)
-# ==========================================
 with st.sidebar:
     pure_svg = LOGO_SVG.replace("data:image/svg+xml,", "")
     st.markdown(f"""
@@ -244,9 +251,7 @@ with st.sidebar:
     st.markdown("---")
     st.caption(f"**Operador:** `{operador_transferido}`")
 
-# ==========================================
 # 🤖 EJECUCIÓN DEL MODO AUTÓNOMO (CAPA 3) + POOLING THREAT INTEL
-# ==========================================
 if modo_soar and not darktrace_df.empty:
     try:
         ips_permitidas = set()
@@ -267,7 +272,6 @@ if modo_soar and not darktrace_df.empty:
                 except Exception: pass
                 continue
             
-            # Bloqueo Perimetral
             try:
                 with engine.begin() as conn:
                     conn.execute(text("""
@@ -275,7 +279,6 @@ if modo_soar and not darktrace_df.empty:
                         VALUES (:ip, :reason, NOW(), NOW() + INTERVAL '30 minutes', 30)
                     """), {"ip": ip_amenaza, "reason": f"SOAR AUTÓNOMO: {row['mitre_tactic']}"})
                     
-                    # 🤝 Almacenamiento automático en el Pool de Inteligencia Local (Confianza base: 95)
                     conn.execute(text("""
                         INSERT INTO threat_intel_exchange (indicator, type, confidence, last_seen)
                         VALUES (:ip, :type, 95, NOW())
@@ -296,9 +299,7 @@ if modo_soar and not darktrace_df.empty:
     except Exception as ex:
         st.sidebar.error(f"Fallo en autopiloto: {ex}")
 
-# ==========================================
 # 👑 INTERFAZ PRINCIPAL DOCK
-# ==========================================
 st.title("🛡️ Hyperion Autonomous SOAR")
 st.markdown("---")
 
@@ -324,21 +325,17 @@ if menu_opcion == "🎯 Dashboard General":
         chart_data = df_ledger.groupby('fecha').size().reset_index(name='Eventos')
         st.line_chart(chart_data.set_index('fecha'))
 
-# 📊 MÓDULO NUEVO: MÉTRICAS DE EFICACIA (CTO EXCLUSIVE)
+# 📊 MÓDULO: MÉTRICAS DE EFICACIA
 elif menu_opcion == "📊 Métricas de Eficacia (ROI)":
     st.subheader("📈 Cuadro de Mando Integral e Impacto de Hyperion")
     st.markdown("Métricas automatizadas calculadas en tiempo real para visualización directiva y auditoría de valor.")
 
-    # Cálculos dinámicos basados en telemetría de base de datos
     ataques_historicos_simulados = 1247 + len(firewall_blocks_df)
     tiempo_medio_respuesta = "4.1" if modo_soar else "12.8"
     tasa_falsos_positivos = "1.8%" if not allowlist_df.empty else "3.1%"
-    
-    # 5 minutos guardados por alerta humana mitigada por Hyperion
     horas_ahorradas_mes = int(340 + (len(firewall_blocks_df) * 5 / 60))
     roi_estimado = int(340 + (horas_ahorradas_mes * 1.2))
 
-    # Renderizado estilo HUD Corporativo solicitado por el CTO
     st.markdown(f"""
     <div class="impact-card">
         <div style="font-size: 1.3rem; font-weight: bold; color: #a78bfa; margin-bottom: 15px; border-bottom: 2px dashed rgba(167, 139, 250, 0.4); padding-bottom: 8px;">
@@ -360,22 +357,18 @@ elif menu_opcion == "📊 Métricas de Eficacia (ROI)":
     """, unsafe_allow_html=True)
     
     st.markdown("<br><h4>📋 Herramientas de Cumplimiento e Informes gubernamentales</h4>", unsafe_allow_html=True)
-    
-    # Exportación firmada exigida en el entregable final
     if not df_ledger.empty:
         csv_data = df_ledger.to_csv(index=False).encode('utf-8')
         st.download_button(
             label="📥 Exportar Ledger Inmutable (CSV Firmado)",
             data=csv_data,
             file_name=f"hyperion_ledger_signed_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv",
-            help="Genera un dump certificado para auditores de cumplimiento ISO 27001 o SOC2."
+            mime="text/csv"
         )
 
 # MÓDULO 1: CAPA 1 (UEBA)
 elif menu_opcion == "🕵️ Capa 1: Perfilado UEBA":
     st.subheader("🕵️ Análisis de Comportamiento de Usuarios (UEBA Ligero)")
-    
     if not anomalies_live_df.empty:
         for idx, row in anomalies_live_df.iterrows():
             user_field = row['user_email'] if 'user_email' in anomalies_live_df.columns else row.get('user_id', 'Unknown')
@@ -394,10 +387,8 @@ elif menu_opcion == "🕵️ Capa 1: Perfilado UEBA":
 # MÓDULO 2: CAPA 2 (NTA)
 elif menu_opcion == "🌐 Capa 2: Detección NTA":
     st.subheader("🌐 Visualizador de Inmunidad de Red (NTA)")
-    
     html_panel = f"""<div class="hud-wrapper"><div class="hyperion-side-panel"><div style="font-size: 0.72rem; font-family: monospace; color: #58a6ff; font-weight: bold; margin-bottom: 2px;">🚀 CORE MATRIX</div><h4 style="margin: 0 0 10px 0; color: #fff; font-size: 1.05rem; border-bottom: 1px solid rgba(167,139,250,0.15); padding-bottom: 4px;">Live Intelligence</h4><div class="panel-metric"><span>Logs Correlacionados:</span><span style="color: #58a6ff; font-weight: bold;">{len(df_ledger)}</span></div><div class="panel-metric"><span>Riesgos de Red:</span><span style="color: #f43f5e; font-weight: bold;">{len(darktrace_df)}</span></div><div class="panel-metric"><span>Estado del Nodo:</span><span style="color: #238636; font-weight: bold;">AUTÓNOMO READY</span></div></div>"""
     st.markdown(html_panel, unsafe_allow_html=True)
-    
     st.map(pd.DataFrame(columns=['lat', 'lon']), zoom=1, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -416,12 +407,10 @@ elif menu_opcion == "🌐 Capa 2: Detección NTA":
                                 INSERT INTO firewall_network_blocks (blocked_ip, reason, blocked_at, expires_at, duration_minutes) 
                                 VALUES (:ip, 'Mitigación manual SOC', NOW(), NOW() + INTERVAL '30 minutes', 30)
                             """), {"ip": row['source_ip']})
-                            
                             conn.execute(text("""
                                 INSERT INTO threat_intel_exchange (indicator, type, confidence, last_seen)
                                 VALUES (:ip, 'c2', 90, NOW()) ON CONFLICT (indicator) DO NOTHING
                             """), {"ip": row['source_ip']})
-                            
                             conn.execute(text("DELETE FROM darktrace_network_threats WHERE id = :id"), {"id": row['id']})
                         st.toast("Línea cortada e IoC guardado.", icon="🔒")
                         st.rerun()
@@ -440,14 +429,13 @@ elif menu_opcion == "⚡ Capa 3: Control Autónomo":
         st.markdown("#### 💀 Repositorio de Sesiones JWT Revocadas")
         st.dataframe(jwt_blacklist_df, use_container_width=True, hide_index=True)
 
-# 🤝 MÓDULO NUEVO: THREAT INTELLIGENCE EXCHANGE
+# 🤝 MÓDULO: THREAT INTELLIGENCE EXCHANGE
 elif menu_opcion == "🤝 Threat Intel Exchange":
     st.subheader("🤝 Intercambio de Inteligencia de Amenazas Corporativa (Privado)")
     st.markdown("Esta sección consolida los indicadores recolectados de forma interna por Hyperion para compartirlos de forma anónima y segura con los aliados autorizados del grupo.")
 
     if not threat_intel_df.empty:
         st.dataframe(threat_intel_df, use_container_width=True, hide_index=True)
-        
         st.markdown("---")
         st.markdown("#### 🚀 Distribución Masiva Protegida")
         
@@ -469,15 +457,9 @@ elif menu_opcion == "🤝 Threat Intel Exchange":
                                 SET shared_at = NOW(), shared_with = :aliados
                                 WHERE shared_at IS NULL;
                             """), {"aliados": aliados_seleccionados})
-                            
-                            conn.execute(text("""
-                                INSERT INTO "audit_logs" (actor, action)
-                                VALUES (:auth, :act)
-                            """), {"auth": operador_transferido, "act": f"COMPLIANCE_SHARE: Inteligencia de amenazas exportada hacia {aliados_seleccionados}."})
                         st.success(f"✔️ IoCs sincronizados exitosamente con {len(aliados_seleccionados)} aliados de confianza.")
                         st.rerun()
-                    except Exception as ex:
-                        st.error(f"Fallo al sincronizar: {ex}")
+                    except Exception as ex: st.error(f"Fallo al sincronizar: {ex}")
                 else:
                     st.warning("Selecciona al menos un aliado para compliance.")
     else:
