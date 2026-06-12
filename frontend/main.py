@@ -117,38 +117,55 @@ st.markdown("""
 # ==========================================
 MASTER_ACCESS_TOKEN = "SESION_ADMIN_HYPERION_ULTRA_SECRETA"
 
+# Inicializar estados de sesión si no existen
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+if "operator_name" not in st.session_state:
+    st.session_state.operator_name = "Operador Autorizado"
+
 token_ingresado = None
 operador_transferido = None
 
-try:
-    query_params = st.query_params
-    
-    raw_token = query_params.get("session_token", None)
-    if isinstance(raw_token, (list, tuple)) and len(raw_token) > 0:
-        token_ingresado = str(raw_token[0]).strip()
-    elif raw_token is not None:
-        token_ingresado = str(raw_token).strip()
+# Intentar capturar tokens desde la URL solo si el usuario no está autenticado aún
+if not st.session_state.authenticated:
+    try:
+        query_params = st.query_params
+        
+        raw_token = query_params.get("session_token", None)
+        if isinstance(raw_token, (list, tuple)) and len(raw_token) > 0:
+            token_ingresado = str(raw_token[0]).strip()
+        elif raw_token is not None:
+            token_ingresado = str(raw_token).strip()
 
-    raw_operator = query_params.get("operator", None)
-    if isinstance(raw_operator, (list, tuple)) and len(raw_operator) > 0:
-        operador_transferido = str(raw_operator[0]).strip()
-    elif raw_operator is not None:
-        operador_transferido = str(raw_operator).strip()
+        raw_operator = query_params.get("operator", None)
+        if isinstance(raw_operator, (list, tuple)) and len(raw_operator) > 0:
+            operador_transferido = str(raw_operator[0]).strip()
+        elif raw_operator is not None:
+            operador_transferido = str(raw_operator).strip()
 
-except Exception:
-    token_ingresado = None
-    operador_transferido = None
+        # Validar credenciales entrantes
+        if token_ingresado and token_ingresado == MASTER_ACCESS_TOKEN:
+            st.session_state.authenticated = True
+            if operador_transferido:
+                st.session_state.operator_name = operador_transferido
+            
+            # 🧹 LIMPIEZA INMEDIATA: Borramos los tokens de la barra de direcciones del navegador
+            st.query_params.clear()
+            st.toast(f"🔑 Sesión verificada para: {st.session_state.operator_name}", icon="🔓")
+
+    except Exception:
+        token_ingresado = None
+        operador_transferido = None
 
 
 # ==========================================
-# ⚖️ EVALUACIÓN DE CREDENCIALES (IF / ELSE)
+# ⚖️ EVALUACIÓN DE CREDENCIALES
 # ==========================================
 
-if token_ingresado and token_ingresado == MASTER_ACCESS_TOKEN:
+if st.session_state.authenticated:
     
-    # 🔓 CASO EXITOSO: Acceso concedido de forma segura. 
-    # Toda la lógica de negocio y conexiones se ejecutan exclusivamente aquí dentro.
-    st.toast(f"🔑 Sesión verificada para: {operador_transferido or 'Operador Autorizado'}", icon="🔓")
+    # Heredamos el operador validado desde el estado seguro de la sesión
+    operador_transferido = st.session_state.operator_name
 
     # --- INICIALIZACIÓN DE INFRAESTRUCTURA SEGURA ---
     try:
@@ -477,7 +494,7 @@ if token_ingresado and token_ingresado == MASTER_ACCESS_TOKEN:
                                     SET shared_at = NOW(), shared_with = :aliados
                                     WHERE shared_at IS NULL;
                                 """), {"aliados": aliados_seleccionados})
-                            st.success(f"✔️ IoCs sincronizados exitosamente con {len(aliados_seleccionados)} aliados de confianza.")
+                            st.success(f"✔️ IoCs synchronized exitosamente con {len(aliados_seleccionados)} aliados de confianza.")
                             st.rerun()
                         except Exception as ex: st.error(f"Fallo al sincronizar: {ex}")
                     else:
@@ -487,7 +504,7 @@ if token_ingresado and token_ingresado == MASTER_ACCESS_TOKEN:
 
     # MÓDULO 4: EXCLUSIONES Y CONFIANZA
     elif menu_opcion == "⚙️ Exclusiones & Confianza":
-        st.subheader("⚙️ Gestión de Reglas Allowlist (Evitar Falsos Positives)")
+        st.subheader("⚙️ Gestión de Reglas Allowlist (Evitar Falsos Positivos)")
         with st.form("add_allow"):
             t_target = st.text_input("IP o Correo de Confianza")
             t_type = st.selectbox("Tipo", ["ip", "user"])
@@ -505,7 +522,6 @@ if token_ingresado and token_ingresado == MASTER_ACCESS_TOKEN:
 
 else:
     # 🔒 CASO FALLIDO (ELSE): El token es inválido o no existe.
-    # El panel externo se congela y bloquea de inmediato sin inicializar nada.
     st.markdown("<br><br><br>", unsafe_allow_html=True)
     st.error("🛑 ACCESS DENIED: Sesión de Operador No Autenticada en Hyperion Core.")
     st.info("⚠️ Para acceder a la consola SOAR de producción, debe iniciar sesión previamente a través del portal de gestión de accesos corporativo.")
