@@ -2,7 +2,7 @@
 title: Hyperion Core
 emoji: 🛡️
 colorFrom: blue
-colorTo: slate
+colorTo: indigo
 sdk: streamlit
 app_file: app.py
 pinned: false
