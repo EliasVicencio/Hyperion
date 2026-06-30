@@ -1,3 +1,13 @@
+---
+title: Hyperion Core
+emoji: 🛡️
+colorFrom: blue
+colorTo: slate
+sdk: streamlit
+app_file: app.py
+pinned: false
+---
+
 # 👁️ Project Hyperion: Integrated Vigilance & Optimization
 
 **Hyperion** es la respuesta técnica a las brechas de seguridad y desorganización operativa. Construido bajo una arquitectura de microservicios con **FastAPI** y **Streamlit**, optimizado para velocidad, seguridad y visibilidad total.
