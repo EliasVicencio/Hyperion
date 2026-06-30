@@ -16,7 +16,7 @@ import plotly.graph_objects as go
 import numpy as np
 
 # --- CARGAR VARIABLES DESDE EL ENTORNO O SECRETS (A PRUEBA DE FALLOS) ---
-BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+BACKEND_URL = os.getenv("BACKEND_URL", "https://hyperion-pi-nine.vercel.app/")
 
 # Intentamos leer de st.secrets de forma segura sin romper la app si no existe
 try:
