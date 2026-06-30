@@ -1,3 +1,12 @@
+import subprocess
+import sys
+
+# Script de emergencia: fuerza la instalación de plotly si el servidor lo ignora
+try:
+    import plotly
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "plotly"])
+
 import streamlit as st
 import requests
 import os
