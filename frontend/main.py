@@ -581,7 +581,7 @@ else:
             st.markdown(f"""
                 <a href="{url_destino_con_parametros}" target="_blank" style="text-decoration: none;">
                     <div style="background: linear-gradient(90deg, #9333ea 0%, #c084fc 100%); padding: 25px; border-radius: 12px; text-align: center; color: white; font-weight: bold; font-size: 18px; box-shadow: 0 4px 20px rgba(147, 51, 234, 0.4); transition: transform 0.2s;">
-                        🔒 ABRIR BITÁCORA LEGAL (NODO RAMA SEPARADA) ↗️
+                        🔒 ABRIR BITÁCORA LEGAL ↗️
                     </div>
                 </a>
             """, unsafe_allow_html=True)
@@ -589,4 +589,38 @@ else:
         with right_col:
             st.subheader("Estatus de Conexión")
             st.success(f"Sesión validada para: {st.session_state.auth['user']}")
+            
+            # --- NUEVO APARTADO: TELEMETRÍA VPN PARA CONEXIÓN REMOTA ---
+            # Simulamos una verificación de procedencia de IP
+            es_remoto = True # Cambiar a False para pruebas de nodo local
+            vpn_activa = True # Estado del túnel cifrado
+            ip_origen = "10.8.0.42" if vpn_activa else "186.105.4.12"
+            
+            st.markdown("### 🌐 Auditoría de Red Inbound")
+            if es_remoto:
+                if vpn_activa:
+                    st.markdown(f"""
+                        <div style="background: rgba(74, 222, 128, 0.1); padding: 12px; border-radius: 8px; border: 1px solid #4ade80; margin-bottom: 15px;">
+                            <p style='margin:0; font-size:11px; color:#4ade80; font-weight:bold;'>🔐 TÚNEL VPN DETECTADO</p>
+                            <p style='margin:4px 0 0 0; font-size:13px; color:#f0f6fc;'>Acceso Remoto: <b>Protegido</b></p>
+                            <small style='color:#8b949e; font-family: monospace;'>IP Asignada: {ip_origen} (Virtual)</small>
+                        </div>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""
+                        <div style="background: rgba(248, 81, 73, 0.1); padding: 12px; border-radius: 8px; border: 1px solid #f85149; margin-bottom: 15px;">
+                            <p style='margin:0; font-size:11px; color:#ff7b72; font-weight:bold;'>🚨 ACCESO REMOTO INSEGURO</p>
+                            <p style='margin:4px 0 0 0; font-size:13px; color:#f0f6fc;'>Conexión sin cifrar fuera del perímetro</p>
+                            <small style='color:#ff7b72; font-family: monospace;'>IP Alerta: {ip_origen} (Pública)</small>
+                        </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                    <div style="background: #161b22; padding: 12px; border-radius: 8px; border: 1px solid #30363d; margin-bottom: 15px;">
+                        <p style='margin:0; font-size:11px; color:#a78bfa; font-weight:bold;'>🏢 NODO LOCAL SOC</p>
+                        <p style='margin:4px 0 0 0; font-size:13px; color:#f0f6fc;'>Conexión interna por Intranet Física</p>
+                        <small style='color:#8b949e; font-family: monospace;'>Interfaz: eth0 (Segmento ICS)</small>
+                    </div>
+                """, unsafe_allow_html=True)
+            
             st.caption("Los tokens de sesión expiran automáticamente conforme a las políticas NIST.")
