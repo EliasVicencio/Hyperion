@@ -110,7 +110,15 @@ if not st.session_state.auth["token"]:
                             st.error(f"Error de red: No se pudo conectar al Backend central.")
             
             elif st.session_state.auth["step"] == "2fa":
-                st.info(f"🔑 Verificación para: {st.session_state.auth['user']}")
+                usuario_limpio = st.session_state.auth['user']
+                st.markdown(f"""
+                    <div style="background: #161b22; padding: 12px; border-radius: 8px; border: 1px solid #30363d; margin-bottom: 20px;">
+                        <p style='margin:0; font-size:11px; color:#a78bfa; font-weight:bold;'>🔑 DISPOSITIVO DE VERIFICACIÓN</p>
+                        <div style='display: flex; align-items: center; gap: 8px; margin-top: 6px;'>
+                            <span style='font-size: 13px; color: #f0f6fc; font-family: monospace;'>{usuario_limpio}</span>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
                 
                 with st.expander("¿No has vinculado tu app? Ver Código QR"):
                     import qrcode
