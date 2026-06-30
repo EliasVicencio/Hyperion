@@ -7,6 +7,12 @@ try:
 except ImportError:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "plotly"])
 
+# Script de emergencia: fuerza la instalación de qrcode si el servidor lo ignora
+try:
+    import qrcode
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "qrcode"])
+
 import streamlit as st
 import requests
 import os
