@@ -64,54 +64,9 @@ def nav_to(page):
     st.session_state.page = page
     st.rerun()
 
-# --- SIDEBAR ---
-if st.session_state.auth["token"]:
-    with st.sidebar:
-        st.markdown(f"""
-            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
-                <img src="{LOGO_SVG}" width="35">
-                <h2 style="color: #a78bfa; margin: 0; font-size: 1.5rem; letter-spacing: 1px;">
-                    HYPERION <span style="color: white; font-size: 0.8rem; vertical-align: middle;">CORE</span>
-                </h2>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        try:
-            h = requests.get(f"{BACKEND_INTERNAL}/health/deep", timeout=2)
-            health_data = h.json()
-            api_status = "🟢" if health_data.get("api") == "healthy" else "🔴"
-            db_status = "🟢" if health_data.get("database") == "healthy" else "🔴"
-        except:
-            api_status, db_status = "🔴", "🔴"
-
-        st.markdown(f"""
-            <div style="background: #1e293b; padding: 12px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 10px;">
-                <p style='margin:0; font-size:11px; color:#94a3b8; font-weight:bold;'>ESTADO DEL SISTEMA</p>
-                <div style='display: flex; justify-content: space-between; margin-top: 5px;'>
-                    <span style='font-size:13px;'>{api_status} API</span>
-                    <span style='font-size:13px;'>{db_status} DB</span>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-
-        st.write(f"👤 **Usuario:** {st.session_state.auth['user']}")
-        st.write("---")
-        
-        if st.button("📊 Analíticas", use_container_width=True): nav_to("Analíticas")
-        if st.button("👁️ Vigilancia", use_container_width=True): nav_to("Vigilancia")
-        if st.button("👥 Operadores", use_container_width=True): nav_to("Operadores")
-        st.write("---")
-        if st.button("⚖️ Gobernanza", use_container_width=True): nav_to("Gobernanza")
-        if st.button("📜 Logs de Auditoría", use_container_width=True): nav_to("AuditLogs")
-        if st.button("📜 SIEM Audit", use_container_width=True): nav_to("SIEM")
-        
-        st.write("---")
-        if st.button("🚪 Cerrar Sesión", use_container_width=True):
-            st.session_state.auth = {"token": None, "user": None, "step": "login"}
-            st.rerun()
-
-# --- LÓGICA DE ACCESO (PÚBLICO) ---
+# --- CONTROL DE FLUJO PRINCIPAL DE LA INTERFAZ ---
 if not st.session_state.auth["token"]:
+    # LÓGICA DE ACCESO PÚBLICO (LOGIN / REGISTRO)
     _, col, _ = st.columns([1, 2, 1])
     
     with col:
@@ -219,10 +174,58 @@ if not st.session_state.auth["token"]:
                     except Exception as e:
                         st.error(f"🚨 Ocurrió un fallo inesperado en la solicitud de red: {e}")
 
-# --- VISTAS PROTEGIDAS ---
 else:
+    # VISTAS PROTEGIDAS (EL USUARIO YA TIENE UN TOKEN VÁLIDO)
+    
+    # Renderizar primero la barra lateral (Sidebar)
+    with st.sidebar:
+        st.markdown(f"""
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+                <img src="{LOGO_SVG}" width="35">
+                <h2 style="color: #a78bfa; margin: 0; font-size: 1.5rem; letter-spacing: 1px;">
+                    HYPERION <span style="color: white; font-size: 0.8rem; vertical-align: middle;">CORE</span>
+                </h2>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        try:
+            h = requests.get(f"{BACKEND_INTERNAL}/health/deep", timeout=2)
+            health_data = h.json()
+            api_status = "🟢" if health_data.get("api") == "healthy" else "🔴"
+            db_status = "🟢" if health_data.get("database") == "healthy" else "🔴"
+        except:
+            api_status, db_status = "🔴", "🔴"
+
+        st.markdown(f"""
+            <div style="background: #1e293b; padding: 12px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 10px;">
+                <p style='margin:0; font-size:11px; color:#94a3b8; font-weight:bold;'>ESTADO DEL SISTEMA</p>
+                <div style='display: flex; justify-content: space-between; margin-top: 5px;'>
+                    <span style='font-size:13px;'>{api_status} API</span>
+                    <span style='font-size:13px;'>{db_status} DB</span>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+        st.write(f"👤 **Usuario:** {st.session_state.auth['user']}")
+        st.write("---")
+        
+        if st.button("📊 Analíticas", use_container_width=True): nav_to("Analíticas")
+        if st.button("👁️ Vigilancia", use_container_width=True): nav_to("Vigilancia")
+        if st.button("👥 Operadores", use_container_width=True): nav_to("Operadores")
+        st.write("---")
+        if st.button("⚖️ Gobernanza", use_container_width=True): nav_to("Gobernanza")
+        if st.button("📜 Logs de Auditoría", use_container_width=True): nav_to("AuditLogs")
+        if st.button("📜 SIEM Audit", use_container_width=True): nav_to("SIEM")
+        
+        st.write("---")
+        if st.button("🚪 Cerrar Sesión", use_container_width=True):
+            st.session_state.auth = {"token": None, "user": None, "step": "login"}
+            st.rerun()
+
+    # Cargar cabecera común para llamadas protegidas
     headers = {"Authorization": f"Bearer {st.session_state.auth['token']}"}
     
+    # Enrutamiento interno de paneles
     if st.session_state.page == "Analíticas":
         st.title("📊 Estadísticas Globales")
         c1, c2, c3 = st.columns(3)
@@ -385,7 +388,6 @@ else:
         except Exception as e:
             st.error(f"🚨 Error de conexión: {e}")
 
-    # 🔄 CAMBIO: Configuración de la pestaña SIEM con botón inteligente que inyecta parámetros en la URL externa
     elif st.session_state.page == "SIEM":
         st.title("📜 Hyperion SIEM Audit Gateway")
         
@@ -406,16 +408,13 @@ else:
             st.subheader("Enlace Desacoplado (Branch Externa)")
             st.info("Haga clic abajo para saltar de forma segura al nodo inmutable de auditoría legal.")
             
-            # 🔄 CAMBIO: Cuando crees tu nueva app en Streamlit Cloud apuntando a la nueva rama, te dará una URL. Pégala aquí:
             URL_DESPLIEGUE_RAMA_NUEVA = "https://hyperion-audit.streamlit.app/" 
             
-            # Inyectamos el usuario y el token JWT de forma cifrada/parámetro en la URL para mantener la sesión
             usuario_actual = st.session_state.auth["user"]
             token_actual = st.session_state.auth["token"]
             
             url_destino_con_parametros = f"{URL_DESPLIEGUE_RAMA_NUEVA}/?operator={usuario_actual}&session_token={token_actual}"
             
-            # Render del botón de salto de entorno de alto rendimiento
             st.markdown(f"""
                 <a href="{url_destino_con_parametros}" target="_blank" style="text-decoration: none;">
                     <div style="background: linear-gradient(90deg, #9333ea 0%, #c084fc 100%); padding: 25px; border-radius: 12px; text-align: center; color: white; font-weight: bold; font-size: 18px; box-shadow: 0 4px 20px rgba(147, 51, 234, 0.4); transition: transform 0.2s;">
