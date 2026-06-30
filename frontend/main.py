@@ -15,14 +15,21 @@ import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
 
-# --- CARGAR VARIABLES DESDE EL ENTORNO O SECRETS ---
+# --- CARGAR VARIABLES DESDE EL ENTORNO O SECRETS (A PRUEBA DE FALLOS) ---
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
-if "BACKEND_URL" in st.secrets:
-    BACKEND_URL = st.secrets["BACKEND_URL"]
+
+# Intentamos leer de st.secrets de forma segura sin romper la app si no existe
+try:
+    if st.secrets and "BACKEND_URL" in st.secrets:
+        BACKEND_URL = st.secrets["BACKEND_URL"]
+except Exception:
+    # Si Streamlit se queja de que no hay secretos, ignoramos el error
+    pass
 
 if BACKEND_URL.endswith("/"):
     BACKEND_URL = BACKEND_URL.rstrip("/")
 
+# Declaración de mapeo de Backends para evitar NameError en las peticiones
 BACKEND_INTERNAL = BACKEND_URL
 BACKEND_EXTERNAL = BACKEND_URL
 
