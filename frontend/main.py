@@ -318,8 +318,10 @@ else:
             fig_bars = go.Figure(data=[go.Bar(
                 x=eventos_tipo, 
                 y=conteos,
-                marker_color=['#f85149', '#ff7b72', '#a78bfa', '#fca5a5', '#58a6ff'],
-                bordercolor="#30363d"
+                marker=dict(
+                    color=['#f85149', '#ff7b72', '#a78bfa', '#fca5a5', '#58a6ff'],
+                    line=dict(color="#30363d", width=1) # <- Aquí se define correctamente el borde
+                )
             )])
             fig_bars.update_layout(
                 template="plotly_dark",
