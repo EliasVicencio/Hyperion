@@ -4,7 +4,7 @@ emoji: 🛡️
 colorFrom: blue
 colorTo: indigo
 sdk: streamlit
-app_file: frontend/main.py  <-- CAMBIA ESTO por el nombre real (ej: main.py)
+app_file: frontend/main.py
 pinned: false
 ---
 
