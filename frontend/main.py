@@ -233,15 +233,151 @@ else:
     
     # Enrutamiento interno de paneles
     if st.session_state.page == "Analíticas":
-        st.title("📊 Estadísticas Globales")
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Controles Activos", "42", "+2")
-        c2.metric("Cumplimiento NIST", "78%", "5%")
-        c3.metric("Nivel de Riesgo", "Bajo", "Estable")
+        st.markdown("<h2 style='color: #c084fc;'>📊 Dashboard de Mando SOC & Analíticas</h2>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #8b949e; margin-top:-15px;'>Métricas en tiempo real e integridad del framework de ciberseguridad NIST.</p>", unsafe_allow_html=True)
         
-        fig = go.Figure(data=go.Scatterpolar(r=[4, 5, 2, 3, 4], theta=['ID','PR','DE','RS','RC'], fill='toself', line_color='#9333ea'))
-        fig.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", polar=dict(bgcolor="#1e293b"))
-        st.plotly_chart(fig, use_container_width=True)
+        # --- FILTROS DE AUDITORÍA RÁPIDOS ---
+        col_f1, col_f2 = st.columns([1, 3])
+        with col_f1:
+            entorno_sel = st.selectbox("🎯 Entorno de Red", ["Todos los Nodos", "Producción / Azure", "Vercel API Gateway", "Base de Datos Supabase"])
+        with col_f2:
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.caption(f"Filtrando telemetría para: **{entorno_sel}** | Modo de Operación: Inmutable NIST SP 800-53")
+
+        st.write("")
+
+        # --- FILA 1: KPIs DE IMPACTO ---
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            st.markdown("""
+                <div class='kpi-card'>
+                    <p style='color: #8b949e; margin:0; font-size:12px;'>CONTROLES ACTIVOS</p>
+                    <h2 style='margin:5px 0; color:#a78bfa;'>42 / 50</h2>
+                    <small style='color:#4ade80;'>▲ 2 integrados hoy</small>
+                </div>
+            """, unsafe_allow_html=True)
+        with c2:
+            st.markdown("""
+                <div class='kpi-card'>
+                    <p style='color: #8b949e; margin:0; font-size:12px;'>CUMPLIMIENTO NIST</p>
+                    <h2 style='margin:5px 0; color:#a78bfa;'>78%</h2>
+                    <small style='color:#4ade80;'>▲ 5% vs mes anterior</small>
+                </div>
+            """, unsafe_allow_html=True)
+        with c3:
+            st.markdown("""
+                <div class='kpi-card'>
+                    <p style='color: #8b949e; margin:0; font-size:12px;'>AMENAZAS CRÍTICAS</p>
+                    <h2 style='margin:5px 0; color:#f85149;'>0</h2>
+                    <small style='color:#8b949e;'>Estable (Últimas 48h)</small>
+                </div>
+            """, unsafe_allow_html=True)
+        with c4:
+            st.markdown("""
+                <div class='kpi-card'>
+                    <p style='color: #8b949e; margin:0; font-size:12px;'>SCORE TOTAL DE RIESGO</p>
+                    <h2 style='margin:5px 0; color:#58a6ff;'>BAJO</h2>
+                    <small style='color:#58a6ff;'>Zonas desmitigadas: 0</small>
+                </div>
+            """, unsafe_allow_html=True)
+
+        st.write("---")
+
+        # --- FILA 2: GRÁFICOS AVANZADOS ---
+        col_g1, col_g2 = st.columns([1.2, 1.8])
+
+        with col_g1:
+            st.markdown("#### 🎯 Madurez del Framework NIST")
+            # Tu gráfico radar mejorado con estilo Cyberpunk
+            fig_radar = go.Figure(data=go.Scatterpolar(
+                r=[4, 5, 3, 4, 4], 
+                theta=['ID (Identificar)','PR (Proteger)','DE (Detectar)','RS (Responder)','RC (Recuperar)'], 
+                fill='toself', 
+                line_color='#a78bfa',
+                fillcolor='rgba(167, 139, 250, 0.2)'
+            ))
+            fig_radar.update_layout(
+                template="plotly_dark", 
+                paper_bgcolor="rgba(0,0,0,0)", 
+                plot_bgcolor="rgba(0,0,0,0)",
+                polar=dict(
+                    bgcolor="#161b22",
+                    radialaxis=dict(visible=True, range=[0, 5], gridcolor="#30363d"),
+                    angularaxis=dict(gridcolor="#30363d")
+                ),
+                margin=dict(l=40, r=40, t=20, b=20)
+            )
+            st.plotly_chart(fig_radar, use_container_width=True)
+
+        with col_g2:
+            st.markdown("#### 📊 Distribución de Eventos de Seguridad Recientes")
+            # Gráfico de barras de procedencia/tipo de ataques simulados
+            eventos_tipo = ['Fuerza Bruta', 'Tráfico Anomalía', 'Validación 2FA', 'Inyecciones Bloqueadas', 'Accesos Correctos']
+            conteos = [14, 28, 122, 5, 340]
+            
+            fig_bars = go.Figure(data=[go.Bar(
+                x=eventos_tipo, 
+                y=conteos,
+                marker_color=['#f85149', '#ff7b72', '#a78bfa', '#fca5a5', '#58a6ff'],
+                bordercolor="#30363d"
+            )])
+            fig_bars.update_layout(
+                template="plotly_dark",
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                yaxis=dict(gridcolor="#30363d", title="N° Eventos"),
+                xaxis=dict(title="Categoría de Log"),
+                margin=dict(l=20, r=20, t=20, b=20)
+            )
+            st.plotly_chart(fig_bars, use_container_width=True)
+
+        st.write("---")
+
+        # --- FILA 3: VISTA DE TOPOLOGÍA E INFRAESTRUCTURA (RENOVACIÓN CLAVE) ---
+        st.markdown("#### 🌐 Topología del Ecosistema Hyperion Core")
+        st.caption("Estatus de comunicación de los nodos distribuidos y microservicios.")
+        
+        c_node1, c_node2, c_node3, c_node4 = st.columns(4)
+        
+        with c_node1:
+            st.markdown("""
+                <div style='background: #0d1117; padding: 15px; border-radius: 10px; border: 1px solid #30363d; border-top: 4px solid #4ade80;'>
+                    <span style='float: right; color: #4ade80;'>● ONLINE</span>
+                    <strong style='color: white;'>🔗 Streamlit UI</strong><br>
+                    <small style='color: #8b949e;'>Host: Cloud Edge (Ámsterdam)</small><br>
+                    <small style='color: #a78bfa;'>SSL: TLS v1.3 Activo</small>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with c_node2:
+            st.markdown("""
+                <div style='background: #0d1117; padding: 15px; border-radius: 10px; border: 1px solid #30363d; border-top: 4px solid #4ade80;'>
+                    <span style='float: right; color: #4ade80;'>● ONLINE</span>
+                    <strong style='color: white;'>⚡ FastAPI Core</strong><br>
+                    <small style='color: #8b949e;'>Host: Vercel Serverless</small><br>
+                    <small style='color: #a78bfa;'>Latencia Ingesta: ~12ms</small>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with c_node3:
+            st.markdown("""
+                <div style='background: #0d1117; padding: 15px; border-radius: 10px; border: 1px solid #30363d; border-top: 4px solid #4ade80;'>
+                    <span style='float: right; color: #4ade80;'>● ONLINE</span>
+                    <strong style='color: white;'>🗄️ PostgreSQL DB</strong><br>
+                    <small style='color: #8b949e;'>Host: Supabase Cluster</small><br>
+                    <small style='color: #a78bfa;'>Pool Conexiones: 3 / 20</small>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with c_node4:
+            st.markdown("""
+                <div style='background: #0d1117; padding: 15px; border-radius: 10px; border: 1px solid #30363d; border-top: 4px solid #ff7b72;'>
+                    <span style='float: right; color: #ff7b72;'>○ STANDBY</span>
+                    <strong style='color: white;'>📦 Kafka Audit Node</strong><br>
+                    <small style='color: #8b949e;'>Host: Branch SIEM Inmutable</small><br>
+                    <small style='color: #a78bfa;'>Puerto: 9092 Abierto</small>
+                </div>
+            """, unsafe_allow_html=True)
 
     elif st.session_state.page == "Vigilancia":
         st.title("🕵️ Centro de Control Operativo (Capa 7)")
