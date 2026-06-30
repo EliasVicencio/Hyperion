@@ -568,10 +568,10 @@ else:
         left_col, right_col = st.columns([2, 1])
 
         with left_col:
-            st.subheader("Enlace Desacoplado (Branch Externa)")
+            st.subheader("Enlace Desacoplado")
             st.info("Haga clic abajo para saltar de forma segura al nodo inmutable de auditoría legal.")
             
-            URL_DESPLIEGUE_RAMA_NUEVA = "hyperion-audit-production.up.railway.app" 
+            URL_DESPLIEGUE_RAMA_NUEVA = "https://hyperion-audit-production.up.railway.app" 
             
             usuario_actual = st.session_state.auth["user"]
             token_actual = st.session_state.auth["token"]
