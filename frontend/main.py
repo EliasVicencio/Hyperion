@@ -25,16 +25,14 @@ st.markdown("""
         h3 { color: #58a6ff !important; font-family: 'Courier New', monospace; font-weight: bold; }
         h4, .user-name { color: #ffffff !important; font-family: 'Segoe UI', sans-serif; }
         
-        /* Estructura Tarjetas Perfil y Buscador (Clonación de imagen) */
+        /* Estructura Tarjetas Perfil y Buscador */
         .user-profile-card { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding: 2px; }
         .user-avatar { width: 38px; height: 38px; background-color: #00b074; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px; font-weight: bold; box-shadow: 0 4px 12px rgba(0, 176, 116, 0.2); }
         .user-info { display: flex; flex-direction: column; }
         .user-name { font-weight: 600; font-size: 0.9rem; line-height: 1.2; }
         .user-role { color: #64748b !important; font-family: 'Segoe UI', sans-serif; font-size: 0.75rem; font-weight: 500; }
-        .search-box-simulated { background-color: #0f131a; border: 1px solid #1e2530; border-radius: 6px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; color: #475569; font-family: 'Segoe UI', sans-serif; font-size: 0.8rem; }
-        .search-shortcut { background: #181f2a; border: 1px solid #2d3748; border-radius: 4px; padding: 1px 4px; font-size: 0.65rem; color: #64748b; font-family: monospace; }
         
-        /* Menú e Interacción del Sidebar (Restaurado a Tamaños Originales) */
+        /* Menú e Interacción del Sidebar */
         div.stButton > button { background-color: #0c111d; color: #e2e8f0; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; transition: all 0.2s ease-in-out; text-align: left; padding: 8px 16px; width: 100%; }
         div.stButton > button:hover { border-color: rgba(167, 139, 250, 0.4); color: #ffffff; background-color: #111827; }
         div.stButton > button:focus, div.stButton > button:active { background-color: rgba(167, 139, 250, 0.15) !important; border: 1px solid #a78bfa !important; color: #ffffff !important; box-shadow: 0 0 12px rgba(167, 139, 250, 0.2) !important; }
@@ -50,9 +48,6 @@ st.markdown("""
         .kpi-card { background: #0b0f17; padding: 20px; box-shadow: 0 0 30px rgba(88, 166, 255, 0.03); }
         .metric-card { background: linear-gradient(135deg, #0f172a 0%, #020617 100%); padding: 15px; border-color: rgba(167, 139, 250, 0.3); }
         .risk-row { background: rgba(11, 15, 23, 0.9); padding: 15px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; backdrop-filter: blur(10px); }
-        .owner-badge { background: #0f172a; color: #cbd5e1; padding: 2px 8px; border-radius: 10px; font-size: 11px; border: 1px solid rgba(255,255,255,0.1); }
-        .compliance-tag { font-size: 12px; color: #a78bfa; font-weight: bold; }
-        footer { visibility: hidden; }
         
         /* ==========================================
            🔒 ELIMINACIÓN COMPLETA DE MARCAS STREAMLIT 
@@ -60,9 +55,28 @@ st.markdown("""
         #MainMenu { visibility: hidden; }
         footer { visibility: hidden; }
         header { visibility: hidden; }
-        
-        /* Ajuste opcional para eliminar el margen superior vacío */
         .block-container { padding-top: 2rem !important; }
+
+        /* ==========================================
+           💎 NUEVOS ESTILOS PARA LA TABLA DE OPERADORES
+           ========================================== */
+        .saas-table { width: 100%; border-collapse: collapse; font-family: 'Segoe UI', sans-serif; margin-top: 15px; color: #cbd5e1; }
+        .saas-table th { text-align: left; padding: 12px 16px; color: #64748b; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; border-bottom: 1px solid #1e293b; }
+        .saas-table td { padding: 16px; font-size: 0.85rem; border-bottom: 1px solid #0f172a; vertical-align: middle; }
+        .saas-table tr:hover { background-color: rgba(255, 255, 255, 0.02); }
+        
+        /* Iniciales en círculo */
+        .avatar-circle { width: 32px; height: 32px; background: #2563eb; color: white; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 10px; font-size: 0.8rem; }
+        .user-container { display: flex; align-items: center; }
+        .user-email-text { font-weight: 500; color: #f1f5f9; }
+        
+        /* Badges de Roles */
+        .badge-role-admin { background-color: rgba(147, 51, 234, 0.15); color: #c084fc; border: 1px solid rgba(147, 51, 234, 0.3); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
+        .badge-role-user { background-color: rgba(71, 85, 105, 0.2); color: #94a3b8; border: 1px solid rgba(71, 85, 105, 0.4); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
+        
+        /* Status indicador */
+        .status-active { color: #10b981; display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
+        .status-active::before { content: "●"; font-size: 0.9rem; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -132,13 +146,9 @@ else:
         except: api, db = "🔴", "🔴"
         st.markdown(f'<div style="background:#1e293b; padding:10px; border-radius:8px; border:1px solid #334155; margin-bottom:15px; font-size:12px;"><div style="display:flex; justify-content:space-between; color:#94a3b8;"><span>{api} API</span><span>{db} DB</span></div></div>', unsafe_allow_html=True)
 
-        # Perfil y Buscador Estilizados compactos
-        op_init = st.session_state.auth["user"][0].upper() if st.session_state.auth["user"] else "O"
-        
-        # Navegación del Sistema Originales
         if st.button("📊 Analíticas", use_container_width=True): nav_to("Analíticas")
         if st.button("👁️ Vigilancia", use_container_width=True): nav_to("Vigilancia")
-        if st.button("👥 Operadores", use_container_width=True): nav_to("Operadores")
+        if st.button("👥 Gestión de Usuarios", use_container_width=True): nav_to("Operadores")
         st.write("---")
         if st.button("⚖️ Gobernanza", use_container_width=True): nav_to("Gobernanza")
         if st.button("📜 Logs de Auditoría", use_container_width=True): nav_to("AuditLogs")
@@ -185,13 +195,86 @@ else:
                 log_placeholder.code(feed, language="accesslog")
         except: log_placeholder.error("🚨 Sincronizando con nodo central...")
 
+    # ==========================================
+    # 💎 NUEVA PÁGINA MÓDULO OPERADORES MEJORADA
+    # ==========================================
     elif st.session_state.page == "Operadores":
-        st.title("👥 Gestión de Operadores")
+        st.markdown("<h2 style='color: #ffffff; margin-bottom: 2px;'>Gestión de Usuarios</h2>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #64748b; font-size: 0.9rem; margin-bottom: 25px;'>Administra accesos y asigna roles para cumplimiento ISO 27001</p>", unsafe_allow_html=True)
+        
         try:
             res = requests.get(f"{BACKEND_URL}/api/system-metrics", headers=headers, timeout=4)
-            if res.status_code == 200: st.dataframe(pd.DataFrame([{"Email": k, "Rol": v.get('role', 'N/A')} for k, v in res.json().items()]), use_container_width=True)
-            else: st.error("🛑 Privilegios insuficientes.")
-        except Exception as e: st.error(f"Error de base de datos: {e}")
+            if res.status_code == 200:
+                data_dict = res.json()
+                total_usuarios = len(data_dict)
+                admins_count = sum(1 for v in data_dict.values() if v.get('role') == 'admin')
+                
+                # 1. Bloque de métricas superior (Cards horizontales)
+                m1, m2, m3, m4 = st.columns(4)
+                m1.markdown(f"<div class='kpi-card'><p style='color:#64748b; margin:0; font-size:11px; font-weight:600;'>TOTAL USUARIOS</p><h2 style='margin:5px 0; color:#ffffff; font-size:1.8rem;'>{total_usuarios}</h2><small style='color:#64748b;'>Usuarios Registrados</small></div>", unsafe_allow_html=True)
+                m2.markdown(f"<div class='kpi-card'><p style='color:#64748b; margin:0; font-size:11px; font-weight:600;'>USUARIOS ACTIVOS</p><h2 style='margin:5px 0; color:#10b981; font-size:1.8rem;'>{total_usuarios}</h2><small style='color:#10b981;'>100% Online</small></div>", unsafe_allow_html=True)
+                m3.markdown("<div class='kpi-card'><p style='color:#64748b; margin:0; font-size:11px; font-weight:600;'>INACTIVOS / PENDIENTES</p><h2 style='margin:5px 0; color:#64748b; font-size:1.8rem;'>0</h2><small style='color:#64748b;'>Sin pendientes</small></div>", unsafe_allow_html=True)
+                m4.markdown(f"<div class='kpi-card'><p style='color:#64748b; margin:0; font-size:11px; font-weight:600;'>EQUIPO DE SEGURIDAD</p><h2 style='margin:5px 0; color:#a78bfa; font-size:1.8rem;'>{admins_count}</h2><small style='color:#a78bfa;'>Administradores</small></div>", unsafe_allow_html=True)
+                
+                st.write("<br>", unsafe_allow_html=True)
+                
+                # 2. Barra de acciones intermedias (Buscador y Botón Añadir)
+                col_search, col_space, col_btn = st.columns([2.5, 3.5, 1.5])
+                with col_search:
+                    search_query = st.text_input("Buscar...", label_visibility="collapsed", placeholder="🔍 Buscar usuarios o roles...")
+                with col_btn:
+                    if st.button("➕ Agregar Usuario", use_container_width=True):
+                        st.session_state.page = "RegisterShortcut" # Redirección si deseas o un toggle.
+                
+                # 3. Construcción de Tabla SaaS mediante HTML
+                html_table = """
+                <table class='saas-table'>
+                    <thead>
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Rol</th>
+                            <th>Departamento</th>
+                            <th>Estado</th>
+                            <th style='text-align: right;'>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                """
+                
+                for email, info in data_dict.items():
+                    role = info.get('role', 'user').lower()
+                    
+                    # Filtrado por buscador básico
+                    if search_query and (search_query.lower() not in email.lower() and search_query.lower() not in role):
+                        continue
+                        
+                    role_badge = f"<span class='badge-role-admin'>Administrador</span>" if role == 'admin' else f"<span class='badge-role-user'>Empleado</span>"
+                    initial = email[0].upper() if email else "U"
+                    
+                    html_table += f"""
+                        <tr>
+                            <td>
+                                <div class='user-container'>
+                                    <div class='avatar-circle'>{initial}</div>
+                                    <div class='user-email-text'>{email}</div>
+                                </div>
+                            </td>
+                            <td>{role_badge}</td>
+                            <td style='color: #94a3b8;'>General</td>
+                            <td><span class='status-active'>Activo</span></td>
+                            <td style='text-align: right; color: #64748b; cursor: pointer; font-size: 1.1rem;'>📝 &nbsp; 🗑️</td>
+                        </tr>
+                    """
+                
+                html_table += "</tbody></table>"
+                
+                # Renderizar contenedor de la tabla estilizada
+                st.markdown(html_table, unsafe_allow_html=True)
+                
+            else:
+                st.error("🛑 Privilegios insuficientes o error en el servidor central.")
+        except Exception as e:
+            st.error(f"Error de base de datos: {e}")
 
     elif st.session_state.page == "Gobernanza":
         st.title("⚖️ Gobernanza y Estrategia")
