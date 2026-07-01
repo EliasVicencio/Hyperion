@@ -7,48 +7,75 @@ import random
 LOGO_SVG = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='20' fill='none' stroke='%23a78bfa' stroke-width='2' /><ellipse cx='50' cy='50' rx='45' ry='15' fill='none' stroke='%2358a6ff' stroke-width='1' transform='rotate(45 50 50)' /><ellipse cx='50' cy='50' rx='45' ry='15' fill='none' stroke='%2358a6ff' stroke-width='1' transform='rotate(-45 50 50)' /><circle cx='50' cy='50' r='8' fill='%23a78bfa' /></svg>"
 st.set_page_config(page_title="Hyperion | Enterprise SOAR Platform", page_icon=LOGO_SVG, layout="wide")
 
-# --- CSS INYECTADO (Estética de Navegación Unificada) ---
+# --- CSS INYECTADO CORREGIDO ---
 st.markdown("""
     <style>
-        .stApp { background-color: #07090e; }
-        h1, h2 { color: #a78bfa !important; font-family: 'Segoe UI', sans-serif; }
-        h1 { font-weight: 800; letter-spacing: -0.5px; }
-        h3 { color: #58a6ff !important; font-family: 'Courier New', monospace; font-weight: bold; }
-        h4 { color: #ffffff !important; }
+        .stApp { background-color: #0b0e14; }
         
-        /* Contenedor HUD Base */
-        .hud-wrapper { position: relative; border: 1px solid rgba(167, 139, 250, 0.2); border-radius: 12px; background-color: #0b0f17; padding: 8px; box-shadow: 0 0 30px rgba(88, 166, 255, 0.03); }
+        /* Ajuste de tamaño y padding para los botones de navegación principal */
+        div.stButton > button { 
+            background-color: #161b22; 
+            color: #f0f6fc; 
+            border: 1px solid #30363d; 
+            border-radius: 8px; 
+            padding: 6px 12px !important; /* Reduce el tamaño vertical */
+            min-height: 38px !important;  /* Evita que colapsen o queden gigantes */
+            font-size: 14px !important;   /* Texto más estilizado y compacto */
+            transition: all 0.3s ease; 
+        }
+        div.stButton > button:hover { border-color: #a78bfa; color: #a78bfa; background-color: #161b22; }
         
-        /* Panel Flotante Externo con la Estética del Menú Lateral Activo */
-        .hyperion-side-panel {
-            position: absolute; top: 20px; left: 20px; width: 310px; z-index: 99; padding: 16px;
-            background-color: rgba(167, 139, 250, 0.1) !important;
-            border: 1px solid #a78bfa !important;
-            border-radius: 8px !important;
-            box-shadow: 0 0 15px rgba(167, 139, 250, 0.25) !important;
-            backdrop-filter: blur(12px);
+        [data-testid="stSidebar"] { background-color: #0d1117; border-right: 1px solid #30363d; transition: min-width 0.3s, transform 0.3s !important; }
+        [data-testid="stMetricValue"] { color: #a78bfa !important; }
+        *:focus { outline: none !important; box-shadow: none !important; }
+        .kpi-card { background: #161b22; padding: 20px; border-radius: 12px; border: 1px solid #30363d; }
+        .risk-row { background: #0d1117; padding: 15px; border-radius: 10px; border: 1px solid #30363d; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+        .owner-badge { background: #21262d; color: #8b949e; padding: 2px 8px; border-radius: 10px; font-size: 11px; border: 1px solid #30363d; }
+        .compliance-tag { font-size: 12px; color: #a78bfa; font-weight: bold; }
+        .metric-card { background: #161b22; padding: 15px; border-radius: 10px; border: 1px solid #30363d; }
+
+        /* =========================================================================
+           TRUCO CSS: Sidebar persistente y minimizada al cerrarse
+           ========================================================================= */
+        [data-testid="stSidebarCollapsedControl"] {
+            left: 70px !important; 
+            transition: left 0.3s;
         }
         
-        .panel-metric {
-            font-family: 'Segoe UI', sans-serif; font-size: 0.85rem; color: #cbd5e1; margin: 8px 0;
-            display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 6px;
+        [data-testid="stSidebar"][aria-expanded="false"] {
+            transform: translateX(0px) !important; 
+            min-width: 75px !important;
+            max-width: 75px !important;
+        }
+
+        [data-testid="stSidebar"][aria-expanded="false"] h2,
+        [data-testid="stSidebar"][aria-expanded="false"] p,
+        [data-testid="stSidebar"][aria-expanded="false"] hr,
+        [data-testid="stSidebar"][aria-expanded="false"] .stMarkdown div {
+            display: none !important;
         }
         
-        /* Menú de Radio de la Barra de Navegación */
-        [data-testid="stSidebar"] { background-color: #090d14; border-right: 1px solid rgba(167, 139, 250, 0.15); }
-        [data-testid="stSidebar"] div[data-testid="stRadio"] div[role="radiogroup"] > label > div:first-child { display: none !important; }
-        [data-testid="stSidebar"] div[data-testid="stRadio"] div[role="radiogroup"] > label {
-            background-color: #0c111d !important; border: 1px solid rgba(255, 255, 255, 0.05) !important;
-            padding: 12px 16px !important; margin-bottom: 8px !important; border-radius: 8px !important;
-            cursor: pointer !important; transition: all 0.2s ease-in-out !important; display: block !important; width: 100% !important;
+        [data-testid="stSidebar"][aria-expanded="false"] img {
+            margin: 0 auto !important;
+            display: block !important;
         }
-        [data-testid="stSidebar"] div[data-testid="stRadio"] div[role="radiogroup"] > label:hover { border-color: rgba(167, 139, 250, 0.4) !important; background-color: #111827 !important; }
-        [data-testid="stSidebar"] div[data-testid="stRadio"] div[role="radiogroup"] [data-checked="true"] > label { background-color: rgba(167, 139, 250, 0.15) !important; border: 1px solid #a78bfa !important; box-shadow: 0 0 12px rgba(167, 139, 250, 0.2) !important; }
-        [data-testid="stSidebar"] div[data-testid="stRadio"] div[role="radiogroup"] > label div[data-testid="stMarkdownContainer"] p { color: #e2e8f0 !important; font-family: 'Segoe UI', sans-serif !important; font-size: 0.95rem !important; font-weight: 500 !important; }
+
+        /* Estilizar botones de navegación en modo colapsado (Solo Iconos/Emojis) */
+        [data-testid="stSidebar"][aria-expanded="false"] div.stButton > button {
+            font-size: 20px !important;
+            text-align: center !important;
+            padding: 10px 0 !important;
+            letter-spacing: -100px; 
+            color: transparent;
+        }
         
-        .stDataFrame { background-color: #0b0f17; border: 1px solid #1f2937; }
-        .impact-card { background: linear-gradient(135deg, #0f172a 0%, #020617 100%); border: 1px solid rgba(167, 139, 250, 0.3); border-radius: 12px; padding: 24px; font-family: 'Courier New', monospace; color: #e2e8f0; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
-        footer { visibility: hidden; }
+        [data-testid="stSidebar"][aria-expanded="false"] div.stButton > button::first-letter {
+            color: #f0f6fc !important;
+            letter-spacing: normal !important;
+        }
+        [data-testid="stSidebar"][aria-expanded="false"] div.stButton > button:hover::first-letter {
+            color: #a78bfa !important;
+        }
     </style>
 """, unsafe_allow_html=True)
 
