@@ -123,39 +123,30 @@ if "authenticated" not in st.session_state:
 if "operator_name" not in st.session_state:
     st.session_state.operator_name = "Operador Autorizado"
 
-token_ingresado = None
-operador_transferido = None
-
 # Intentar capturar tokens desde la URL solo si el usuario no está autenticado aún
 if not st.session_state.authenticated:
     try:
-        query_params = st.query_params
+        # En Streamlit moderno, st.query_params se comporta directamente como un diccionario de strings
+        params = st.query_params
         
-        raw_token = query_params.get("session_token", None)
-        if isinstance(raw_token, (list, tuple)) and len(raw_token) > 0:
-            token_ingresado = str(raw_token[0]).strip()
-        elif raw_token is not None:
-            token_ingresado = str(raw_token).strip()
+        token_ingresado = params.get("session_token", None)
+        operador_transferido = params.get("operator", None)
 
-        raw_operator = query_params.get("operator", None)
-        if isinstance(raw_operator, (list, tuple)) and len(raw_operator) > 0:
-            operador_transferido = str(raw_operator[0]).strip()
-        elif raw_operator is not None:
-            operador_transferido = str(raw_operator).strip()
-
-        # Validar credenciales entrantes
+        # Validar credenciales entrantes si existen
         if token_ingresado and token_ingresado == MASTER_ACCESS_TOKEN:
             st.session_state.authenticated = True
             if operador_transferido:
-                st.session_state.operator_name = operador_transferido
+                st.session_state.operator_name = str(operador_transferido).strip()
             
-            # 🧹 LIMPIEZA INMEDIATA: Borramos los tokens de la barra de direcciones del navegador
+            # 🧹 LIMPIEZA SEGURA: Borramos los parámetros de la URL de manera nativa
+            # Usamos dict asignación vacía para evitar comportamientos extraños de limpieza destructiva
             st.query_params.clear()
             st.toast(f"🔑 Sesión verificada para: {st.session_state.operator_name}", icon="🔓")
+            st.rerun() # Forzamos un rerun limpio ahora que estamos autenticados
 
-    except Exception:
-        token_ingresado = None
-        operador_transferido = None
+    except Exception as e:
+        # Si algo falla leyendo la URL, evitamos que la app muera por completo
+        st.caption(f"Fallo de lectura de parámetros: {e}")
 
 
 # ==========================================
