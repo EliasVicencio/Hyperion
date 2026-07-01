@@ -59,8 +59,8 @@ st.markdown("""
         [data-testid="stSidebar"][aria-expanded="false"] div.stButton > button {
             width: 45px !important;
             height: 45px !important;
-            border-radius: 25% !important; /* Transforma el botón en un círculo perfecto */
-            margin: 12px auto !important;   /* Los centra horizontalmente y los separa entre sí */
+            border-radius: 50% !important; /* Círculos perfectos */
+            margin: 12px auto !important;   /* Centrado horizontal y espaciado limpio */
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
@@ -69,12 +69,21 @@ st.markdown("""
             color: #f0f6fc !important;
             border: 1px solid #30363d !important;
             
-            /* Recortamos todo el texto excedente dejando visible únicamente el emoji inicial */
+            /* Forzar visualización estricta del primer carácter (emoji) */
             overflow: hidden !important;
-            text-overflow: clip !important;
             white-space: nowrap !important;
             letter-spacing: 0px !important;
-            text-indent: -1px; /* Ajuste fino de píxeles para centrar visualmente el emoji */
+            text-indent: 0px !important;
+        }
+
+        /* Forzar que el contenedor interno de Streamlit no oculte el emoji ni aplique márgenes extra */
+        [data-testid="stSidebar"][aria-expanded="false"] div.stButton > button div,
+        [data-testid="stSidebar"][aria-expanded="false"] div.stButton > button span {
+            display: inline-block !important;
+            letter-spacing: 0px !important;
+            color: inherit !important;
+            margin: 0 !important;
+            padding: 0 !important;
         }
         
         /* Animación y colores al pasar el mouse por encima del círculo */
@@ -146,7 +155,6 @@ if not st.session_state.auth["token"]:
                 """, unsafe_allow_html=True)
                 
                 with st.expander("¿No has vinculado tu app? Ver Código QR"):
-                    # Intenta leer secreto dinámico desde variables o usa uno por defecto controlado
                     secret = os.getenv('TOTP_SECRET', st.secrets.get("TOTP_SECRET", "JBSWY3DPEHPK3PXP"))
                     otp_uri = f"otpauth://totp/Hyperion:{st.session_state.auth['user']}?secret={secret}&issuer=HyperionOps"
                     
