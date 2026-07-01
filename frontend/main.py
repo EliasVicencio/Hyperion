@@ -42,6 +42,7 @@ st.markdown("""
         .soar-card.warning { border-left: 4px solid #f1e05a; }
         .soar-card.error { border-left: 4px solid #f85149; }
         .soar-card.success { border-left: 4px solid #56ffac; }
+        .soar-card.info { border-left: 4px solid #58a6ff; }
         .card-header { font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
         .card-body { font-size: 14px; color: #e1e7ed; margin: 4px 0; }
         .card-meta { font-family: monospace; font-size: 12px; color: #8b949e; }
@@ -69,7 +70,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- 🔒 CONTROL DE ACCESO ESTRICTO (GATEKEEPER OPTIMIZADO) ---
+# --- 🔒 CONTROL DE ACCESO ESTRICTO ---
 MASTER_ACCESS_TOKEN = "SESION_ADMIN_HYPERION_ULTRA_SECRETA"
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "operator_name" not in st.session_state: st.session_state.operator_name = "Operador Autorizado"
@@ -128,7 +129,7 @@ if st.session_state.authenticated:
                     anomalies_live_df = pd.read_sql(text("SELECT * FROM behavior_anomalies WHERE status = 'active' ORDER BY timestamp DESC"), conn)
             except: pass
 
-    # --- MENÚ LATERAL (BARRA DE NAVEGACIÓN CORREGIDA) ---
+    # --- MENÚ LATERAL ---
     with st.sidebar:
         st.markdown(f'<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;"><div style="width: 35px; height: 35px;">{LOGO_SVG.replace("data:image/svg+xml,", "")}</div><h2 style="color: #a78bfa; margin: 0; font-size: 1.4rem; letter-spacing: 1px; font-weight: 800;">HYPERION <span style="color: #58a6ff; font-size: 0.8rem; vertical-align: middle;">SOAR</span></h2></div>', unsafe_allow_html=True)
         st.caption("🤖 Autonomous Immune System Engine")
@@ -138,7 +139,6 @@ if st.session_state.authenticated:
         st.markdown("#### ⚡ Modo de Respuesta")
         modo_soar = st.toggle("🤖 Piloto Automático", value=False, help="Permite a Hyperion aislar threats de forma autónoma.")
         
-        # Corrección: Renderizado limpio nativo condicional sin código residual expuesto
         if modo_soar:
             st.markdown('<div style="background-color: rgba(241,224,90,0.15); padding: 8px; border-radius: 6px; border: 1px solid #f1e05a; color: #f1e05a; font-size:12px; font-weight:bold; text-align:center;">⚠️ MODO AUTÓNOMO ACTIVO</div>', unsafe_allow_html=True)
         else:
@@ -208,7 +208,6 @@ if st.session_state.authenticated:
                 card_class = "error" if severity == "HIGH" else "warning"
                 badge_color = "#f85149" if severity == "HIGH" else "#f1e05a"
                 
-                # Layout en dos columnas integradas para la Tarjeta UEBA
                 c_card, c_act = st.columns([4, 1])
                 with c_card:
                     st.markdown(f"""
@@ -233,15 +232,33 @@ if st.session_state.authenticated:
     elif menu_opcion == "🌐 Capa 2: Detección NTA":
         st.subheader("🌐 Visualizador de Inmunidad de Red (NTA)")
         
-        st.markdown(f"""
-            <div class="hud-wrapper">
-                <div style="font-size: 0.75rem; color: #58a6ff; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 6px;">🚀 CORE MATRIX</div>
-                <div class="panel-metric"><span>Logs Correlacionados:</span><span style="color: #ffffff; font-weight: 600;">{len(df_ledger)}</span></div>
-                <div class="panel-metric"><span>Riesgos de Red Activos:</span><span style="color: #f85149; font-weight: 600;">{len(darktrace_df)}</span></div>
-                <div class="panel-metric"><span>Estado del Nodo SOC:</span><span style="color: #56ffac; font-weight: 700;">ACTIVE OPERATION</span></div>
-            </div>
-        """, unsafe_allow_html=True)
-        st.map(pd.DataFrame(columns=['lat', 'lon']), zoom=1, use_container_width=True)
+        # Separación por columnas nativas: mapa al lado izquierdo, tarjetas HUD del panel secundario a la derecha
+        col_mapa, col_panel = st.columns([2.5, 1.5])
+        
+        with col_mapa:
+            st.map(pd.DataFrame(columns=['lat', 'lon']), zoom=1, use_container_width=True)
+            
+        with col_panel:
+            # --- TARJETAS CAMBIADAS AL ESTILO UNIFICADO SOLICITADO ---
+            st.markdown(f"""
+                <div class="soar-card info">
+                    <div class="card-header" style="color: #58a6ff;">🏢 NODO LOCAL SOC</div>
+                    <div class="card-body">Logs Correlacionados del Sistema en Tiempo Real</div>
+                    <div class="card-meta">Total Registros: <b>{len(df_ledger)} hilos</b></div>
+                </div>
+                
+                <div class="soar-card error">
+                    <div class="card-header" style="color: #f85149;">🚨 RIESGOS DE RED DETECTADOS</div>
+                    <div class="card-body">Amenazas críticas activas en la capa NTA externa</div>
+                    <div class="card-meta">Incidentes Flujo: <b>{len(darktrace_df)} detectados</b></div>
+                </div>
+                
+                <div class="soar-card success">
+                    <div class="card-header" style="color: #56ffac;">🚀 CORE MATRIX STATUS</div>
+                    <div class="card-body">Estado del motor de orquestación central</div>
+                    <div class="card-meta">Modo Operación: <b>ACTIVE OPERATION</b></div>
+                </div>
+            """, unsafe_allow_html=True)
 
         if not darktrace_df.empty:
             st.markdown("<br>### ⚠️ Flujos de Red Sospechosos Esperando Acción", unsafe_allow_html=True)
