@@ -16,7 +16,7 @@ BACKEND_URL = st.secrets.get("BACKEND_URL", os.getenv("BACKEND_URL", "https://hy
 for key, value in {"auth": {"token": None, "user": None, "step": "login"}, "page": "Analíticas"}.items():
     if key not in st.session_state: st.session_state[key] = value
 
-# --- CSS INYECTADO ADAPTADO (CLONACIÓN DE MAQUETA) ---
+# --- CSS INYECTADO ADAPTADO ---
 st.markdown("""
     <style>
         .stApp { background-color: #07090e; }
@@ -36,13 +36,11 @@ st.markdown("""
         header { visibility: hidden; }
         .block-container { padding-top: 2rem !important; }
         
-        /* Tarjetas de Dashboard Generales */
+        /* Tarjetas de Dashboard */
         .kpi-card, .risk-row, .metric-card { border-radius: 10px; border: 1px solid rgba(167, 139, 250, 0.1); background: #0b0f17; }
         .kpi-card { padding: 20px; box-shadow: 0 0 30px rgba(88, 166, 255, 0.03); }
         
-        /* ==========================================
-           💎 DISEÑO PREMIUM "GESTIÓN DE USUARIOS"
-           ========================================== */
+        /* Gestión de Usuarios */
         .panel-kpi-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
         .panel-card { background: #0b111e; border: 1px solid #1e293b; border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 16px; }
         .panel-icon-box { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
@@ -50,29 +48,25 @@ st.markdown("""
         .panel-value { font-size: 1.6rem; font-weight: 700; color: #ffffff; line-height: 1.2; }
         .panel-label { font-size: 0.75rem; color: #64748b; font-weight: 500; margin-top: 2px; }
 
-        /* Estilos Tabla de Operadores */
+        /* Tabla SaaS */
         .saas-container { background: #090d16; border: 1px solid #161f30; border-radius: 12px; padding: 8px; margin-top: 15px; }
         .saas-table { width: 100%; border-collapse: collapse; font-family: 'Segoe UI', sans-serif; text-align: left; }
         .saas-table th { padding: 14px 20px; color: #475569; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; border-bottom: 1px solid #161f30; letter-spacing: 0.5px; }
         .saas-table td { padding: 16px 20px; font-size: 0.85rem; border-bottom: 1px solid #0d1527; color: #94a3b8; vertical-align: middle; }
         .saas-table tr:last-child td { border-bottom: none; }
         
-        /* Identidad de Usuario */
         .user-profile-cell { display: flex; align-items: center; gap: 12px; }
         .avatar-circle-blue { width: 36px; height: 36px; background: #2563eb; color: #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; letter-spacing: 0.5px; }
         .user-meta { display: flex; flex-direction: column; }
         .user-display-name { font-weight: 600; color: #ffffff; font-size: 0.9rem; }
         .user-email-sub { color: #475569; font-size: 0.75rem; }
         
-        /* Badges de Roles */
         .badge-admin { background: rgba(147, 51, 234, 0.12); color: #c084fc; border: 1px solid rgba(147, 51, 234, 0.25); padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
         .badge-user { background: rgba(71, 85, 105, 0.15); color: #94a3b8; border: 1px solid rgba(71, 85, 105, 0.3); padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
         
-        /* Estado */
         .status-dot-active { color: #10b981; display: flex; align-items: center; gap: 6px; font-weight: 500; font-size: 0.85rem; }
         .status-dot-active::before { content: "●"; font-size: 0.8rem; }
         
-        /* Acciones */
         .action-icons { display: flex; gap: 14px; justify-content: flex-end; font-size: 1.1rem; color: #475569; }
         .action-btn-edit { cursor: pointer; transition: color 0.2s; }
         .action-btn-edit:hover { color: #3b82f6; }
@@ -156,7 +150,8 @@ else:
         if st.button("📜 SIEM Audit", use_container_width=True): nav_to("SIEM")
         st.write("---")
         if st.button("🚪 Cerrar Sesión", use_container_width=True):
-            st.session_state.auth = {"token": None, "user": None, "step": "login"}; st.rerun()
+            st.session_state.auth = {"token": None, "user": None, "step": "login"}
+            st.rerun()
 
     # ROUTER DE PÁGINAS PRINCIPALES
     if st.session_state.page == "Analíticas":
@@ -197,7 +192,7 @@ else:
         except: log_placeholder.error("🚨 Sincronizando con nodo central...")
 
     # ==========================================
-    # 💎 MÓDULO OPERADORES CORREGIDO Y OPTIMIZADO
+    # 💎 MÓDULO OPERADORES ENTERAMENTE REPARADO
     # ==========================================
     elif st.session_state.page == "Operadores":
         st.markdown("<h2 style='margin-bottom:0px;'>Gestión de Usuarios</h2>", unsafe_allow_html=True)
@@ -263,7 +258,6 @@ else:
                     if st.button("➕ Agregar Usuario", use_container_width=True):
                         st.info("Ruta de creación disponible en Tab Registro del Login.")
                 
-                # Renderizado limpio y seguro de la tabla SaaS
                 table_body = ""
                 for email, info in data_dict.items():
                     role = info.get('role', 'user').lower()
@@ -299,7 +293,7 @@ else:
                         </td>
                     </tr>
                     """
-                    
+                
                 full_table_html = f"""
                 <div class="saas-container">
                     <table class="saas-table">
