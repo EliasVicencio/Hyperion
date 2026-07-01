@@ -571,7 +571,7 @@ else:
             st.subheader("Enlace Desacoplado")
             st.info("Haga clic abajo para saltar de forma segura al nodo inmutable de auditoría legal.")
             
-            URL_DESPLIEGUE_RAMA_NUEVA = "https://hyperion-audit-production.up.railway.app" 
+            URL_DESPLIEGUE_RAMA_NUEVA = "https://hyperion-audit.streamlit.app/" 
             
             usuario_actual = st.session_state.auth["user"]
             token_actual = st.session_state.auth["token"]
