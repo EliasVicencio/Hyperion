@@ -7,24 +7,45 @@ import random
 LOGO_SVG = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='20' fill='none' stroke='%23a78bfa' stroke-width='2' /><ellipse cx='50' cy='50' rx='45' ry='15' fill='none' stroke='%2358a6ff' stroke-width='1' transform='rotate(45 50 50)' /><ellipse cx='50' cy='50' rx='45' ry='15' fill='none' stroke='%2358a6ff' stroke-width='1' transform='rotate(-45 50 50)' /><circle cx='50' cy='50' r='8' fill='%23a78bfa' /></svg>"
 st.set_page_config(page_title="Hyperion | Enterprise SOAR Platform", page_icon=LOGO_SVG, layout="wide")
 
-# --- CSS INYECTADO Y ESTILOS UNIFICADOS DE TARJETAS ---
+# --- CSS INYECTADO Y ESTILOS UNIFICADOS DE TARJETAS Y NAVBAR ---
 st.markdown("""
     <style>
         .stApp { background-color: #0b0e14; color: #f0f6fc; }
         
-        /* Botones generales más estilizados y compactos */
+        /* Contenedor unificado para simular un Navbar Superior limpio */
+        .navbar-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #161b22;
+            padding: 10px 20px;
+            border-bottom: 1px solid #30363d;
+            margin-bottom: 25px;
+            border-radius: 8px;
+        }
+
+        /* Estilo de botones simulando pestañas de un Navbar profesional */
         div.stButton > button { 
             background-color: #161b22; 
-            color: #f0f6fc; 
+            color: #c9d1d9; 
             border: 1px solid #30363d; 
             border-radius: 6px; 
-            padding: 4px 10px !important; 
-            min-height: 34px !important;  
+            padding: 6px 14px !important; 
+            min-height: 38px !important;  
             font-size: 13px !important;   
+            font-weight: 500;
             transition: all 0.2s ease; 
+            width: 100%;
         }
         div.stButton > button:hover { border-color: #a78bfa; color: #a78bfa; background-color: #1f242c; }
         
+        /* Variación para el botón seleccionado activamente en el Navbar */
+        div.stButton > button[disabled], div.stButton > button:disabled {
+            background-color: #21262d !important;
+            color: #a78bfa !important;
+            border-color: #a78bfa !important;
+        }
+
         /* Estilos de Sidebar */
         [data-testid="stSidebar"] { background-color: #0d1117; border-right: 1px solid #30363d; transition: min-width 0.3s, transform 0.3s !important; }
         [data-testid="stMetricValue"] { color: #a78bfa !important; font-size: 1.8rem !important; }
@@ -52,9 +73,7 @@ st.markdown("""
         .hud-wrapper { background: #161b22; padding: 15px; border-radius: 10px; border: 1px solid #30363d; margin-bottom: 15px; }
         .panel-metric { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; border-bottom: 1px dashed #21262d; }
 
-        /* =========================================================================
-           TRUCO CSS: Sidebar persistente y minimizada al cerrarse
-           ========================================================================= */
+        /* Sidebar persistente y minimizada al cerrarse */
         [data-testid="stSidebarCollapsedControl"] { left: 70px !important; transition: left 0.3s; }
         [data-testid="stSidebar"][aria-expanded="false"] { transform: translateX(0px) !important; min-width: 75px !important; max-width: 75px !important; }
         [data-testid="stSidebar"][aria-expanded="false"] h2,
@@ -70,7 +89,6 @@ st.markdown("""
 MASTER_ACCESS_TOKEN = "SESION_ADMIN_HYPERION_ULTRA_SECRETA"
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "operator_name" not in st.session_state: st.session_state.operator_name = "Operador Autorizado"
-# Mantener registro de la página activa mediante session_state para la barra de navegación superior
 if "menu_opcion" not in st.session_state: st.session_state.menu_opcion = "🎯 Dashboard General"
 
 if not st.session_state.authenticated:
@@ -116,7 +134,7 @@ if st.session_state.authenticated:
             threat_intel_df = pd.read_sql(text("SELECT * FROM threat_intel_exchange ORDER BY last_seen DESC"), conn)
     except Exception as e: st.error(f"❌ Error crítico cargando telemetría: {e}")
 
-    # Motor UEBA Analítico Inyectado
+    # Motor UEBA Analítico
     if not df_ledger.empty and anomalies_live_df.empty:
         usuarios_riesgo = df_ledger[df_ledger['actor'] != 'SYSTEM'].heading.unique() if 'heading' in df_ledger.columns else []
         if len(usuarios_riesgo) > 0:
@@ -127,7 +145,7 @@ if st.session_state.authenticated:
                     anomalies_live_df = pd.read_sql(text("SELECT * FROM behavior_anomalies WHERE status = 'active' ORDER BY timestamp DESC"), conn)
             except: pass
 
-    # --- MENÚ LATERAL REDUCIDO (SIN CÍRCULOS DE RADIO ACCESORIOS) ---
+    # --- MENÚ LATERAL REDUCIDO ---
     with st.sidebar:
         st.markdown(f'<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;"><div style="width: 35px; height: 35px;">{LOGO_SVG.replace("data:image/svg+xml,", "")}</div><h2 style="color: #a78bfa; margin: 0; font-size: 1.4rem; letter-spacing: 1px; font-weight: 800;">HYPERION <span style="color: #58a6ff; font-size: 0.8rem; vertical-align: middle;">SOAR</span></h2></div>', unsafe_allow_html=True)
         st.caption("🤖 Autonomous Immune System Engine")
@@ -160,50 +178,34 @@ if st.session_state.authenticated:
             st.toast("⚡ Motor Autónomo: Amenazas mitigadas.", icon="🤖"); st.rerun()
         except Exception as ex: st.sidebar.error(f"Fallo en autopiloto: {ex}")
 
-    # --- INTERFAZ PRINCIPAL ---
-    st.title("🛡️ Hyperion Autonomous SOAR")
-    
     # =========================================================================
-    # 🚀 BARRA DE NAVEGACIÓN SUPERIOR GLOBAL EN COLUMNAS HORIZONTALES
+    # 🌐 NAVBAR SUPERIOR GLOBAL (Fijado arriba del todo)
     # =========================================================================
-    secciones = [
-        "🎯 Dashboard General", 
-        "📊 Métricas ROI", 
-        "🕵️ Capa 1: UEBA", 
-        "🌐 Capa 2: NTA", 
-        "⚡ Capa 3: Control", 
-        "🤝 Threat Intel", 
-        "⚙️ Reglas"
-    ]
+    mapeo_secciones = {
+        "🎯 Dashboard General": "🎯 Dashboard General",
+        "📊 Métricas ROI": "📊 Métricas de Eficacia (ROI)",
+        "🕵️ Capa 1: UEBA": "🕵️ Capa 1: Perfilado UEBA",
+        "🌐 Capa 2: NTA": "🌐 Capa 2: Detección NTA",
+        "⚡ Capa 3: Control": "⚡ Capa 3: Control Autónomo",
+        "🤝 Threat Intel": "🤝 Threat Intel Exchange",
+        "⚙️ Reglas": "⚙️ Exclusiones & Confianza"
+    }
     
-    # Generamos dinámicamente columnas una al lado de la otra arriba de las vistas
-    cols_nav = st.columns(len(secciones))
-    for idx, sec in enumerate(secciones):
+    cols_nav = st.columns(len(mapeo_secciones))
+    for idx, (label_nav, nombre_real) in enumerate(mapeo_secciones.items()):
         with cols_nav[idx]:
-            # Resaltar estéticamente el botón activo con el color primario de Hyperion
-            es_activo = (st.session_state.menu_opcion.split(":")[0].strip() in sec) or (sec in st.session_state.menu_opcion)
-            tipo_boton = "primary" if es_activo else "secondary"
-            
-            if st.button(sec, key=f"nav_btn_{idx}", use_container_width=True, type=tipo_boton):
-                # Mapeo invertido seguro al valor completo del menú antiguo para no alterar la lógica inferior
-                mapeo_completo = {
-                    "🎯 Dashboard General": "🎯 Dashboard General",
-                    "📊 Métricas ROI": "📊 Métricas de Eficacia (ROI)",
-                    "🕵️ Capa 1: UEBA": "🕵️ Capa 1: Perfilado UEBA",
-                    "🌐 Capa 2: NTA": "🌐 Capa 2: Detección NTA",
-                    "⚡ Capa 3: Control": "⚡ Capa 3: Control Autónomo",
-                    "🤝 Threat Intel": "🤝 Threat Intel Exchange",
-                    "⚙️ Reglas": "⚙️ Exclusiones & Confianza"
-                }
-                st.session_state.menu_opcion = mapeo_completo[sec]
+            # El botón se deshabilita visualmente (pero mantiene estilo pro) si ya está seleccionado
+            activo = st.session_state.menu_opcion == nombre_real
+            if st.button(label_nav, key=f"nav_top_{idx}", use_container_width=True, disabled=activo):
+                st.session_state.menu_opcion = nombre_real
                 st.rerun()
-                
-    st.markdown("---")
 
-    # Captura del estado actual de la barra de navegación horizontal
+    # --- FLUJO CORRECTO: TÍTULO Y CONTENIDO DEBAJO DE LA NAVEGACIÓN ---
     menu_opcion = st.session_state.menu_opcion
+    st.markdown("<br>", unsafe_allow_html=True) # Separador limpio post-navbar
 
     if menu_opcion == "🎯 Dashboard General":
+        st.title("🛡️ Hyperion Autonomous SOAR")
         st.subheader("📊 Resumen Ejecutivo de Inmunidad")
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("📊 Eventos en Ledger", f"{len(df_ledger)} logs")
@@ -216,6 +218,7 @@ if st.session_state.authenticated:
             st.line_chart(df_ledger.groupby('fecha').size().reset_index(name='Eventos').set_index('fecha'))
 
     elif menu_opcion == "📊 Métricas de Eficacia (ROI)":
+        st.title("🛡️ Hyperion Autonomous SOAR")
         st.subheader("📈 Cuadro de Mando Integral e Impacto")
         horas_ahorradas = int(340 + (len(firewall_blocks_df) * 5 / 60))
         st.markdown(f"""
@@ -235,6 +238,7 @@ if st.session_state.authenticated:
             st.download_button("📥 Exportar Ledger Inmutable (CSV Firmado)", data=df_ledger.to_csv(index=False).encode('utf-8'), file_name="hyperion_ledger_signed.csv", mime="text/csv")
 
     elif menu_opcion == "🕵️ Capa 1: Perfilado UEBA":
+        st.title("🛡️ Hyperion Autonomous SOAR")
         st.subheader("🕵️ Análisis de Comportamiento de Usuarios")
         if not anomalies_live_df.empty:
             for idx, row in anomalies_live_df.iterrows():
@@ -265,6 +269,7 @@ if st.session_state.authenticated:
             st.success("🟢 No se registran desviaciones de comportamiento en la plantilla de usuarios.")
 
     elif menu_opcion == "🌐 Capa 2: Detección NTA":
+        st.title("🛡️ Hyperion Autonomous SOAR")
         st.subheader("🌐 Visualizador de Inmunidad de Red (NTA)")
         
         col_mapa, col_panel = st.columns([2.5, 1.5])
@@ -319,12 +324,14 @@ if st.session_state.authenticated:
             st.success("🟢 Tráfico limpio. Ninguna firma de exfiltración detectada.")
 
     elif menu_opcion == "⚡ Capa 3: Control Autónomo":
+        st.title("🛡️ Hyperion Autonomous SOAR")
         st.subheader("⚡ Contramedidas y Acciones Inmunológicas Ejecutadas")
         c_fw, c_jwt = st.columns(2)
         c_fw.markdown("#### 🔒 IPs Bloqueadas en Firewall Central"); c_fw.dataframe(firewall_blocks_df, use_container_width=True, hide_index=True)
         c_jwt.markdown("#### 💀 Sesiones JWT Revocadas"); c_jwt.dataframe(jwt_blacklist_df, use_container_width=True, hide_index=True)
 
     elif menu_opcion == "🤝 Threat Intel Exchange":
+        st.title("🛡️ Hyperion Autonomous SOAR")
         st.subheader("🤝 Intercambio de Inteligencia de Amenazas")
         if not threat_intel_df.empty:
             st.dataframe(threat_intel_df, use_container_width=True, hide_index=True)
@@ -342,6 +349,7 @@ if st.session_state.authenticated:
             st.info("ℹ️ No hay indicadores listos para exportación en este ciclo de red.")
 
     elif menu_opcion == "⚙️ Exclusiones & Confianza":
+        st.title("🛡️ Hyperion Autonomous SOAR")
         st.subheader("⚙️ Gestión de Reglas Allowlist")
         with st.form("add_allow"):
             t_target, t_type, t_reason = st.text_input("IP o Correo de Confianza"), st.selectbox("Tipo", ["ip", "user"]), st.text_input("Motivo de la Exclusión")
@@ -353,7 +361,4 @@ if st.session_state.authenticated:
                 except Exception as e: st.error(e)
         st.dataframe(allowlist_df, use_container_width=True, hide_index=True)
 else:
-    st.markdown("<br><br><br>", unsafe_allow_html=True)
-    st.error("🛑 ACCESS DENIED: Sesión de Operador No Autenticada en Hyperion Core.")
-    st.info("⚠️ Inicie sesión previamente a través del portal de gestión de accesos corporativo.")
-    st.stop()
+    st.markdown("<br><br><br>", unsafe_allow_html=True), st.error("🛑 ACCESS DENIED: Sesión de Operador No Autenticada en Hyperion Core."), st.info("⚠️ Inicie sesión previamente a través del portal de gestión de accesos corporativo."), st.stop()
