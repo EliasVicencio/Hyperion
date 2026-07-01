@@ -49,7 +49,7 @@ st.markdown("""
         .stApp { background-color: #0b0e14; }
         div.stButton > button { background-color: #161b22; color: #f0f6fc; border: 1px solid #30363d; border-radius: 8px; transition: all 0.3s ease; }
         div.stButton > button:hover { border-color: #a78bfa; color: #a78bfa; background-color: #161b22; }
-        [data-testid="stSidebar"] { background-color: #0d1117; border-right: 1px solid #30363d; }
+        [data-testid="stSidebar"] { background-color: #0d1117; border-right: 1px solid #30363d; transition: min-width 0.3s, transform 0.3s !important; }
         [data-testid="stMetricValue"] { color: #a78bfa !important; }
         *:focus { outline: none !important; box-shadow: none !important; }
         .kpi-card { background: #161b22; padding: 20px; border-radius: 12px; border: 1px solid #30363d; }
@@ -57,6 +57,54 @@ st.markdown("""
         .owner-badge { background: #21262d; color: #8b949e; padding: 2px 8px; border-radius: 10px; font-size: 11px; border: 1px solid #30363d; }
         .compliance-tag { font-size: 12px; color: #a78bfa; font-weight: bold; }
         .metric-card { background: #161b22; padding: 15px; border-radius: 10px; border: 1px solid #30363d; }
+
+        /* =========================================================================
+           TRUCO CSS: Sidebar persistente y minimizada al cerrarse
+           ========================================================================= */
+        /* Evita que el contenedor principal de la app ignore el margen cuando se cierra */
+        [data-testid="stSidebarCollapsedControl"] {
+            left: 70px !important; /* Mueve el botón nativo ">" de abrir para que no estorbe */
+            transition: left 0.3s;
+        }
+        
+        /* Cuando streamlit intenta ocultar la barra lateral (collapsed) */
+        [data-testid="stSidebar"][aria-expanded="false"] {
+            transform: translateX(0px) !important; /* Anula el comportamiento de desaparecer */
+            min-width: 75px !important;
+            max-width: 75px !important;
+        }
+
+        /* Ocultar elementos informativos extensos en modo colapsado */
+        [data-testid="stSidebar"][aria-expanded="false"] h2,
+        [data-testid="stSidebar"][aria-expanded="false"] p,
+        [data-testid="stSidebar"][aria-expanded="false"] hr,
+        [data-testid="stSidebar"][aria-expanded="false"] .stMarkdown div {
+            display: none !important;
+        }
+        
+        /* Forzar que el logo mini sí se vea bonito arriba en modo colapsado */
+        [data-testid="stSidebar"][aria-expanded="false"] img {
+            margin: 0 auto !important;
+            display: block !important;
+        }
+
+        /* Estilizar botones de navegación en modo colapsado (Solo Iconos/Emojis) */
+        [data-testid="stSidebar"][aria-expanded="false"] div.stButton > button {
+            font-size: 20px !important;
+            text-align: center !important;
+            padding: 10px 0 !important;
+            letter-spacing: -100px; /* Esconde el texto empujándolo fuera del botón */
+            color: transparent;
+        }
+        
+        /* Truco para mantener visible únicamente el primer caracter (el emoji) del botón */
+        [data-testid="stSidebar"][aria-expanded="false"] div.stButton > button::first-letter {
+            color: #f0f6fc !important;
+            letter-spacing: normal !important;
+        }
+        [data-testid="stSidebar"][aria-expanded="false"] div.stButton > button:hover::first-letter {
+            color: #a78bfa !important;
+        }
     </style>
 """, unsafe_allow_html=True)
 
