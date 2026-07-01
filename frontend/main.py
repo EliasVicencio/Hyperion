@@ -191,9 +191,6 @@ else:
                 log_placeholder.code(feed, language="accesslog")
         except: log_placeholder.error("🚨 Sincronizando con nodo central...")
 
-    # ==========================================
-    # 💎 MÓDULO OPERADORES ENTERAMENTE REPARADO
-    # ==========================================
     elif st.session_state.page == "Operadores":
         st.markdown("<h2 style='margin-bottom:0px;'>Gestión de Usuarios</h2>", unsafe_allow_html=True)
         st.markdown("<p style='color: #64748b; font-size: 0.85rem; margin-bottom: 25px;'>Administra accesos y asigna roles para cumplimiento ISO 27001</p>", unsafe_allow_html=True)
@@ -205,6 +202,7 @@ else:
                 total_usuarios = len(data_dict)
                 admins_count = sum(1 for v in data_dict.values() if v.get('role') == 'admin')
                 
+                # Mantenemos tus KPIs limpios arriba
                 kpis_html = f"""
                 <div class="panel-kpi-container">
                     <div class="panel-card">
@@ -239,81 +237,62 @@ else:
                 """
                 st.markdown(kpis_html, unsafe_allow_html=True)
                 
-                c_search, c_space, c_btn = st.columns([3, 3.2, 1.8])
-                with c_search:
-                    search_query = st.text_input("Buscar...", label_visibility="collapsed", placeholder="🔍 Buscar usuarios o roles...")
-                with c_btn:
-                    st.markdown("""
-                        <style>
-                            div.element-container:has(button:contains("Agregar Usuario")) button {
-                                background-color: #2563eb !important;
-                                color: white !important;
-                                border-radius: 8px !important;
-                                text-align: center !important;
-                                font-weight: 600 !important;
-                                border: none !important;
-                            }
-                        </style>
-                    """, unsafe_allow_html=True)
-                    if st.button("➕ Agregar Usuario", use_container_width=True):
-                        st.info("Ruta de creación disponible en Tab Registro del Login.")
+                # Buscador nativo eficiente
+                search_query = st.text_input("🔍 Buscar usuarios o roles...", placeholder="Escribe un correo o rol para filtrar...")
                 
-                table_body = ""
+                # --- PROCESAMIENTO NATIVO DE DATOS (CON PANDAS) ---
+                rows = []
                 for email, info in data_dict.items():
                     role = info.get('role', 'user').lower()
                     
                     if search_query and (search_query.lower() not in email.lower() and search_query.lower() not in role):
                         continue
-                        
-                    badge_class = "badge-admin" if role == "admin" else "badge-user"
-                    role_title = "Administrador" if role == "admin" else "Empleado"
                     
                     name_part = email.split('@')[0].replace('.', ' ').title()
                     initials = "".join([p[0] for p in name_part.split()[:2]]).upper() if name_part else "OP"
                     
-                    table_body += f"""
-                    <tr>
-                        <td>
-                            <div class="user-profile-cell">
-                                <div class="avatar-circle-blue">{initials}</div>
-                                <div class="user-meta">
-                                    <span class="user-display-name">{name_part}</span>
-                                    <span class="user-email-sub">{email}</span>
-                                </div>
-                            </div>
-                        </td>
-                        <td><span class="{badge_class}">{role_title}</span></td>
-                        <td>General</td>
-                        <td><span class="status-dot-active">Activo</span></td>
-                        <td>
-                            <div class="action-icons">
-                                <span class="action-btn-edit">✏️</span>
-                                <span class="action-btn-delete">🗑️</span>
-                            </div>
-                        </td>
-                    </tr>
-                    """
+                    # Usamos una URL por defecto para generar avatares visuales limpios en UI
+                    avatar_url = f"https://api.dicebear.com/7.x/initials/svg?seed={initials}&backgroundColor=2563eb"
+                    
+                    rows.append({
+                        "Avatar": avatar_url,
+                        "Usuario": name_part,
+                        "Email": email,
+                        "Rol": "🛡️ Administrador" if role == "admin" else "👤 Empleado",
+                        "Departamento": "General",
+                        "Estado": "🟢 Activo"
+                    })
                 
-                full_table_html = f"""
-                <div class="saas-container">
-                    <table class="saas-table">
-                        <thead>
-                            <tr>
-                                <th>Usuario</th>
-                                <th>Rol</th>
-                                <th>Departamento</th>
-                                <th>Estado</th>
-                                <th style="text-align: right;">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {table_body}
-                        </tbody>
-                    </table>
-                </div>
-                """
-                st.markdown(full_table_html, unsafe_allow_html=True)
+                df_users = pd.DataFrame(rows)
                 
+                if not df_users.empty:
+                    # --- RENDERIZACIÓN INTERACTIVA NATIVA ---
+                    st.dataframe(
+                        df_users,
+                        column_config={
+                            "Avatar": st.column_config.ImageColumn("Foto", help="Avatar generado automáticamente"),
+                            "Usuario": st.column_config.TextColumn("Nombre completo"),
+                            "Email": st.column_config.TextColumn("Correo Electrónico"),
+                            "Rol": st.column_config.TextColumn("Rol de Acceso"),
+                            "Departamento": st.column_config.TextColumn("Área"),
+                            "Estado": st.column_config.TextColumn("Estado")
+                        },
+                        hide_index=True,
+                        use_container_width=True
+                    )
+                    
+                    # Acciones simplificadas abajo de la tabla sin romper diseño
+                    st.write("")
+                    col_edit, col_del, _ = st.columns([1.5, 1.5, 5])
+                    with col_edit:
+                        if st.button("✏️ Modificar Operador"):
+                            st.info("Función de edición en desarrollo.")
+                    with col_del:
+                        if st.button("🗑️ Eliminar Operador"):
+                            st.warning("Selecciona una fila para eliminar.")
+                else:
+                    st.info("No se encontraron usuarios que coincidan con la búsqueda.")
+                    
             else:
                 st.error("🛑 Error en las credenciales de comunicación o privilegios insuficientes.")
         except Exception as e:
