@@ -124,29 +124,55 @@ if "operator_name" not in st.session_state:
     st.session_state.operator_name = "Operador Autorizado"
 
 # Intentar capturar tokens desde la URL solo si el usuario no está autenticado aún
+# Intentar capturar tokens desde la URL solo si el usuario no está autenticado aún
 if not st.session_state.authenticated:
     try:
-        # En Streamlit moderno, st.query_params se comporta directamente como un diccionario de strings
+        # En Streamlit moderno, st.query_params actúa directamente como un diccionario de strings
         params = st.query_params
         
         token_ingresado = params.get("session_token", None)
         operador_transferido = params.get("operator", None)
 
         # Validar credenciales entrantes si existen
-        if token_ingresado and token_ingresado == MASTER_ACCESS_TOKEN:
+        if token_ingresado and str(token_ingresado).strip() == MASTER_ACCESS_TOKEN:
             st.session_state.authenticated = True
             if operador_transferido:
                 st.session_state.operator_name = str(operador_transferido).strip()
             
-            # 🧹 LIMPIEZA SEGURA: Borramos los parámetros de la URL de manera nativa
-            # Usamos dict asignación vacía para evitar comportamientos extraños de limpieza destructiva
+            # 🧹 LIMPIEZA SEGURA: Borramos los parámetros de la URL
             st.query_params.clear()
             st.toast(f"🔑 Sesión verificada para: {st.session_state.operator_name}", icon="🔓")
-            st.rerun() # Forzamos un rerun limpio ahora que estamos autenticados
+            
+            # Forza un reinicio limpio inmediato con el estado de autenticación ya guardado
+            st.rerun()
 
     except Exception as e:
-        # Si algo falla leyendo la URL, evitamos que la app muera por completo
-        st.caption(f"Fallo de lectura de parámetros: {e}")
+        # Evita que un error de lectura de URL rompa el arranque del contenedor
+        st.caption(f"⚠️ Error de lectura en parámetros de URL: {e}")# Intentar capturar tokens desde la URL solo si el usuario no está autenticado aún
+if not st.session_state.authenticated:
+    try:
+        # En Streamlit moderno, st.query_params actúa directamente como un diccionario de strings
+        params = st.query_params
+        
+        token_ingresado = params.get("session_token", None)
+        operador_transferido = params.get("operator", None)
+
+        # Validar credenciales entrantes si existen
+        if token_ingresado and str(token_ingresado).strip() == MASTER_ACCESS_TOKEN:
+            st.session_state.authenticated = True
+            if operador_transferido:
+                st.session_state.operator_name = str(operador_transferido).strip()
+            
+            # 🧹 LIMPIEZA SEGURA: Borramos los parámetros de la URL
+            st.query_params.clear()
+            st.toast(f"🔑 Sesión verificada para: {st.session_state.operator_name}", icon="🔓")
+            
+            # Forza un reinicio limpio inmediato con el estado de autenticación ya guardado
+            st.rerun()
+
+    except Exception as e:
+        # Evita que un error de lectura de URL rompa el arranque del contenedor
+        st.caption(f"⚠️ Error de lectura en parámetros de URL: {e}")
 
 
 # ==========================================
