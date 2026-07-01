@@ -200,8 +200,8 @@ else:
                 df = pd.DataFrame(res.json())
                 search = st.text_input("🔍 Filtrar logs:")
                 if search: df = df[df.apply(lambda r: search.lower() in r.astype(str).str.lower().values, axis=1)]
-                st.download_button("Descargar CSV", data=df.to_csv(index=False).encode('utf-8'), file_name="audit.csv", mime="text/csv")
                 st.dataframe(df, use_container_width=True)
+                st.download_button("Descargar CSV", data=df.to_csv(index=False).encode('utf-8'), file_name="audit.csv", mime="text/csv")
             else: st.warning("Sin registros disponibles.")
         except Exception as e: st.error(f"Fallo de conexión: {e}")
 
