@@ -59,7 +59,7 @@ st.markdown("""
         [data-testid="stSidebar"][aria-expanded="false"] div.stButton > button {
             width: 45px !important;
             height: 45px !important;
-            border-radius: 50% !important; /* Transforma el botón en un círculo perfecto */
+            border-radius: 25% !important; /* Transforma el botón en un círculo perfecto */
             margin: 12px auto !important;   /* Los centra horizontalmente y los separa entre sí */
             display: flex !important;
             align-items: center !important;
