@@ -121,6 +121,9 @@ else:
             api, db = ("🟢" if h.get("api") == "healthy" else "🔴"), ("🟢" if h.get("database") == "healthy" else "🔴")
         except: api, db = "🔴", "🔴"
         st.markdown(f'<div style="background:#1e293b; padding:10px; border-radius:8px; border:1px solid #334155; margin-bottom:15px; font-size:12px;"><div style="display:flex; justify-content:space-between; color:#94a3b8;"><span>{api} API</span><span>{db} DB</span></div></div>', unsafe_allow_html=True)
+
+        # Perfil y Buscador Estilizados compactos
+        op_init = st.session_state.auth["user"][0].upper() if st.session_state.auth["user"] else "O"
         
         # Navegación del Sistema Originales
         if st.button("📊 Analíticas", use_container_width=True): nav_to("Analíticas")
