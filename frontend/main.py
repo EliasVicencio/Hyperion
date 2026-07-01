@@ -16,67 +16,68 @@ BACKEND_URL = st.secrets.get("BACKEND_URL", os.getenv("BACKEND_URL", "https://hy
 for key, value in {"auth": {"token": None, "user": None, "step": "login"}, "page": "Analíticas"}.items():
     if key not in st.session_state: st.session_state[key] = value
 
-# --- CSS INYECTADO OPTIMIZADO & COMPACTO ---
+# --- CSS INYECTADO ADAPTADO (CLONACIÓN DE MAQUETA) ---
 st.markdown("""
     <style>
         .stApp { background-color: #07090e; }
-        h1, h2 { color: #a78bfa !important; font-family: 'Segoe UI', sans-serif; }
+        h1, h2 { color: #ffffff !important; font-family: 'Segoe UI', sans-serif; }
         h1 { font-weight: 800; letter-spacing: -0.5px; }
         h3 { color: #58a6ff !important; font-family: 'Courier New', monospace; font-weight: bold; }
         h4, .user-name { color: #ffffff !important; font-family: 'Segoe UI', sans-serif; }
         
-        /* Estructura Tarjetas Perfil y Buscador */
-        .user-profile-card { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding: 2px; }
-        .user-avatar { width: 38px; height: 38px; background-color: #00b074; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px; font-weight: bold; box-shadow: 0 4px 12px rgba(0, 176, 116, 0.2); }
-        .user-info { display: flex; flex-direction: column; }
-        .user-name { font-weight: 600; font-size: 0.9rem; line-height: 1.2; }
-        .user-role { color: #64748b !important; font-family: 'Segoe UI', sans-serif; font-size: 0.75rem; font-weight: 500; }
-        
-        /* Menú e Interacción del Sidebar */
+        /* Menú Sidebar */
         div.stButton > button { background-color: #0c111d; color: #e2e8f0; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 8px; transition: all 0.2s ease-in-out; text-align: left; padding: 8px 16px; width: 100%; }
         div.stButton > button:hover { border-color: rgba(167, 139, 250, 0.4); color: #ffffff; background-color: #111827; }
         div.stButton > button:focus, div.stButton > button:active { background-color: rgba(167, 139, 250, 0.15) !important; border: 1px solid #a78bfa !important; color: #ffffff !important; box-shadow: 0 0 12px rgba(167, 139, 250, 0.2) !important; }
 
         [data-testid="stSidebar"] { background-color: #090d14; border-right: 1px solid rgba(167, 139, 250, 0.15); min-width: 260px !important; }
         [data-testid="stSidebarCollapsedControl"] { display: none !important; }
-        [data-testid="stMetricValue"] { color: #a78bfa !important; }
-        .stDataFrame { background-color: #0b0f17; border: 1px solid #1f2937; }
-        *:focus { outline: none !important; box-shadow: none !important; }
-        
-        /* Cards del Dashboard */
-        .kpi-card, .risk-row, .metric-card { border-radius: 10px; border: 1px solid rgba(167, 139, 250, 0.2); }
-        .kpi-card { background: #0b0f17; padding: 20px; box-shadow: 0 0 30px rgba(88, 166, 255, 0.03); }
-        .metric-card { background: linear-gradient(135deg, #0f172a 0%, #020617 100%); padding: 15px; border-color: rgba(167, 139, 250, 0.3); }
-        .risk-row { background: rgba(11, 15, 23, 0.9); padding: 15px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; backdrop-filter: blur(10px); }
-        
-        /* ==========================================
-           🔒 ELIMINACIÓN COMPLETA DE MARCAS STREAMLIT 
-           ========================================== */
-        #MainMenu { visibility: hidden; }
         footer { visibility: hidden; }
         header { visibility: hidden; }
         .block-container { padding-top: 2rem !important; }
-
-        /* ==========================================
-           💎 NUEVOS ESTILOS PARA LA TABLA DE OPERADORES
-           ========================================== */
-        .saas-table { width: 100%; border-collapse: collapse; font-family: 'Segoe UI', sans-serif; margin-top: 15px; color: #cbd5e1; }
-        .saas-table th { text-align: left; padding: 12px 16px; color: #64748b; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; border-bottom: 1px solid #1e293b; }
-        .saas-table td { padding: 16px; font-size: 0.85rem; border-bottom: 1px solid #0f172a; vertical-align: middle; }
-        .saas-table tr:hover { background-color: rgba(255, 255, 255, 0.02); }
         
-        /* Iniciales en círculo */
-        .avatar-circle { width: 32px; height: 32px; background: #2563eb; color: white; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 10px; font-size: 0.8rem; }
-        .user-container { display: flex; align-items: center; }
-        .user-email-text { font-weight: 500; color: #f1f5f9; }
+        /* Tarjetas de Dashboard Generales */
+        .kpi-card, .risk-row, .metric-card { border-radius: 10px; border: 1px solid rgba(167, 139, 250, 0.1); background: #0b0f17; }
+        .kpi-card { padding: 20px; box-shadow: 0 0 30px rgba(88, 166, 255, 0.03); }
+        
+        /* ==========================================
+           💎 DISEÑO PREMIUM "GESTIÓN DE USUARIOS"
+           ========================================== */
+        .panel-kpi-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+        .panel-card { background: #0b111e; border: 1px solid #1e293b; border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 16px; }
+        .panel-icon-box { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+        .panel-info-box { display: flex; flex-direction: column; }
+        .panel-value { font-size: 1.6rem; font-weight: 700; color: #ffffff; line-height: 1.2; }
+        .panel-label { font-size: 0.75rem; color: #64748b; font-weight: 500; margin-top: 2px; }
+
+        /* Estilos Tabla de Operadores */
+        .saas-container { background: #090d16; border: 1px solid #161f30; border-radius: 12px; padding: 8px; margin-top: 15px; }
+        .saas-table { width: 100%; border-collapse: collapse; font-family: 'Segoe UI', sans-serif; text-align: left; }
+        .saas-table th { padding: 14px 20px; color: #475569; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; border-bottom: 1px solid #161f30; letter-spacing: 0.5px; }
+        .saas-table td { padding: 16px 20px; font-size: 0.85rem; border-bottom: 1px solid #0d1527; color: #94a3b8; vertical-align: middle; }
+        .saas-table tr:last-child td { border-bottom: none; }
+        
+        /* Identidad de Usuario */
+        .user-profile-cell { display: flex; align-items: center; gap: 12px; }
+        .avatar-circle-blue { width: 36px; height: 36px; background: #2563eb; color: #ffffff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; letter-spacing: 0.5px; }
+        .user-meta { display: flex; flex-direction: column; }
+        .user-display-name { font-weight: 600; color: #ffffff; font-size: 0.9rem; }
+        .user-email-sub { color: #475569; font-size: 0.75rem; }
         
         /* Badges de Roles */
-        .badge-role-admin { background-color: rgba(147, 51, 234, 0.15); color: #c084fc; border: 1px solid rgba(147, 51, 234, 0.3); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
-        .badge-role-user { background-color: rgba(71, 85, 105, 0.2); color: #94a3b8; border: 1px solid rgba(71, 85, 105, 0.4); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
+        .badge-admin { background: rgba(147, 51, 234, 0.12); color: #c084fc; border: 1px solid rgba(147, 51, 234, 0.25); padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
+        .badge-user { background: rgba(71, 85, 105, 0.15); color: #94a3b8; border: 1px solid rgba(71, 85, 105, 0.3); padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
         
-        /* Status indicador */
-        .status-active { color: #10b981; display: inline-flex; align-items: center; gap: 6px; font-weight: 500; }
-        .status-active::before { content: "●"; font-size: 0.9rem; }
+        /* Estado */
+        .status-dot-active { color: #10b981; display: flex; align-items: center; gap: 6px; font-weight: 500; font-size: 0.85rem; }
+        .status-dot-active::before { content: "●"; font-size: 0.8rem; }
+        
+        /* Acciones */
+        .action-icons { display: flex; gap: 14px; justify-content: flex-end; font-size: 1.1rem; color: #475569; }
+        .action-btn-edit { cursor: pointer; transition: color 0.2s; }
+        .action-btn-edit:hover { color: #3b82f6; }
+        .action-btn-delete { cursor: pointer; transition: color 0.2s; }
+        .action-btn-delete:hover { color: #ef4444; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -196,11 +197,11 @@ else:
         except: log_placeholder.error("🚨 Sincronizando con nodo central...")
 
     # ==========================================
-    # 💎 NUEVA PÁGINA MÓDULO OPERADORES MEJORADA
+    # 💎 MÓDULO OPERADORES ENTERAMENTE CORREGIDO
     # ==========================================
     elif st.session_state.page == "Operadores":
-        st.markdown("<h2 style='color: #ffffff; margin-bottom: 2px;'>Gestión de Usuarios</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #64748b; font-size: 0.9rem; margin-bottom: 25px;'>Administra accesos y asigna roles para cumplimiento ISO 27001</p>", unsafe_allow_html=True)
+        st.markdown("<h2 style='margin-bottom:0px;'>Gestión de Usuarios</h2>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #64748b; font-size: 0.85rem; margin-bottom: 25px;'>Administra accesos y asigna roles para cumplimiento ISO 27001</p>", unsafe_allow_html=True)
         
         try:
             res = requests.get(f"{BACKEND_URL}/api/system-metrics", headers=headers, timeout=4)
@@ -209,72 +210,125 @@ else:
                 total_usuarios = len(data_dict)
                 admins_count = sum(1 for v in data_dict.values() if v.get('role') == 'admin')
                 
-                # 1. Bloque de métricas superior (Cards horizontales)
-                m1, m2, m3, m4 = st.columns(4)
-                m1.markdown(f"<div class='kpi-card'><p style='color:#64748b; margin:0; font-size:11px; font-weight:600;'>TOTAL USUARIOS</p><h2 style='margin:5px 0; color:#ffffff; font-size:1.8rem;'>{total_usuarios}</h2><small style='color:#64748b;'>Usuarios Registrados</small></div>", unsafe_allow_html=True)
-                m2.markdown(f"<div class='kpi-card'><p style='color:#64748b; margin:0; font-size:11px; font-weight:600;'>USUARIOS ACTIVOS</p><h2 style='margin:5px 0; color:#10b981; font-size:1.8rem;'>{total_usuarios}</h2><small style='color:#10b981;'>100% Online</small></div>", unsafe_allow_html=True)
-                m3.markdown("<div class='kpi-card'><p style='color:#64748b; margin:0; font-size:11px; font-weight:600;'>INACTIVOS / PENDIENTES</p><h2 style='margin:5px 0; color:#64748b; font-size:1.8rem;'>0</h2><small style='color:#64748b;'>Sin pendientes</small></div>", unsafe_allow_html=True)
-                m4.markdown(f"<div class='kpi-card'><p style='color:#64748b; margin:0; font-size:11px; font-weight:600;'>EQUIPO DE SEGURIDAD</p><h2 style='margin:5px 0; color:#a78bfa; font-size:1.8rem;'>{admins_count}</h2><small style='color:#a78bfa;'>Administradores</small></div>", unsafe_allow_html=True)
-                
-                st.write("<br>", unsafe_allow_html=True)
-                
-                # 2. Barra de acciones intermedias (Buscador y Botón Añadir)
-                col_search, col_space, col_btn = st.columns([2.5, 3.5, 1.5])
-                with col_search:
-                    search_query = st.text_input("Buscar...", label_visibility="collapsed", placeholder="🔍 Buscar usuarios o roles...")
-                with col_btn:
-                    if st.button("➕ Agregar Usuario", use_container_width=True):
-                        st.session_state.page = "RegisterShortcut" # Redirección si deseas o un toggle.
-                
-                # 3. Construcción de Tabla SaaS mediante HTML
-                html_table = """
-                <table class='saas-table'>
-                    <thead>
-                        <tr>
-                            <th>Usuario</th>
-                            <th>Rol</th>
-                            <th>Departamento</th>
-                            <th>Estado</th>
-                            <th style='text-align: right;'>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+                # Renderizado de Tarjetas Superiores (Grid HTML Puro para evitar desfases)
+                kpis_html = f"""
+                <div class="panel-kpi-container">
+                    <div class="panel-card">
+                        <div class="panel-icon-box" style="background: rgba(37, 99, 235, 0.1); color: #3b82f6;">👥</div>
+                        <div class="panel-info-box">
+                            <span class="panel-value">{total_usuarios}</span>
+                            <span class="panel-label">Total Usuarios</span>
+                        </div>
+                    </div>
+                    <div class="panel-card">
+                        <div class="panel-icon-box" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">🟢</div>
+                        <div class="panel-info-box">
+                            <span class="panel-value">{total_usuarios}</span>
+                            <span class="panel-label">Usuarios Activos</span>
+                        </div>
+                    </div>
+                    <div class="panel-card">
+                        <div class="panel-icon-box" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">✉️</div>
+                        <div class="panel-info-box">
+                            <span class="panel-value">0</span>
+                            <span class="panel-label">Inactivos / Pendientes</span>
+                        </div>
+                    </div>
+                    <div class="panel-card">
+                        <div class="panel-icon-box" style="background: rgba(147, 51, 234, 0.1); color: #a78bfa;">🛡️</div>
+                        <div class="panel-info-box">
+                            <span class="panel-value">{admins_count}</span>
+                            <span class="panel-label">Equipo de Seguridad</span>
+                        </div>
+                    </div>
+                </div>
                 """
+                st.markdown(kpis_html, unsafe_allow_html=True)
                 
+                # Controles Intermedios (Buscador y Botón) con la estructura nativa de Streamlit alineada
+                c_search, c_space, c_btn = st.columns([3, 3.2, 1.8])
+                with c_search:
+                    search_query = st.text_input("Buscar...", label_visibility="collapsed", placeholder="🔍 Buscar usuarios o roles...")
+                with c_btn:
+                    # Inyectamos estilos directamente sobre este botón para darle el tono azul corporativo de la maqueta
+                    st.markdown("""
+                        <style>
+                            div.element-container:has(button:contains("Agregar Usuario")) button {
+                                background-color: #2563eb !important;
+                                color: white !important;
+                                border-radius: 8px !important;
+                                text-align: center !important;
+                                font-weight: 600 !important;
+                                border: none !important;
+                            }
+                        </style>
+                    """, unsafe_allow_html=True)
+                    if st.button("➕ Agregar Usuario", use_container_width=True):
+                        st.info("Ruta de creación disponible en Tab Registro del Login.")
+                
+                # Construcción y Renderizado de la Tabla Limpia
+                table_body = ""
                 for email, info in data_dict.items():
                     role = info.get('role', 'user').lower()
                     
-                    # Filtrado por buscador básico
                     if search_query and (search_query.lower() not in email.lower() and search_query.lower() not in role):
                         continue
                         
-                    role_badge = f"<span class='badge-role-admin'>Administrador</span>" if role == 'admin' else f"<span class='badge-role-user'>Empleado</span>"
-                    initial = email[0].upper() if email else "U"
+                    badge_class = "badge-admin" if role == "admin" else "badge-user"
+                    role_title = "Administrador" if role == "admin" else "Empleado"
                     
-                    html_table += f"""
-                        <tr>
-                            <td>
-                                <div class='user-container'>
-                                    <div class='avatar-circle'>{initial}</div>
-                                    <div class='user-email-text'>{email}</div>
+                    name_part = email.split('@')[0].replace('.', ' ').title()
+                    initials = "".join([p[0] for p in name_part.split()[:2]]).upper() if name_part else "OP"
+                    
+                    # Estructura limpia de filas
+                    table_body += f"""
+                    <tr>
+                        <td>
+                            <div class="user-profile-cell">
+                                <div class="avatar-circle-blue">{initials}</div>
+                                <div class="user-meta">
+                                    <span class="user-display-name">{name_part}</span>
+                                    <span class="user-email-sub">{email}</span>
                                 </div>
-                            </td>
-                            <td>{role_badge}</td>
-                            <td style='color: #94a3b8;'>General</td>
-                            <td><span class='status-active'>Activo</span></td>
-                            <td style='text-align: right; color: #64748b; cursor: pointer; font-size: 1.1rem;'>📝 &nbsp; 🗑️</td>
-                        </tr>
+                            </div>
+                        </td>
+                        <td><span class="{badge_class}">{role_title}</span></td>
+                        <td>General</td>
+                        <td><span class="status-dot-active">Activo</span></td>
+                        <td>
+                            <div class="action-icons">
+                                <span class="action-btn-edit">✏️</span>
+                                <span class="action-btn-delete">🗑️</span>
+                            </div>
+                        </td>
+                    </tr>
                     """
                 
-                html_table += "</tbody></table>"
-                
-                # Renderizar contenedor de la tabla estilizada
-                st.markdown(html_table, unsafe_allow_html=True)
+                # Unimos la tabla de manera estricta en un solo bloque HTML para prevenir fallos del intérprete
+                full_table_html = f"""
+                <div class="saas-container">
+                    <table class="saas-table">
+                        <thead>
+                            <tr>
+                                <th>Usuario</th>
+                                <th>Rol</th>
+                                <th>Departamento</th>
+                                <th>Estado</th>
+                                <th style="text-align: right;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {table_body}
+                        </tbody>
+                    </table>
+                </div>
+                """
+                st.markdown(full_table_html, unsafe_allow_html=True)
                 
             else:
-                st.error("🛑 Privilegios insuficientes o error en el servidor central.")
+                st.error("🛑 Error en las credenciales de comunicación o privilegios insuficientes.")
         except Exception as e:
-            st.error(f"Error de base de datos: {e}")
+            st.error(f"Fallo de conexión en Gateway: {e}")
 
     elif st.session_state.page == "Gobernanza":
         st.title("⚖️ Gobernanza y Estrategia")
