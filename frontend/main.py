@@ -43,6 +43,7 @@ st.markdown("""
         .soar-card.error { border-left: 4px solid #f85149; }
         .soar-card.success { border-left: 4px solid #56ffac; }
         .soar-card.info { border-left: 4px solid #58a6ff; }
+        
         .card-header { font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
         .card-body { font-size: 14px; color: #e1e7ed; margin: 4px 0; }
         .card-meta { font-family: monospace; font-size: 12px; color: #8b949e; }
@@ -62,11 +63,6 @@ st.markdown("""
         [data-testid="stSidebar"][aria-expanded="false"] .stMarkdown div,
         [data-testid="stSidebar"][aria-expanded="false"] [data-testid="stWidgetLabel"] { display: none !important; }
         [data-testid="stSidebar"][aria-expanded="false"] img { margin: 0 auto !important; display: block !important; }
-
-        /* Estilizar botones de navegación en modo colapsado */
-        [data-testid="stSidebar"][aria-expanded="false"] div.stButton > button { font-size: 20px !important; text-align: center !important; padding: 10px 0 !important; letter-spacing: -100px; color: transparent; }
-        [data-testid="stSidebar"][aria-expanded="false"] div.stButton > button::first-letter { color: #f0f6fc !important; letter-spacing: normal !important; }
-        [data-testid="stSidebar"][aria-expanded="false"] div.stButton > button:hover::first-letter { color: #a78bfa !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -74,6 +70,8 @@ st.markdown("""
 MASTER_ACCESS_TOKEN = "SESION_ADMIN_HYPERION_ULTRA_SECRETA"
 if "authenticated" not in st.session_state: st.session_state.authenticated = False
 if "operator_name" not in st.session_state: st.session_state.operator_name = "Operador Autorizado"
+# Mantener registro de la página activa mediante session_state para la barra de navegación superior
+if "menu_opcion" not in st.session_state: st.session_state.menu_opcion = "🎯 Dashboard General"
 
 if not st.session_state.authenticated:
     try:
@@ -129,12 +127,10 @@ if st.session_state.authenticated:
                     anomalies_live_df = pd.read_sql(text("SELECT * FROM behavior_anomalies WHERE status = 'active' ORDER BY timestamp DESC"), conn)
             except: pass
 
-    # --- MENÚ LATERAL ---
+    # --- MENÚ LATERAL REDUCIDO (SIN CÍRCULOS DE RADIO ACCESORIOS) ---
     with st.sidebar:
         st.markdown(f'<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;"><div style="width: 35px; height: 35px;">{LOGO_SVG.replace("data:image/svg+xml,", "")}</div><h2 style="color: #a78bfa; margin: 0; font-size: 1.4rem; letter-spacing: 1px; font-weight: 800;">HYPERION <span style="color: #58a6ff; font-size: 0.8rem; vertical-align: middle;">SOAR</span></h2></div>', unsafe_allow_html=True)
         st.caption("🤖 Autonomous Immune System Engine")
-        st.markdown("---")
-        menu_opcion = st.radio("Navegación:", ["🎯 Dashboard General", "📊 Métricas de Eficacia (ROI)", "🕵️ Capa 1: Perfilado UEBA", "🌐 Capa 2: Detección NTA", "⚡ Capa 3: Control Autónomo", "🤝 Threat Intel Exchange", "⚙️ Exclusiones & Confianza"], label_visibility="collapsed")
         st.markdown("---")
         st.markdown("#### ⚡ Modo de Respuesta")
         modo_soar = st.toggle("🤖 Piloto Automático", value=False, help="Permite a Hyperion aislar threats de forma autónoma.")
@@ -166,7 +162,46 @@ if st.session_state.authenticated:
 
     # --- INTERFAZ PRINCIPAL ---
     st.title("🛡️ Hyperion Autonomous SOAR")
+    
+    # =========================================================================
+    # 🚀 BARRA DE NAVEGACIÓN SUPERIOR GLOBAL EN COLUMNAS HORIZONTALES
+    # =========================================================================
+    secciones = [
+        "🎯 Dashboard General", 
+        "📊 Métricas ROI", 
+        "🕵️ Capa 1: UEBA", 
+        "🌐 Capa 2: NTA", 
+        "⚡ Capa 3: Control", 
+        "🤝 Threat Intel", 
+        "⚙️ Reglas"
+    ]
+    
+    # Generamos dinámicamente columnas una al lado de la otra arriba de las vistas
+    cols_nav = st.columns(len(secciones))
+    for idx, sec in enumerate(secciones):
+        with cols_nav[idx]:
+            # Resaltar estéticamente el botón activo con el color primario de Hyperion
+            es_activo = (st.session_state.menu_opcion.split(":")[0].strip() in sec) or (sec in st.session_state.menu_opcion)
+            tipo_boton = "primary" if es_activo else "secondary"
+            
+            if st.button(sec, key=f"nav_btn_{idx}", use_container_width=True, type=tipo_boton):
+                # Mapeo invertido seguro al valor completo del menú antiguo para no alterar la lógica inferior
+                mapeo_completo = {
+                    "🎯 Dashboard General": "🎯 Dashboard General",
+                    "📊 Métricas ROI": "📊 Métricas de Eficacia (ROI)",
+                    "🕵️ Capa 1: UEBA": "🕵️ Capa 1: Perfilado UEBA",
+                    "🌐 Capa 2: NTA": "🌐 Capa 2: Detección NTA",
+                    "⚡ Capa 3: Control": "⚡ Capa 3: Control Autónomo",
+                    "🤝 Threat Intel": "🤝 Threat Intel Exchange",
+                    "⚙️ Reglas": "⚙️ Exclusiones & Confianza"
+                }
+                st.session_state.menu_opcion = mapeo_completo[sec]
+                st.rerun()
+                
     st.markdown("---")
+
+    # Captura del estado actual de la barra de navegación horizontal
+    menu_opcion = st.session_state.menu_opcion
 
     if menu_opcion == "🎯 Dashboard General":
         st.subheader("📊 Resumen Ejecutivo de Inmunidad")
@@ -232,14 +267,12 @@ if st.session_state.authenticated:
     elif menu_opcion == "🌐 Capa 2: Detección NTA":
         st.subheader("🌐 Visualizador de Inmunidad de Red (NTA)")
         
-        # Separación por columnas nativas: mapa al lado izquierdo, tarjetas HUD del panel secundario a la derecha
         col_mapa, col_panel = st.columns([2.5, 1.5])
         
         with col_mapa:
             st.map(pd.DataFrame(columns=['lat', 'lon']), zoom=1, use_container_width=True)
             
         with col_panel:
-            # --- TARJETAS CAMBIADAS AL ESTILO UNIFICADO SOLICITADO ---
             st.markdown(f"""
                 <div class="soar-card info">
                     <div class="card-header" style="color: #58a6ff;">🏢 NODO LOCAL SOC</div>
