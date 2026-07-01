@@ -18,23 +18,89 @@ for key, value in {"auth": {"token": None, "user": None, "step": "login"}, "page
     if key not in st.session_state:
         st.session_state[key] = value
 
-# --- CSS INYECTADO (LIMPIO Y SIN TRUCOS DE COLAPSO) ---
+# --- CSS INYECTADO (ESTILOS PREMIUM UNIFICADOS Y SIN TRUCOS DE COLAPSO) ---
 st.markdown("""
     <style>
-        .stApp { background-color: #0b0e14; }
-        div.stButton > button { background-color: #161b22; color: #f0f6fc; border: 1px solid #30363d; border-radius: 8px; transition: all 0.3s ease; text-align: left; padding: 8px 16px; }
-        div.stButton > button:hover { border-color: #a78bfa; color: #a78bfa; background-color: #161b22; }
-        [data-testid="stSidebar"] { background-color: #0d1117; border-right: 1px solid #30363d; min-width: 260px !important; }
-        [data-testid="stMetricValue"] { color: #a78bfa !important; }
-        *:focus { outline: none !important; box-shadow: none !important; }
-        .kpi-card { background: #161b22; padding: 20px; border-radius: 12px; border: 1px solid #30363d; }
-        .risk-row { background: #0d1117; padding: 15px; border-radius: 10px; border: 1px solid #30363d; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-        .owner-badge { background: #21262d; color: #8b949e; padding: 2px 8px; border-radius: 10px; font-size: 11px; border: 1px solid #30363d; }
-        .compliance-tag { font-size: 12px; color: #a78bfa; font-weight: bold; }
-        .metric-card { background: #161b22; padding: 15px; border-radius: 10px; border: 1px solid #30363d; }
+        /* Paleta General Premium clonada del panel externo */
+        .stApp { background-color: #07090e; }
         
-        /* Ocultar permanentemente el botón nativo de colapsar la barra lateral */
-        [data-testid="stSidebarCollapsedControl"] { display: none !important; }
+        h1 { color: #a78bfa !important; font-family: 'Segoe UI', sans-serif; font-weight: 800; letter-spacing: -0.5px; }
+        h2 { color: #a78bfa !important; font-family: 'Segoe UI', sans-serif; }
+        h3 { color: #58a6ff !important; font-family: 'Courier New', monospace; font-weight: bold; }
+        h4 { color: #ffffff !important; }
+        
+        /* Botones del menú lateral estilo menú premium interactivo */
+        div.stButton > button { 
+            background-color: #0c111d; 
+            color: #e2e8f0; 
+            border: 1px solid rgba(255, 255, 255, 0.05); 
+            border-radius: 8px; 
+            transition: all 0.2s ease-in-out; 
+            text-align: left; 
+            padding: 12px 16px; 
+            width: 100%;
+        }
+        div.stButton > button:hover { 
+            border-color: rgba(167, 139, 250, 0.4); 
+            color: #ffffff; 
+            background-color: #111827; 
+        }
+        div.stButton > button:focus, div.stButton > button:active {
+            background-color: rgba(167, 139, 250, 0.15) !important;
+            border: 1px solid #a78bfa !important;
+            color: #ffffff !important;
+            box-shadow: 0 0 12px rgba(167, 139, 250, 0.2) !important;
+        }
+
+        /* Barra Lateral fija con bordes y fondos clonados */
+        [data-testid="stSidebar"] { 
+            background-color: #090d14; 
+            border-right: 1px solid rgba(167, 139, 250, 0.15); 
+            min-width: 260px !important; 
+        }
+        [data-testid="stSidebarCollapsedControl"] { display: none !important; } /* Ocultar permanentemente colapso nativo */
+        
+        /* Métricas y Tablas Estilo HUD Cyberpunk */
+        [data-testid="stMetricValue"] { color: #a78bfa !important; }
+        .stDataFrame { background-color: #0b0f17; border: 1px solid #1f2937; }
+        *:focus { outline: none !important; box-shadow: none !important; }
+        
+        /* Tarjetas, Contenedores y Filas de Riesgo clonados */
+        .kpi-card { 
+            background: #0b0f17; 
+            padding: 20px; 
+            border-radius: 12px; 
+            border: 1px solid rgba(167, 139, 250, 0.2); 
+            box-shadow: 0 0 30px rgba(88, 166, 255, 0.03);
+        }
+        .metric-card { 
+            background: linear-gradient(135deg, #0f172a 0%, #020617 100%); 
+            padding: 15px; 
+            border-radius: 10px; 
+            border: 1px solid rgba(167, 139, 250, 0.3); 
+        }
+        .risk-row { 
+            background: rgba(11, 15, 23, 0.9); 
+            padding: 15px; 
+            border-radius: 10px; 
+            border: 1px solid rgba(167, 139, 250, 0.2); 
+            margin-bottom: 12px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            backdrop-filter: blur(10px);
+        }
+        .owner-badge { 
+            background: #0f172a; 
+            color: #cbd5e1; 
+            padding: 2px 8px; 
+            border-radius: 10px; 
+            font-size: 11px; 
+            border: 1px solid rgba(255,255,255,0.1); 
+        }
+        .compliance-tag { font-size: 12px; color: #a78bfa; font-weight: bold; }
+        
+        footer { visibility: hidden; }
     </style>
 """, unsafe_allow_html=True)
 
