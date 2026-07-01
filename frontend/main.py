@@ -197,7 +197,7 @@ else:
         except: log_placeholder.error("🚨 Sincronizando con nodo central...")
 
     # ==========================================
-    # 💎 MÓDULO OPERADORES ENTERAMENTE CORREGIDO
+    # 💎 MÓDULO OPERADORES CORREGIDO Y OPTIMIZADO
     # ==========================================
     elif st.session_state.page == "Operadores":
         st.markdown("<h2 style='margin-bottom:0px;'>Gestión de Usuarios</h2>", unsafe_allow_html=True)
@@ -210,7 +210,6 @@ else:
                 total_usuarios = len(data_dict)
                 admins_count = sum(1 for v in data_dict.values() if v.get('role') == 'admin')
                 
-                # Renderizado de Tarjetas Superiores (Grid HTML Puro para evitar desfases)
                 kpis_html = f"""
                 <div class="panel-kpi-container">
                     <div class="panel-card">
@@ -245,12 +244,10 @@ else:
                 """
                 st.markdown(kpis_html, unsafe_allow_html=True)
                 
-                # Controles Intermedios (Buscador y Botón) con la estructura nativa de Streamlit alineada
                 c_search, c_space, c_btn = st.columns([3, 3.2, 1.8])
                 with c_search:
                     search_query = st.text_input("Buscar...", label_visibility="collapsed", placeholder="🔍 Buscar usuarios o roles...")
                 with c_btn:
-                    # Inyectamos estilos directamente sobre este botón para darle el tono azul corporativo de la maqueta
                     st.markdown("""
                         <style>
                             div.element-container:has(button:contains("Agregar Usuario")) button {
@@ -266,7 +263,7 @@ else:
                     if st.button("➕ Agregar Usuario", use_container_width=True):
                         st.info("Ruta de creación disponible en Tab Registro del Login.")
                 
-                # Construcción y Renderizado de la Tabla Limpia
+                # Renderizado limpio y seguro de la tabla SaaS
                 table_body = ""
                 for email, info in data_dict.items():
                     role = info.get('role', 'user').lower()
@@ -280,7 +277,6 @@ else:
                     name_part = email.split('@')[0].replace('.', ' ').title()
                     initials = "".join([p[0] for p in name_part.split()[:2]]).upper() if name_part else "OP"
                     
-                    # Estructura limpia de filas
                     table_body += f"""
                     <tr>
                         <td>
@@ -303,8 +299,7 @@ else:
                         </td>
                     </tr>
                     """
-                
-                # Unimos la tabla de manera estricta en un solo bloque HTML para prevenir fallos del intérprete
+                    
                 full_table_html = f"""
                 <div class="saas-container">
                     <table class="saas-table">
