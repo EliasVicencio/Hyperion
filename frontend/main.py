@@ -29,7 +29,7 @@ LOGO_SVG = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='
 
 st.set_page_config(page_title="Hyperion Core", page_icon=LOGO_SVG, layout="wide")
 
-# --- CSS INYECTADO ---
+# --- CSS INYECTADO (SOPORTE PARA SIDEBAR MINIMIZADA) ---
 st.markdown("""
     <style>
         .stApp { background-color: #0b0e14; }
@@ -44,17 +44,63 @@ st.markdown("""
         .compliance-tag { font-size: 12px; color: #a78bfa; font-weight: bold; }
         .metric-card { background: #161b22; padding: 15px; border-radius: 10px; border: 1px solid #30363d; }
 
-        /* Sidebar persistente y minimizada al cerrarse */
-        [data-testid="stSidebarCollapsedControl"] { left: 70px !important; transition: left 0.3s; }
-        [data-testid="stSidebar"][aria-expanded="false"] { transform: translateX(0px) !important; min-width: 75px !important; max-width: 75px !important; }
+        /* Evita que el contenedor principal de la app ignore el margen cuando se cierra */
+        [data-testid="stSidebarCollapsedControl"] {
+            left: 70px !important; /* Mueve el botón nativo ">" de abrir para que no estorbe */
+            transition: left 0.3s;
+        }
+        
+        /* Cuando streamlit intenta ocultar la barra lateral (collapsed) */
+        [data-testid="stSidebar"][aria-expanded="false"] {
+            transform: translateX(0px) !important; /* Anula el comportamiento de desaparecer */
+            min-width: 75px !important;
+            max-width: 75px !important;
+        }
+
+        /* Ocultar elementos informativos extensos en modo colapsado */
         [data-testid="stSidebar"][aria-expanded="false"] h2,
         [data-testid="stSidebar"][aria-expanded="false"] p,
         [data-testid="stSidebar"][aria-expanded="false"] hr,
-        [data-testid="stSidebar"][aria-expanded="false"] .stMarkdown div { display: none !important; }
-        [data-testid="stSidebar"][aria-expanded="false"] img { margin: 0 auto !important; display: block !important; }
-        [data-testid="stSidebar"][aria-expanded="false"] div.stButton > button { font-size: 20px !important; text-align: center !important; padding: 10px 0 !important; letter-spacing: -100px; color: transparent; }
-        [data-testid="stSidebar"][aria-expanded="false"] div.stButton > button::first-letter { color: #f0f6fc !important; letter-spacing: normal !important; }
-        [data-testid="stSidebar"][aria-expanded="false"] div.stButton > button:hover::first-letter { color: #a78bfa !important; }
+        [data-testid="stSidebar"][aria-expanded="false"] .stMarkdown div {
+            display: none !important;
+        }
+        
+        /* Forzar que el logo mini sí se vea bonito arriba en modo colapsado */
+        [data-testid="stSidebar"][aria-expanded="false"] img {
+            margin: 0 auto !important;
+            display: block !important;
+        }
+
+        /* =========================================================================
+           SOLUCIÓN CSS PARA SIDEBAR MINIMIZADA (SOLO ICONOS)
+           ========================================================================= */
+        [data-testid="stSidebar"][aria-expanded="false"] div.stButton > button {
+            width: 45px !important;
+            height: 45px !important;
+            border-radius: 50% !important; /* Convertimos los botones en círculos distintivos */
+            border: 2px solid #30363d !important;
+            transition: all 0.3s ease;
+            text-align: center !important;
+            justify-content: center !important;
+            align-items: center !important;
+            color: #f0f6fc !important; /* Aseguramos que el contenido sea visible */
+            display: flex !important;
+            margin: 10px auto !important; /* Apilado vertical con buen espacio */
+            line-height: 1 !important;
+            
+            /* Ocultar texto después del icono/emoji con desbordamiento */
+            font-size: 22px !important; /* Ajuste del tamaño para el icono */
+            overflow: hidden !important; 
+            text-overflow: clip !important;
+            white-space: nowrap !important;
+            font-family: monospace; /* Útil para forzar que el primer carácter ocupe todo el espacio */
+        }
+        
+        [data-testid="stSidebar"][aria-expanded="false"] div.stButton > button:hover {
+            border-color: #a78bfa !important;
+            background-color: #161b22 !important;
+        }
+
     </style>
 """, unsafe_allow_html=True)
 
@@ -70,6 +116,7 @@ def nav_to(page):
 
 # --- CONTROL DE FLUJO PRINCIPAL DE LA INTERFAZ ---
 if not st.session_state.auth["token"]:
+    # LÓGICA DE ACCESO PÚBLICO (LOGIN / REGISTRO)
     _, col, _ = st.columns([1, 2, 1])
     
     with col:
@@ -183,12 +230,11 @@ if not st.session_state.auth["token"]:
                         st.error(f"🚨 Ocurrió un fallo inesperado en la solicitud de red: {e}")
 
 else:
-    # VISTAS PROTEGIDAS
+    # VISTAS PROTEGIDAS (EL USUARIO YA TIENE UN TOKEN VÁLIDO)
     with st.sidebar:
         st.markdown(f"""
-            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
-                <img src="{LOGO_SVG}" width="35">
-                <h2 style="color: #a78bfa; margin: 0; font-size: 1.5rem; letter-spacing: 1px;">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 20px; margin-top: 10px;">
+                <h2 style="color: #a78bfa; margin: 0; font-size: 1.5rem; letter-spacing: 1px; text-align: center;">
                     HYPERION <span style="color: white; font-size: 0.8rem; vertical-align: middle;">CORE</span>
                 </h2>
             </div>
@@ -225,21 +271,24 @@ else:
         
         st.write("---")
         
+        # NOTA: Los botones ahora deben empezar estrictamente con su Emoji para que la solución CSS funcione al colapsar
         if st.button("📊 Analíticas", use_container_width=True): nav_to("Analíticas")
         if st.button("👁️ Vigilancia", use_container_width=True): nav_to("Vigilancia")
         if st.button("👥 Operadores", use_container_width=True): nav_to("Operadores")
         st.write("---")
         if st.button("⚖️ Gobernanza", use_container_width=True): nav_to("Gobernanza")
-        if st.button("📜 Logs de Auditoría", use_container_width=True): nav_to("AuditLogs")
-        if st.button("📜 SIEM Audit", use_container_width=True): nav_to("SIEM")
+        if st.button("📜 Audit Logs", use_container_width=True): nav_to("AuditLogs")
+        if st.button("🛡️ SIEM Audit", use_container_width=True): nav_to("SIEM")
         
         st.write("---")
         if st.button("🚪 Cerrar Sesión", use_container_width=True):
             st.session_state.auth = {"token": None, "user": None, "step": "login"}
             st.rerun()
 
+    # Cargar cabecera común para llamadas protegidas
     headers = {"Authorization": f"Bearer {st.session_state.auth['token']}"}
     
+    # Enrutamiento interno de paneles
     if st.session_state.page == "Analíticas":
         st.markdown("<h2 style='color: #c084fc;'>📊 Dashboard de Mando SOC & Analíticas</h2>", unsafe_allow_html=True)
         st.markdown("<p style='color: #8b949e; margin-top:-15px;'>Métricas en tiempo real e integridad del framework de ciberseguridad NIST.</p>", unsafe_allow_html=True)
@@ -327,7 +376,6 @@ else:
             st.subheader("🛡️ Defensa Activa")
             st.status("Firewall: **Protegiendo**", state="complete")
             st.metric("Amenazas Bloqueadas (24h)", "127", "+12%")
-
         st.write("---")
         st.subheader("🖥️ Consola de Tráfico de Red (Deep Packet Inspection)")
         log_placeholder = st.empty()
@@ -431,7 +479,7 @@ else:
             st.error(f"🚨 Error de conexión: {e}")
 
     elif st.session_state.page == "SIEM":
-        st.title("📜 Hyperion SIEM Audit Gateway")
+        st.title("🛡️ Hyperion SIEM Audit Gateway")
         col_a, col_b, col_c = st.columns(3)
         with col_a:
             st.markdown('<div class="metric-card"><h4 style="margin:0; color:#9333ea;">📦 Nodo Ingesta</h4><p style="font-size:24px; font-weight:bold; margin:0;">ACTIVO</p><small style="color:#4ade80;">Kafka 9092</small></div>', unsafe_allow_html=True)
@@ -448,11 +496,11 @@ else:
             url_destino_con_parametros = f"{URL_DESPLIEGUE_RAMA_NUEVA}/?operator={st.session_state.auth['user']}&session_token={st.session_state.auth['token']}"
             st.markdown(f'<a href="{url_destino_con_parametros}" target="_blank" style="text-decoration: none;"><div style="background: linear-gradient(90deg, #9333ea 0%, #c084fc 100%); padding: 25px; border-radius: 12px; text-align: center; color: white; font-weight: bold; font-size: 18px;">🔒 ABRIR BITÁCORA LEGAL ↗️</div></a>', unsafe_allow_html=True)
         with right_col:
-            st.subheader("Estatus de Conexión")
-            st.success(f"Sesión: {st.session_state.auth['user']}")
-            st.markdown("""
-                <div style="background: rgba(74, 222, 128, 0.1); padding: 12px; border-radius: 8px; border: 1px solid #4ade80; margin-bottom: 15px;">
-                    <p style="margin:0; font-size:11px; color:#4ade80; font-weight:bold;">🔐 TÚNEL VPN DETECTADO</p>
-                    <p style="margin:4px 0 0 0; font-size:13px; color:#f0f6fc;">Acceso: <b>Protegido</b></p>
-                </div>
-            """, unsafe_allow_html=True)
+                st.subheader("Estatus de Conexión")
+                st.success(f"Sesión: {st.session_state.auth['user']}")
+                st.markdown("""
+                    <div style="background: rgba(74, 222, 128, 0.1); padding: 12px; border-radius: 8px; border: 1px solid #4ade80; margin-bottom: 15px;">
+                        <p style="margin:0; font-size:11px; color:#4ade80; font-weight:bold;">🔐 TÚNEL VPN DETECTADO</p>
+                        <p style="margin:4px 0 0 0; font-size:13px; color:#f0f6fc;">Acceso: <b>Protegido</b></p>
+                    </div>
+                """, unsafe_allow_html=True)
