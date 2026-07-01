@@ -53,6 +53,16 @@ st.markdown("""
         .owner-badge { background: #0f172a; color: #cbd5e1; padding: 2px 8px; border-radius: 10px; font-size: 11px; border: 1px solid rgba(255,255,255,0.1); }
         .compliance-tag { font-size: 12px; color: #a78bfa; font-weight: bold; }
         footer { visibility: hidden; }
+        
+        /* ==========================================
+           🔒 ELIMINACIÓN COMPLETA DE MARCAS STREAMLIT 
+           ========================================== */
+        #MainMenu { visibility: hidden; }
+        footer { visibility: hidden; }
+        header { visibility: hidden; }
+        
+        /* Ajuste opcional para eliminar el margen superior vacío */
+        .block-container { padding-top: 2rem !important; }
     </style>
 """, unsafe_allow_html=True)
 
