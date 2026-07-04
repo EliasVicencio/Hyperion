@@ -18,7 +18,7 @@ export default function Sidebar({ currentPage, setPage, onLogout }) { // 👈 Re
                 <Shield className="text-white" size={20} />
             </div>
             <span className="font-bold text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
-                HYPERION
+                HYPERION CORE
             </span>
         </div>
 

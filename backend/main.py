@@ -6,7 +6,8 @@ from pydantic import BaseModel
 from datetime import datetime
 import uuid
 from sqlalchemy.orm import Session
-
+# Aseguramos la importación de text por si usas el router o evaluate-behavior
+from sqlalchemy import text
 
 router = APIRouter(prefix="/api/v1/immune", tags=["Immune System"])
 app = FastAPI(title="Hyperion Core Backend", version="2.0.0")
@@ -75,13 +76,11 @@ def register_user(user: RegisterModel):
 
 @app.post("/auth/login")
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    # CAMBIO: Permite recibir los parámetros vía Form Data (como lo envía requests.post(data=...))
     username = form_data.username
     return {"status": "verified_credentials", "username": username}
 
 @app.post("/auth/login/verify-2fa")
 def verify_2fa(data: Verify2FAModel):
-    # CAMBIO: Recibe JSON estructurado y valida el flujo devolviendo el Bearer Token único esperado
     if not data.code or len(data.code) != 6:
         raise HTTPException(status_code=400, detail="Código OTP inválido o con formato erróneo.")
     
@@ -93,32 +92,39 @@ def verify_2fa(data: Verify2FAModel):
 # --- ENDPOINTS DE TRÁFICO Y MONITOREO (VIGILANCIA) ---
 @app.get("/logs/recent")
 def get_recent_logs(token: str = Depends(oauth2_scheme)):
-    # Simulación de tráfico cambiante para mantener la consola viva
     return RECENT_TRAFFIC
 
-# --- ENDPOINTS DE OPERADORES ---
+# --- ENDPOINTS DE OPERADORES (MAPPED FOR REACT FRONTEND) ---
+@app.get("/api/v1/operadores")
+def get_operadores_database():
+    """Transforma el USERS_DB interno al formato JSON plano mapeable por la tabla del Frontend"""
+    lista_operadores = []
+    for idx, (email, info) in enumerate(USERS_DB.items(), start=1):
+        lista_operadores.append({
+            "id": idx,
+            "nombre": "Operador Asignado" if info["role"] != "admin" else "Elias Vicencio",
+            "email": email,
+            "rol": info["role"].upper() + "_ROLE",
+            "activo": True,
+            "ultima_conexion": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        })
+    return lista_operadores
+
 @app.get("/api/system-metrics")
 def get_system_metrics(token: str = Depends(oauth2_scheme)):
-    # Retorna el listado estructurado de operadores registrados
     return USERS_DB
 
 # --- ENDPOINTS DE AUDITORÍA ---
 @app.get("/admin/audit-logs")
 def get_audit_logs(token: str = Depends(oauth2_scheme)):
-    # CAMBIO: Endpoint dedicado para el historial relacional completo de logs de la aplicación
     return AUDIT_LOGS
 
 # --- CONSOLA EXTERNA (SIEM CONSOLE HTML) ---
-# =====================================================================
-# RESTAURACIÓN ABSOLUTA DEL COMMAND CENTER ORIGINAL (FIEL AL 100%)
-# =====================================================================
 @app.get("/dashboard", response_class=HTMLResponse)
-async def external_dashboard(auth_token: str = None):  # <--- CAMBIO: Cambiado de 'token' a 'auth_token'
-    # Verificación de credenciales segura sin interferir con OAuth2 global
+async def external_dashboard(auth_token: str = None):
     if auth_token != "SESION_ADMIN_HYPERION_ULTRA_SECRETA":
         return "<html><body style='background:black;color:red;display:flex;justify-content:center;align-items:center;height:100vh;'><h1>ACCESO DENEGADO - PROTOCOLO DE SEGURIDAD ACTIVO</h1></body></html>"
        
-    # Retornamos el HTML plano puro (sin la 'f' inicial) para que Vercel no rompa con los caracteres % del SVG
     return """
     <html>
         <head>
@@ -127,51 +133,19 @@ async def external_dashboard(auth_token: str = None):  # <--- CAMBIO: Cambiado d
             <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
             <style>
                 body { background: #0b0e14; color: #e2e8f0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; overflow-x: hidden; }
-                
-                /* CABECERA CON LOGO */
-                .navbar {
-                    background: #161b22;
-                    padding: 15px 30px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    border-bottom: 1px solid #30363d;
-                    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-                }
+                .navbar { background: #161b22; padding: 15px 30px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #30363d; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
                 .logo-container { display: flex; align-items: center; gap: 12px; }
-                .logo-text {
-                    font-size: 1.4rem;
-                    font-weight: 800;
-                    letter-spacing: 2px;
-                    color: #fff;
-                    text-transform: uppercase;
-                }
-                .logo-text span { color: #a78bfa; } /* El toque morado de Hyperion */
-                
+                .logo-text { font-size: 1.4rem; font-weight: 800; letter-spacing: 2px; color: #fff; text-transform: uppercase; }
+                .logo-text span { color: #a78bfa; }
                 .status-container { display: flex; align-items: center; gap: 10px; font-size: 0.8rem; color: #8b949e; }
                 .status-dot { height: 8px; width: 8px; background: #238636; border-radius: 50%; box-shadow: 0 0 8px #238636; animation: pulse 2s infinite; }
-                
-                /* GRID Y TARJETAS */
                 .content { padding: 25px; }
                 .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 25px; }
                 .card { background: #0d1117; border: 1px solid #30363d; padding: 20px; border-radius: 12px; transition: 0.3s; }
                 .card:hover { border-color: #a78bfa; box-shadow: 0 0 15px rgba(167, 139, 250, 0.1); }
                 .card-title { color: #8b949e; font-size: 0.75rem; font-weight: bold; text-transform: uppercase; margin-bottom: 15px; letter-spacing: 1px; }
                 .big-value { font-size: 2.2rem; font-weight: bold; color: #f0f6fc; }
-                
-                .console {
-                    background: #010409;
-                    color: #4ade80;
-                    font-family: 'Consolas', 'Monaco', monospace;
-                    height: 350px;
-                    overflow-y: auto;
-                    padding: 20px;
-                    border-radius: 8px;
-                    font-size: 13px;
-                    border: 1px solid #30363d;
-                    line-height: 1.6;
-                }
-
+                .console { background: #010409; color: #4ade80; font-family: 'Consolas', 'Monaco', monospace; height: 350px; overflow-y: auto; padding: 20px; border-radius: 8px; font-size: 13px; border: 1px solid #30363d; line-height: 1.6; }
                 @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
             </style>
         </head>
@@ -255,7 +229,7 @@ async def external_dashboard(auth_token: str = None):  # <--- CAMBIO: Cambiado d
                     const term = document.getElementById('terminal');
                     const entry = document.createElement('div');
                     const time = new Date().toLocaleTimeString();
-                    entry.innerHTML = `<span style="color: #8b949e;">[${time}]</span> <span style="color: #a78bfa;">AUDIT:</span> Capturado paquete de entrada en nodo <span style="color: #fff;">${Math.random().toString(36).substring(7).toUpperCase()}</span>`;
+                    entry.innerHTML = `<span>[${time}]</span> <span>AUDIT:</span> Capturado paquete de entrada en nodo <span>${Math.random().toString(36).substring(7).toUpperCase()}</span>`;
                     term.appendChild(entry);
                     if(term.childNodes.length > 50) term.removeChild(term.firstChild);
                     term.scrollTop = term.scrollHeight;
@@ -266,18 +240,15 @@ async def external_dashboard(auth_token: str = None):  # <--- CAMBIO: Cambiado d
         </body>
     </html>
     """
-    
 
 @router.post("/evaluate-behavior")
 async def evaluate_behavior(attempt: LoginAttempt):
-    # NOTA: Aquí mapeamos la query directa usando SQLAlchemy Text para mantener compatibilidad con Supabase
     query_profile = text('SELECT typical_hours, typical_countries FROM user_behavior_profile WHERE user_email = :email')
     
     with engine.connect() as conn:
         result = conn.execute(query_profile, {"email": attempt.user_email}).fetchone()
         
         if not result:
-            # Si el usuario no tiene perfil, lo registramos con un perfil base por defecto
             insert_profile = text('''
                 INSERT INTO user_behavior_profile (user_email, typical_hours, typical_countries)
                 VALUES (:email, ARRAY[8,9,10,11,12,13,14,15,16,17,18], ARRAY[:country])
@@ -286,20 +257,17 @@ async def evaluate_behavior(attempt: LoginAttempt):
             conn.commit()
             return {"status": "profile_created", "anomalies": []}
         
-        typical_hours = result[0]      # Formato lista de Python gracias al driver
-        typical_countries = result[1]  # Formato lista de Python
+        typical_hours = result[0]
+        typical_countries = result[1]
         
         anomalies = []
         
-        # Validación Capa 1.A: Horario inusual
         if attempt.hour not in typical_hours:
             anomalies.append(f"Acceso a hora inusual: {attempt.hour}:00 hrs.")
             
-        # Validación Capa 1.B: Ubicación geográfica anómala
         if attempt.country not in typical_countries:
             anomalies.append(f"Acceso desde país no habitual: {attempt.country}.")
             
-        # Correlación: Si se disparan ambas anomalías en el mismo evento, se cataloga como amenaza
         if len(anomalies) >= 2:
             description = " | ".join(anomalies)
             insert_anomaly = text('''
@@ -308,7 +276,6 @@ async def evaluate_behavior(attempt: LoginAttempt):
             ''')
             conn.execute(insert_anomaly, {"email": attempt.user_email, "desc": description})
             
-            # ATENCIÓN: Automatización con tu tabla inmutable AUDIT_LOGS
             insert_audit = text('''
                 INSERT INTO "audit_logs" (actor, action, context, hash_this)
                 VALUES ('HYPERION_UEBA', 'ANOMALOUS_BEHAVIOR_DETECTED', :context, 'SHA256_SIMULADO_IMMUNE_LAYER')
@@ -319,10 +286,11 @@ async def evaluate_behavior(attempt: LoginAttempt):
             return {"status": "threat_detected", "anomalies": anomalies}
             
     return {"status": "clear", "anomalies": []}
-    
+
+# --- MONTAJE DEL ROUTER DEL SISTEMA INMUNE ---
+app.include_router(router)
+
 if __name__ == "__main__":
-
     import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8000) 
-
+    # Forzamos la inicialización en el puerto correcto de tu stack Docker 7860
+    uvicorn.run(app, host="0.0.0.0", port=7860)
