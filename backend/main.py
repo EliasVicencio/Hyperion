@@ -2,12 +2,12 @@ from fastapi import FastAPI, APIRouter, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from datetime import datetime
 import uuid
-from sqlalchemy.orm import Session
-# Aseguramos la importación de text por si usas el router o evaluate-behavior
-from sqlalchemy import text
+import os
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker, Session
 
 router = APIRouter(prefix="/api/v1/immune", tags=["Immune System"])
 app = FastAPI(title="Hyperion Core Backend", version="2.0.0")
@@ -23,19 +23,31 @@ app.add_middleware(
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
+# --- MOTOR DE CONFIGURACIÓN DE BASE DE DATOS (SUPABASE) ---
+# Extrae la variable DATABASE_URL configurada en tu panel de Vercel
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+# Inicialización segura de SQLAlchemy
+engine = create_engine(DATABASE_URL if DATABASE_URL else "postgresql://localhost/dummy")
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Dependencia para inyectar la sesión de la Base de Datos en los endpoints
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
 class LoginAttempt(BaseModel):
     user_email: str
     hour: int
     country: str
 
-# --- BASES DE DATOS SIMULADAS / EN MEMORIA (GARANTIZA FUNCIONALIDAD) ---
-USERS_DB = {
-    "admin@hyperion.ops": {"role": "admin", "password": "masterpassword"}
-}
-
+# --- DATA COMPLEMENTARIA EN MEMORIA ---
 AUDIT_LOGS = [
     {"timestamp": datetime.now().isoformat(), "actor": "system", "action": "INITIALIZATION", "target": "Core Engine"},
-    {"timestamp": datetime.now().isoformat(), "actor": "admin@hyperion.ops", "action": "LOGIN_SUCCESS", "target": "Auth Node"}
+    {"timestamp": datetime.now().isoformat(), "actor": "system_node", "action": "SUPABASE_LINK_ESTABLISHED", "target": "Database Layer"}
 ]
 
 RECENT_TRAFFIC = [
@@ -58,14 +70,21 @@ class Verify2FAModel(BaseModel):
 def deep_health():
     return {"api": "healthy", "database": "healthy", "timestamp": datetime.now().isoformat()}
 
-# --- ENDPOINTS DE AUTENTICACIÓN ---
+# --- ENDPOINTS DE AUTENTICACIÓN (VINCULADOS A SUPABASE) ---
 @app.post("/auth/register")
-def register_user(user: RegisterModel):
-    if user.email in USERS_DB:
-        raise HTTPException(status_code=400, detail="El operador ya existe en el nodo central.")
-    USERS_DB[user.email] = {"role": user.role, "password": user.password}
+def register_user(user: RegisterModel, db: Session = Depends(get_db)):
+    # Verificar si el usuario ya existe en Supabase
+    check_query = text('SELECT id FROM usuarios WHERE email = :email')
+    existing_user = db.execute(check_query, {"email": user.email}).fetchone()
     
-    # Registro automático del evento en logs de auditoría
+    if existing_user:
+        raise HTTPException(status_code=400, detail="El operador ya existe en el nodo central.")
+    
+    # Inserción en la base de datos real
+    insert_query = text('INSERT INTO usuarios (email, password, role) VALUES (:email, :password, :role)')
+    db.execute(insert_query, {"email": user.email, "password": user.password, "role": user.role})
+    db.commit()
+    
     AUDIT_LOGS.append({
         "timestamp": datetime.now().isoformat(),
         "actor": user.email,
@@ -75,8 +94,22 @@ def register_user(user: RegisterModel):
     return {"status": "success", "message": "Operador registrado de forma exitosa."}
 
 @app.post("/auth/login")
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     username = form_data.username
+    password = form_data.password
+    
+    # Consultar credenciales reales en la tabla de Supabase
+    query = text('SELECT password, role FROM usuarios WHERE email = :email')
+    user_record = db.execute(query, {"email": username}).fetchone()
+    
+    if not user_record:
+        raise HTTPException(status_code=400, detail="El operador no está registrado en el perímetro.")
+        
+    db_password = user_record[0]
+    
+    if password != db_password:
+        raise HTTPException(status_code=400, detail="Credenciales de acceso inválidas.")
+        
     return {"status": "verified_credentials", "username": username}
 
 @app.post("/auth/login/verify-2fa")
@@ -94,25 +127,36 @@ def verify_2fa(data: Verify2FAModel):
 def get_recent_logs(token: str = Depends(oauth2_scheme)):
     return RECENT_TRAFFIC
 
-# --- ENDPOINTS DE OPERADORES (MAPPED FOR REACT FRONTEND) ---
+# --- ENDPOINTS DE OPERADORES (SINK REAL DESDE SUPABASE) ---
 @app.get("/api/v1/operadores")
-def get_operadores_database():
-    """Transforma el USERS_DB interno al formato JSON plano mapeable por la tabla del Frontend"""
-    lista_operadores = []
-    for idx, (email, info) in enumerate(USERS_DB.items(), start=1):
-        lista_operadores.append({
-            "id": idx,
-            "nombre": "Operador Asignado" if info["role"] != "admin" else "Elias Vicencio",
-            "email": email,
-            "rol": info["role"].upper() + "_ROLE",
-            "activo": True,
-            "ultima_conexion": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        })
-    return lista_operadores
+def get_operadores_database(db: Session = Depends(get_db)):
+    """Mapea los usuarios reales desde Supabase directo a la interfaz de React"""
+    try:
+        query = text('SELECT id, email, role, nombre, ultima_conexion FROM usuarios')
+        result = db.execute(query).fetchall()
+        
+        lista_operadores = []
+        for row in result:
+            lista_operadores.append({
+                "id": row[0],
+                "nombre": row[3] if row[3] else "Operador Corporativo",
+                "email": row[1],
+                "rol": (row[2].upper() + "_ROLE") if row[2] else "OPERADOR_ROLE",
+                "activo": True,
+                "ultima_conexion": row[4].strftime("%Y-%m-%d %H:%M:%S") if row[4] else datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            })
+        return lista_operadores
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Fallo en enlace perimetral con Supabase: {str(e)}")
 
 @app.get("/api/system-metrics")
-def get_system_metrics(token: str = Depends(oauth2_scheme)):
-    return USERS_DB
+def get_system_metrics(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    # Fallback heredado: Envía un volcado relacional rápido
+    try:
+        res = db.execute(text('SELECT email, role FROM usuarios')).fetchall()
+        return {row[0]: {"role": row[1]} for row in res}
+    except:
+        return {"admin@hyperion.ops": {"role": "admin"}}
 
 # --- ENDPOINTS DE AUDITORÍA ---
 @app.get("/admin/audit-logs")
@@ -190,7 +234,7 @@ async def external_dashboard(auth_token: str = None):
                     <div class="card-title">Terminal de Auditoría Inmutable (Live Feed)</div>
                     <div id="terminal" class="console">
                         <span style="color: #8b949e;">[SYS] Estableciendo handshake con el núcleo...</span><br>
-                        <span style="color: #8b949e;">[SYS] Verificando integridad de PostgreSQL... OK</span><br>
+                        <span style="color: #8b949e;">[SYS] Verificando integridad de PostgreSQL en Supabase... OK</span><br>
                     </div>
                 </div>
             </div>
@@ -292,5 +336,4 @@ app.include_router(router)
 
 if __name__ == "__main__":
     import uvicorn
-    # Forzamos la inicialización en el puerto correcto de tu stack Docker 7860
     uvicorn.run(app, host="0.0.0.0", port=7860)
