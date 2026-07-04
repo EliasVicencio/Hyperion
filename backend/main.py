@@ -4,7 +4,9 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from datetime import datetime
 import os
-import httpx
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker, Session
+from fastapi.concurrency import run_in_threadpool
 
 router = APIRouter(prefix="/api/v1/immune", tags=["Immune System"])
 app = FastAPI(title="Hyperion Core Backend", version="2.0.0")
@@ -20,96 +22,83 @@ app.add_middleware(
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
-# --- CREDENCIALES DESDE VARIABLES DE ENTORNO (BÓVEDA SEGURA) ---
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+# --- CONEXIÓN DE BASE DE DATOS ULTRA LIGERA PARA VERCEL ---
+RAW_DB_URL = os.getenv("DATABASE_URL")
 
-AUDIT_LOGS = [{"timestamp": datetime.now().isoformat(), "actor": "system", "action": "INITIALIZATION", "target": "Core Engine"}]
-RECENT_TRAFFIC = [{"timestamp": datetime.now().isoformat(), "message": "Cluster operativo bajo conexion HTTP nativa"}]
+# Reparar el string por si viene de Supabase con postgres://
+if RAW_DB_URL and RAW_DB_URL.startswith("postgres://"):
+    RAW_DB_URL = RAW_DB_URL.replace("postgres://", "postgresql://", 1)
 
+# IMPORTANTE: Desactivamos el pooling estático usando NullPool. 
+# Esto evita que Vercel Serverless aborte la ejecución al iniciar.
+if RAW_DB_URL:
+    from sqlalchemy.pool import NullPool
+    engine = create_engine(RAW_DB_URL, poolclass=NullPool)
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+else:
+    # Respaldo temporal si no se detecta la variable
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# --- MODELOS PYDANTIC ---
 class LoginAttempt(BaseModel):
     user_email: str
     hour: int
     country: str
 
+# --- ENDPOINTS ---
 @app.get("/health/deep")
 def deep_health():
-    return {"api": "healthy", "supabase_configured": bool(SUPABASE_URL), "timestamp": datetime.now().isoformat()}
+    return {"status": "healthy", "has_db_url": bool(RAW_DB_URL), "timestamp": datetime.now().isoformat()}
 
-# --- ENDPOINT DE OPERADORES (HTTP DIRECTO A SUPABASE) ---
 @app.get("/api/v1/operadores")
-async def get_operadores_database():
-    """Consulta la API REST nativa de Supabase. Rápido, seguro y sin crasheos en Vercel."""
-    if not SUPABASE_URL or not SUPABASE_KEY:
-        raise HTTPException(status_code=500, detail="Variables de entorno de Supabase ausentes.")
+async def get_operadores_database(db: Session = Depends(get_db)):
+    """Trae los usuarios reales de Supabase de manera asíncrona compatible con Vercel"""
+    if not RAW_DB_URL:
+        raise HTTPException(status_code=500, detail="Error de configuración: La variable DATABASE_URL está vacía en Vercel.")
+        
+    try:
+        query = text('SELECT id, email, role, nombre, ultima_conexion FROM usuarios')
+        result = await run_in_threadpool(db.execute, query)
+        rows = result.fetchall()
+        
+        lista_operadores = []
+        for row in rows:
+            lista_operadores.append({
+                "id": row[0],
+                "nombre": row[3] if row[3] else "Operador Corporativo",
+                "email": row[1],
+                "rol": (row[2].upper() + "_ROLE") if row[2] else "OPERADOR_ROLE",
+                "activo": True,
+                "ultima_conexion": row[4].strftime("%Y-%m-%d %H:%M:%S") if row[4] else datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            })
+        return lista_operadores
+    except Exception as e:
+        # Devolvemos el error real en texto para saber exactamente qué tabla o permiso falló
+        raise HTTPException(status_code=500, detail=f"Excepción en la base de datos: {str(e)}")
 
-    # Conectamos directamente con la tabla 'usuarios' vía REST
-    url = f"{SUPABASE_URL}/rest/v1/usuarios?select=id,email,role,nombre,ultima_conexion"
-    headers = {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}"
-    }
-
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(url, headers=headers)
-            if response.status_code != 200:
-                raise HTTPException(status_code=500, detail=f"Supabase respondió con error: {response.text}")
-            
-            rows = response.json()
-            lista_operadores = []
-            for row in rows:
-                lista_operadores.append({
-                    "id": row.get("id"),
-                    "nombre": row.get("nombre") if row.get("nombre") else "Operador Corporativo",
-                    "email": row.get("email"),
-                    "rol": (row.get("role").upper() + "_ROLE") if row.get("role") else "OPERADOR_ROLE",
-                    "activo": True,
-                    "ultima_conexion": row.get("ultima_conexion") if row.get("ultima_conexion") else datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                })
-            return lista_operadores
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error en enlace perimetral: {str(e)}")
-
-# --- ENDPOINT DE LOGIN ---
 @app.post("/auth/login")
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    """Valida credenciales haciendo un filtro directo en la API de Supabase"""
-    if not SUPABASE_URL or not SUPABASE_KEY:
-        raise HTTPException(status_code=500, detail="Variables de entorno no configuradas.")
-
+async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     username = form_data.username
     password = form_data.password
-
-    url = f"{SUPABASE_URL}/rest/v1/usuarios?email=eq.{username}&select=password"
-    headers = {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}"
-    }
-
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(url, headers=headers)
-            records = response.json()
+    
+    try:
+        query = text('SELECT password, role FROM usuarios WHERE email = :email')
+        user_record = db.execute(query, {"email": username}).fetchone()
+        
+        if not user_record or password != user_record[0]:
+            raise HTTPException(status_code=400, detail="Credenciales incorrectas o usuario no registrado.")
             
-            if not records or response.status_code != 200:
-                raise HTTPException(status_code=400, detail="Operador no registrado en el perímetro.")
-            
-            db_password = records[0].get("password")
-            if password != db_password:
-                raise HTTPException(status_code=400, detail="Credenciales de acceso inválidas.")
-                
-            return {"status": "verified_credentials", "username": username}
-        except Exception:
-            raise HTTPException(status_code=500, detail="Error durante el protocolo de verificación.")
-
-@app.get("/logs/recent")
-def get_recent_logs(token: str = Depends(oauth2_scheme)):
-    return RECENT_TRAFFIC
-
-@app.get("/admin/audit-logs")
-def get_audit_logs(token: str = Depends(oauth2_scheme)):
-    return AUDIT_LOGS
+        return {"status": "verified_credentials", "username": username}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error en el proceso de autenticación: {str(e)}")
 
 app.include_router(router)
 
