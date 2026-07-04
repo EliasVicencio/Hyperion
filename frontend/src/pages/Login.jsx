@@ -23,7 +23,7 @@ export default function Login({ onLoginSuccess }) {
 
       {/* Tarjeta Contenedora Principal */}
       <div className="w-full max-w-md bg-[#0b111e]/80 border border-slate-800/80 backdrop-blur-xl rounded-3xl p-8 shadow-2xl relative z-10">
-        
+
         {/* Encabezado e Isotipo */}
         <div className="flex flex-col items-center text-center mb-8">
           <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-xl shadow-blue-500/10 mb-4">
@@ -33,15 +33,15 @@ export default function Login({ onLoginSuccess }) {
             {isRegister ? 'Crear cuenta Hyperion' : 'Acceso al Sistema'}
           </h2>
           <p className="text-slate-500 text-xs mt-1.5 max-w-[280px]">
-            {isRegister 
-              ? 'Regístrate para la gestión unificada de políticas e incidentes SGSI.' 
+            {isRegister
+              ? 'Regístrate para la gestión unificada de políticas e incidentes SGSI.'
               : 'Introduce tus credenciales autorizadas para iniciar auditoría.'}
           </p>
         </div>
 
         {/* Formulario */}
         <form onSubmit={handleSubmit} className="space-y-4">
-          
+
           {/* Campo Nombre (Solo si es Registro) */}
           {isRegister && (
             <div className="space-y-1.5">
@@ -109,7 +109,7 @@ export default function Login({ onLoginSuccess }) {
             type="submit"
             className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-xl text-sm mt-2 flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-600/10 group"
           >
-            {isRegister ? 'Registrar Operador' : 'Autenticar'} 
+            {isRegister ? 'Registrar Operador' : 'Autenticar'}
             <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
           </button>
         </form>

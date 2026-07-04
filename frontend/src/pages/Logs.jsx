@@ -16,9 +16,9 @@ export default function Logs() {
   // Lógica de filtrado combinado (Buscador + Botones de Nivel)
   const logsFiltrados = logsIniciales.filter(log => {
     const coincideNivel = filtro === 'ALL' || log.nivel === filtro;
-    const coincideTexto = log.usuario.toLowerCase().includes(busqueda.toLowerCase()) || 
-                          log.accion.toLowerCase().includes(busqueda.toLowerCase()) ||
-                          log.id.toLowerCase().includes(busqueda.toLowerCase());
+    const coincideTexto = log.usuario.toLowerCase().includes(busqueda.toLowerCase()) ||
+      log.accion.toLowerCase().includes(busqueda.toLowerCase()) ||
+      log.id.toLowerCase().includes(busqueda.toLowerCase());
     return coincideNivel && coincideTexto;
   });
 
@@ -45,11 +45,10 @@ export default function Logs() {
             <button
               key={lvl}
               onClick={() => setFiltro(lvl)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono border transition-all ${
-                filtro === lvl
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono border transition-all ${filtro === lvl
                   ? 'bg-purple-600/10 text-purple-400 border-purple-500/30 shadow-[0_0_10px_rgba(168,85,247,0.1)]'
                   : 'bg-slate-950 text-slate-500 border-slate-900 hover:text-slate-300'
-              }`}
+                }`}
             >
               {lvl === 'ALL' ? 'TODOS' : lvl}
             </button>
@@ -87,9 +86,8 @@ export default function Logs() {
                 <tr key={log.id} className="hover:bg-purple-500/[0.01] transition-colors font-mono">
                   <td className="px-6 py-4 text-slate-400 font-bold">{log.id}</td>
                   <td className="px-6 py-4">
-                    <span className={`flex items-center gap-1.5 font-bold ${
-                      log.nivel === 'CRIT' ? 'text-red-400' : log.nivel === 'WARN' ? 'text-amber-400' : 'text-blue-400'
-                    }`}>
+                    <span className={`flex items-center gap-1.5 font-bold ${log.nivel === 'CRIT' ? 'text-red-400' : log.nivel === 'WARN' ? 'text-amber-400' : 'text-blue-400'
+                      }`}>
                       {log.nivel === 'CRIT' && <ShieldAlert size={14} />}
                       {log.nivel === 'WARN' && <AlertTriangle size={14} />}
                       {log.nivel === 'INFO' && <Info size={14} />}

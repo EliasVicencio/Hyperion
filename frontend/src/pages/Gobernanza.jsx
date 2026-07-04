@@ -35,7 +35,7 @@ export default function Gobernanza() {
 
       {/* Grid de Estado de Controles */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* Gráfico de Barras de Cumplimiento por Dominio (Ocupa 2 cols) */}
         <div className="lg:col-span-2 bg-hyperion-card border border-slate-800/50 p-6 rounded-3xl shadow-2xl">
           <h3 className="text-sm font-semibold text-slate-400 mb-6 uppercase tracking-wider">Desglose de Controles (Anexo A)</h3>
@@ -45,9 +45,9 @@ export default function Gobernanza() {
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" opacity={0.1} horizontal={false} />
                 <XAxis type="number" domain={[0, 100]} stroke="#64748b" fontSize={11} tickFormatter={(v) => `${v}%`} />
                 <YAxis dataKey="name" type="category" stroke="#64748b" fontSize={11} width={120} />
-                <Tooltip 
+                <Tooltip
                   cursor={{ fill: 'rgba(30, 41, 59, 0.2)' }}
-                  contentStyle={{ backgroundColor: '#070b14', borderColor: '#1e293b', borderRadius: '12px', color: '#f8fafc' }} 
+                  contentStyle={{ backgroundColor: '#070b14', borderColor: '#1e293b', borderRadius: '12px', color: '#f8fafc' }}
                 />
                 <Bar dataKey="cumplimiento" fill="#3b82f6" radius={[0, 6, 6, 0]} barSize={16} name="Cumplimiento %" />
               </BarChart>
@@ -109,13 +109,12 @@ export default function Gobernanza() {
                 <td className="px-6 py-4 text-xs font-mono text-slate-400">{pol.version}</td>
                 <td className="px-6 py-4 text-xs text-slate-400">{pol.revisada}</td>
                 <td className="px-6 py-4">
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide ${
-                    pol.estado === 'Aprobada' 
-                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide ${pol.estado === 'Aprobada'
+                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                       : pol.estado === 'En Revisión'
-                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                  }`}>
+                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                        : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                    }`}>
                     {pol.estado}
                   </span>
                 </td>

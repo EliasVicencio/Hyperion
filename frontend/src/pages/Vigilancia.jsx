@@ -42,13 +42,12 @@ export default function Vigilancia() {
           </h1>
           <p className="text-slate-500 text-sm">Inspección de paquetes profunda e hilos de ejecución perimetrales en tiempo real</p>
         </div>
-        <button 
+        <button
           onClick={() => setScanning(!scanning)}
-          className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 border transition-all ${
-            scanning 
-              ? 'bg-red-500/10 text-red-400 border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.1)]' 
+          className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 border transition-all ${scanning
+              ? 'bg-red-500/10 text-red-400 border-red-500/30 shadow-[0_0_15px_rgba(239,68,68,0.1)]'
               : 'bg-slate-900 text-slate-400 border-slate-800'
-          }`}
+            }`}
         >
           <RefreshCw size={16} className={scanning ? 'animate-spin' : ''} />
           {scanning ? 'Sonda Activa' : 'Sonda Pausada'}
@@ -57,28 +56,27 @@ export default function Vigilancia() {
 
       {/* Panel de Control Dual */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* Columna Izquierda: Alertas Activas (Ocupa 2 cols) */}
         <div className="lg:col-span-2 space-y-4">
           <div className="bg-hyperion-card border border-slate-800/50 rounded-3xl p-6 shadow-2xl">
             <h3 className="text-sm font-semibold text-slate-400 mb-4 flex items-center gap-2 uppercase tracking-wider">
               <ShieldAlert className="text-red-400" size={18} /> Cola de Alertas Recientes
             </h3>
-            
+
             <div className="space-y-3">
               {alertas.map(alerta => (
-                <div 
-                  key={alerta.id} 
+                <div
+                  key={alerta.id}
                   className="bg-slate-950/60 border border-slate-900 rounded-2xl p-4 flex items-center justify-between hover:border-slate-800 transition-colors group"
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`p-2 rounded-xl border ${
-                      alerta.severidad === 'CRÍTICA' 
-                        ? 'bg-red-500/10 text-red-400 border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.1)]' 
+                    <div className={`p-2 rounded-xl border ${alerta.severidad === 'CRÍTICA'
+                        ? 'bg-red-500/10 text-red-400 border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.1)]'
                         : alerta.severidad === 'ALTA'
-                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                        : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                    }`}>
+                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                          : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                      }`}>
                       <AlertOctagon size={20} />
                     </div>
                     <div>
@@ -90,9 +88,8 @@ export default function Vigilancia() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                      alerta.severidad === 'CRÍTICA' ? 'text-red-400 bg-red-950/30' : 'text-amber-400 bg-amber-950/30'
-                    }`}>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${alerta.severidad === 'CRÍTICA' ? 'text-red-400 bg-red-950/30' : 'text-amber-400 bg-amber-950/30'
+                      }`}>
                       {alerta.severidad}
                     </span>
                     <span className="text-[11px] text-slate-600 block mt-1">{alerta.timestamp}</span>
@@ -116,11 +113,10 @@ export default function Vigilancia() {
               </div>
               <div className="space-y-2.5 font-mono text-[11px] leading-relaxed">
                 {syslog.map((log, index) => (
-                  <p 
-                    key={index} 
-                    className={`${
-                      log.includes('[ALERT]') ? 'text-red-400' : log.includes('[WARN]') ? 'text-amber-400' : log.includes('[OK]') ? 'text-emerald-400' : 'text-slate-400'
-                    }`}
+                  <p
+                    key={index}
+                    className={`${log.includes('[ALERT]') ? 'text-red-400' : log.includes('[WARN]') ? 'text-amber-400' : log.includes('[OK]') ? 'text-emerald-400' : 'text-slate-400'
+                      }`}
                   >
                     {log}
                   </p>
