@@ -116,13 +116,13 @@ services:
       start_period: 15s
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: hyperion_dashboard
     restart: always
     ports:
-      - "8501:8501"
-    environment:
-      - BACKEND_URL=http://backend:7860 # Enlazado dinámicamente al puerto correcto del contenedor
+      - "80:80" # 👈 Accedes a http://localhost y verás la app completa con API incluida
     depends_on:
       backend:
         condition: service_healthy
