@@ -1,4 +1,10 @@
-version: '3.8'
+networks:
+  hyperion_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  # Definimos volumen para que la DB persista aunque el contenedor muera
 
 services:
   # --- CAPA DE DATOS Y CACHÉ ---
@@ -51,7 +57,7 @@ services:
       - hyperion_net
 
   kafka:
-    image: confluentinc/cp-kafka:7.4.0 # Versión estable
+    image: confluentinc/cp-kafka:7.4.0
     container_name: hyperion_kafka
     depends_on:
       - zookeeper
@@ -64,21 +70,20 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      # Esta es la línea que evita el error que te salió:
       KAFKA_ENABLE_KRAFT: "false" 
     networks:
       - hyperion_net
 
   worker:
-      build: ./backend
-      container_name: hyperion_worker
-      restart: always
-      command: python worker_ingestor.py
-      depends_on:
-        - kafka
-        - postgres_db
-      networks:
-        - hyperion_net
+    build: ./backend
+    container_name: hyperion_worker
+    restart: always
+    command: python worker_ingestor.py
+    depends_on:
+      - kafka
+      - postgres_db
+    networks:
+      - hyperion_net
 
   # --- CAPA DE APLICACIÓN ---
   backend:
@@ -89,7 +94,7 @@ services:
     restart: always
     env_file: .env
     ports:
-      - "8000:8000"
+      - "7860:7860" # Escalado al puerto real donde levanta Uvicorn
     volumes:
       - ./backend:/app
     depends_on:
@@ -104,11 +109,11 @@ services:
       - DB_HOST=postgres_db
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
     healthcheck:
-      test: ["CMD", "python", "-c", "import socket; s = socket.socket(); s.connect(('localhost', 8000))"]
-      interval: 10s
+      test: ["CMD", "python", "-c", "import socket; s = socket.socket(); s.connect(('localhost', 7860))"]
+      interval: 5s
       timeout: 5s
-      retries: 5
-      start_period: 20s
+      retries: 4
+      start_period: 15s
 
   frontend:
     build: ./frontend
@@ -117,17 +122,9 @@ services:
     ports:
       - "8501:8501"
     environment:
-      - BACKEND_URL=http://backend:8000
+      - BACKEND_URL=http://backend:7860 # Enlazado dinámicamente al puerto correcto del contenedor
     depends_on:
       backend:
         condition: service_healthy
     networks:
       - hyperion_net
-
-networks:
-  hyperion_net:
-    driver: bridge
-
-volumes:
-  postgres_data:
-  # Definimos volumen para que la DB persista aunque el contenedor muera

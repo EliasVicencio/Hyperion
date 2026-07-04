@@ -1,0 +1,12 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Tu reset para mantener la estética oscura pase lo que pase */
+html, body {
+  margin: 0;
+  padding: 0;
+  background-color: #020617;
+  color: #f8fafc;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
