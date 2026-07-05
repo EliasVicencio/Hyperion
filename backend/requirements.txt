@@ -6,3 +6,5 @@ pg8000
 httpx
 python-multipart
 bcrypt
+pyotp
+qrcode

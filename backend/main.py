@@ -27,18 +27,12 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 # --- CONEXIÓN DE BASE DE DATOS ULTRA LIGERA PARA VERCEL ---
 RAW_DB_URL = os.getenv("DATABASE_URL")
 
-# Reparar el string por si viene de Supabase con postgres:// o postgresql://
-# Forzamos el dialecto pg8000 (driver 100% Python, sin libpq nativo) porque
-# psycopg2-binary crashea la función serverless en Vercel con
-# "libpq.so.5: cannot open shared object file" (FUNCTION_INVOCATION_FAILED).
 if RAW_DB_URL:
     if RAW_DB_URL.startswith("postgres://"):
         RAW_DB_URL = RAW_DB_URL.replace("postgres://", "postgresql+pg8000://", 1)
     elif RAW_DB_URL.startswith("postgresql://"):
         RAW_DB_URL = RAW_DB_URL.replace("postgresql://", "postgresql+pg8000://", 1)
 
-# IMPORTANTE: Desactivamos el pooling estático usando NullPool. 
-# Esto evita que Vercel Serverless aborte la ejecución al iniciar.
 if RAW_DB_URL:
     from sqlalchemy.pool import NullPool
     engine = create_engine(
@@ -48,7 +42,6 @@ if RAW_DB_URL:
     )
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 else:
-    # Respaldo temporal si no se detecta la variable
     engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -60,9 +53,6 @@ def get_db():
         db.close()
 
 # --- HASHING DE CONTRASEÑAS ---
-# Usamos bcrypt directo (no passlib): passlib + bcrypt>=4.1 tienen un bug de
-# compatibilidad conocido (passlib está sin mantenimiento) que revienta al
-# hashear con "password cannot be longer than 72 bytes".
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
@@ -70,7 +60,6 @@ def verify_password(password: str, hashed: str) -> bool:
     try:
         return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
     except ValueError:
-        # hash corrupto o no-bcrypt (p. ej. quedó texto plano de una fila antigua)
         return False
 
 # --- MODELOS PYDANTIC ---
@@ -85,6 +74,15 @@ class NuevoOperador(BaseModel):
     nombre: str | None = None
     role: str = "operador"
 
+# Nuevos modelos para soportar el flujo 2FA Voluntario
+class TokenVerifyRequest(BaseModel):
+    username: str
+    token: str
+
+class Setup2FAResponse(BaseModel):
+    secret: str
+    qr_uri: str
+
 # --- ENDPOINTS ---
 @app.get("/health/deep")
 def deep_health():
@@ -92,7 +90,6 @@ def deep_health():
 
 @app.get("/api/v1/operadores")
 async def get_operadores_database(db: Session = Depends(get_db)):
-    """Trae los usuarios reales de Supabase de manera asíncrona compatible con Vercel"""
     if not RAW_DB_URL:
         raise HTTPException(status_code=500, detail="Error de configuración: La variable DATABASE_URL está vacía en Vercel.")
         
@@ -113,11 +110,9 @@ async def get_operadores_database(db: Session = Depends(get_db)):
             })
         return lista_operadores
     except Exception as e:
-        # Devolvemos el error real en texto para saber exactamente qué tabla o permiso falló
         raise HTTPException(status_code=500, detail=f"Excepción en la base de datos: {str(e)}")
 
 async def _crear_operador_en_bd(payload: "NuevoOperador", db: Session):
-    """Lógica compartida de alta de operador: hashea password e inserta en Supabase."""
     if not RAW_DB_URL:
         raise HTTPException(status_code=500, detail="Error de configuración: La variable DATABASE_URL está vacía en Vercel.")
 
@@ -164,31 +159,120 @@ async def _crear_operador_en_bd(payload: "NuevoOperador", db: Session):
 
 @app.post("/api/v1/register", status_code=status.HTTP_201_CREATED)
 async def register(payload: NuevoOperador, db: Session = Depends(get_db)):
-    """Endpoint público de auto-registro, usado por la pantalla de Login."""
     return await _crear_operador_en_bd(payload, db)
 
 @app.post("/api/v1/operadores", status_code=status.HTTP_201_CREATED)
 async def crear_operador(payload: NuevoOperador, db: Session = Depends(get_db)):
-    """Alta de operador desde el gestor de usuarios (Mission Control)."""
     return await _crear_operador_en_bd(payload, db)
 
+# =====================================================================
+# 🔐 MODIFICADO: LOGIN EN DOS PASOS VOLUNTARIO (MFA OPCIONAL)
+# =====================================================================
 @app.post("/auth/login")
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     username = form_data.username
     password = form_data.password
     
     try:
-        query = text('SELECT password, role FROM usuarios WHERE email = :email')
+        # Obtenemos la contraseña hash y las flags de verificación 2FA desde Supabase
+        query = text('SELECT password, role, two_factor_enabled FROM usuarios WHERE email = :email')
         user_record = db.execute(query, {"email": username}).fetchone()
 
         if not user_record or not verify_password(password, user_record[0]):
             raise HTTPException(status_code=400, detail="Credenciales incorrectas o usuario no registrado.")
 
-        return {"status": "verified_credentials", "username": username}
+        two_factor_enabled = bool(user_record[2])
+
+        # FLUJO COMPORTAMIENTO: Si tiene el 2FA encendido, no le damos el éxito directo, exigimos token.
+        if two_factor_enabled:
+            return {
+                "status": "requires_2fa",
+                "message": "Segundo factor de autenticación requerido para este operador.",
+                "username": username
+            }
+
+        # COMPORTAMIENTO VOLUNTARIO: Si no lo tiene activo, pasa directo sin trabas a merced del usuario.
+        return {
+            "status": "success", 
+            "username": username,
+            "role": (user_record[1].upper() + "_ROLE") if user_record[1] else "OPERADOR_ROLE"
+        }
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error en el proceso de autenticación: {str(e)}")
+
+@app.post("/auth/verify-2fa")
+async def verify_2fa(data: TokenVerifyRequest, db: Session = Depends(get_db)):
+    """Verifica el código de 6 dígitos introducido por el operador durante el Login."""
+    import pyotp
+    try:
+        query = text('SELECT two_factor_secret, role FROM usuarios WHERE email = :email')
+        user_record = db.execute(query, {"email": data.username}).fetchone()
+        
+        if not user_record or not user_record[0]:
+            raise HTTPException(status_code=400, detail="Este operador no tiene configurada una clave TOTP.")
+            
+        totp = pyotp.TOTP(user_record[0])
+        if not totp.verify(data.token):
+            raise HTTPException(status_code=400, detail="Código de seguridad inválido o expirado.")
+            
+        return {
+            "status": "success",
+            "username": data.username,
+            "role": (user_record[1].upper() + "_ROLE") if user_record[1] else "OPERADOR_ROLE"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Fallo en verificación perimetral: {str(e)}")
+
+# =====================================================================
+# ⚙️ NUEVOS ENDPOINTS PERFIL: GENERACIÓN Y ACTIVACIÓN DESDE CONFIGURACIÓN
+# =====================================================================
+@app.post("/auth/setup-2fa", response_model=Setup2FAResponse)
+async def setup_2fa(username: str, db: Session = Depends(get_db)):
+    """Inicializa la configuración del 2FA. Devuelve la llave y la uri para el QR."""
+    import pyotp
+    try:
+        secret = pyotp.random_base32()
+        totp_auth_url = pyotp.totp.TOTP(secret).provisioning_uri(
+            name=username, 
+            issuer_name="Hyperion Core"
+        )
+        
+        # Guardamos el secreto en estado inactivo hasta que el usuario lo verifique con éxito
+        query = text('UPDATE usuarios SET two_factor_secret = :secret, two_factor_enabled = FALSE WHERE email = :email')
+        db.execute(query, {"secret": secret, "email": username})
+        db.commit()
+        
+        return {"secret": secret, "qr_uri": totp_auth_url}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error al generar semilla TOTP: {str(e)}")
+
+@app.post("/auth/activate-2fa")
+async def activate_2fa(data: TokenVerifyRequest, db: Session = Depends(get_db)):
+    """Confirma el escaneo exitoso del código. Si es válido, blinda la cuenta activando el flag."""
+    import pyotp
+    try:
+        query = text('SELECT two_factor_secret FROM usuarios WHERE email = :email')
+        user_record = db.execute(query, {"email": data.username}).fetchone()
+        
+        if not user_record or not user_record[0]:
+            raise HTTPException(status_code=400, detail="Semilla TOTP no inicializada para esta cuenta.")
+            
+        totp = pyotp.TOTP(user_record[0])
+        if not totp.verify(data.token):
+            raise HTTPException(status_code=400, detail="El código de confirmación no coincide con el autenticador.")
+            
+        # Activamos definitivamente el flag para exigir 2FA en los siguientes inicios de sesión
+        query_update = text('UPDATE usuarios SET two_factor_enabled = TRUE WHERE email = :email')
+        db.execute(query_update, {"email": data.username})
+        db.commit()
+        
+        return {"status": "activated", "message": "Autenticación de Dos Factores vinculada correctamente al sistema."}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error en activación de seguridad: {str(e)}")
 
 app.include_router(router)
 
