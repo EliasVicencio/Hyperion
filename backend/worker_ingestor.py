@@ -1,7 +1,14 @@
+# --- TRUCO DE COMPATIBILIDAD PERIMETRAL ---
+import collections
+if not hasattr(collections, 'Hashable'):
+    import collections.abc
+    collections.Hashable = collections.abc.Hashable
+# -------------------------------------------
+
 from kafka import KafkaConsumer
-from kafka.errors import NoBrokersAvailable # <--- Importante
+from kafka.errors import NoBrokersAvailable 
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text
-from sqlalchemy.orm import declarative_base, sessionmaker # <--- Actualizado (SQA 2.0)
+from sqlalchemy.orm import declarative_base, sessionmaker 
 import json
 import hashlib
 import time
@@ -9,7 +16,7 @@ from datetime import datetime
 
 # --- CONFIGURACIÓN DE BASE DE DATOS ---
 DB_URL = "postgresql://admin:hyperion_secret@postgres_db:5432/hyperion_audit"
-engine = create_engine(DB_URL)
+engine = create_engine(DB_URL, pool_pre_ping=True) # Evita conexiones muertas
 Session = sessionmaker(bind=engine)
 Base = declarative_base()
 
@@ -25,7 +32,7 @@ class AuditLog(Base):
     current_hash = Column(String(64))
 
 # Intentar crear tablas (esperando a la BD)
-for _ in range(5):
+for _ in range(10): # Aumentado un poco por seguridad en frío
     try:
         Base.metadata.create_all(engine)
         break
@@ -55,9 +62,11 @@ def get_last_hash(session):
 
 print("🚀 Worker Ingestor iniciado. Esperando eventos de Kafka...")
 
-session = Session()
-try:
-    for message in consumer:
+# --- PROCESAMIENTO EN TIEMPO REAL ---
+for message in consumer:
+    # Creamos una sesión limpia por cada evento procesado
+    session = Session()
+    try:
         log_data = message.value
         prev_hash = get_last_hash(session)
         
@@ -74,12 +83,14 @@ try:
             data=json.dumps(log_data),
             previous_hash=prev_hash,
             current_hash=curr_hash,
-            timestamp= now
+            timestamp=now
         )
         
         session.add(new_log)
         session.commit()
-        print(f"Log anclado: {curr_hash[:16]}... [Prev: {prev_hash[:8]}]")
-except Exception as e:
-    print(f"Error crítico en el loop: {e}")
-    session.rollback()
+        print(f"🔒 Log anclado: {curr_hash[:16]}... [Prev: {prev_hash[:8]}]")
+    except Exception as e:
+        print(f"🚨 Error al procesar evento: {e}")
+        session.rollback()
+    finally:
+        session.close() # Siempre cerramos la sesión para evitar fugas de pool

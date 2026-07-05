@@ -92,7 +92,6 @@ services:
       dockerfile: Dockerfile
     container_name: hyperion_backend
     restart: always
-    env_file: .env
     ports:
       - "7860:7860" # Escalado al puerto real donde levanta Uvicorn
     volumes:
@@ -114,6 +113,8 @@ services:
       timeout: 5s
       retries: 4
       start_period: 15s
+    env_file:
+      - ./backend/.env
 
   frontend:
     build:
