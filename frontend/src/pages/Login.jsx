@@ -9,8 +9,6 @@ export default function Login({ onLoginSuccess }) {
   const [nombre, setNombre] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  // --- NUEVO: Estados del Flujo Voluntario de 2FA ---
   const [requires2FA, setRequires2FA] = useState(false);
   const [token2FA, setToken2FA] = useState('');
 
@@ -20,7 +18,6 @@ export default function Login({ onLoginSuccess }) {
     setLoading(true);
 
     try {
-      // CASO A: Si el usuario ya fue verificado en paso 1 y posee 2FA activado
       if (requires2FA) {
         const response = await fetch('/auth/verify-2fa', {
           method: 'POST',
@@ -33,14 +30,12 @@ export default function Login({ onLoginSuccess }) {
           throw new Error(data.detail || 'Código de seguridad incorrecto.');
         }
 
-        // PERSISTENCIA COMPLETA: Guardamos el email y marcamos que tiene 2FA activo en localStorage
         localStorage.setItem('user_email', email);
         localStorage.setItem('two_factor_enabled', 'true'); 
         onLoginSuccess();
         return;
       }
 
-      // CASO B: Flujo tradicional (Paso 1 o Registro)
       if (isRegister) {
         const response = await fetch('/api/v1/register', {
           method: 'POST',
@@ -65,7 +60,6 @@ export default function Login({ onLoginSuccess }) {
         setPassword('');
         setNombre('');
       } else {
-        // Login tradicional
         const body = new URLSearchParams();
         body.set('username', email);
         body.set('password', password);
@@ -86,11 +80,9 @@ export default function Login({ onLoginSuccess }) {
           throw new Error(data.detail || 'Credenciales incorrectas.');
         }
 
-        // CONTROL PERIMETRAL: Analizamos la respuesta opcional
         if (data.status === 'requires_2fa') {
-          setRequires2FA(true); // Mutamos la UI para pedir el código de 6 dígitos
+          setRequires2FA(true);
         } else {
-          // Si no lo tiene activo, ingresa directamente y guardamos su flag en false
           localStorage.setItem('user_email', data.username);
           localStorage.setItem('two_factor_enabled', 'false'); 
           onLoginSuccess();
@@ -104,21 +96,22 @@ export default function Login({ onLoginSuccess }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#020617] flex items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-blue-500/30">
+    // Se adapta al modo claro si la raíz tiene la clase clara, usando gris suave o azul profundo
+    <div className="min-h-screen bg-hyperion-lightBg dark:bg-hyperion-dark flex items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-blue-500/30 transition-colors duration-300">
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-600/10 blur-[120px] rounded-full pointer-events-none"></div>
       <div className="absolute bottom-1/4 left-1/2 -translate-x-1/2 translate-y-1/2 w-[400px] h-[400px] bg-purple-600/5 blur-[100px] rounded-full pointer-events-none"></div>
 
-      <div className="w-full max-w-md bg-[#0b111e]/80 border border-slate-800/80 backdrop-blur-xl rounded-3xl p-8 shadow-2xl relative z-10">
+      <div className="w-full max-w-md bg-white/80 dark:bg-[#0b111e]/80 border border-hyperion-lightBorder dark:border-slate-800/80 backdrop-blur-xl rounded-3xl p-8 shadow-xl dark:shadow-2xl relative z-10 transition-colors">
 
         {/* Encabezado e Isotipo */}
         <div className="flex flex-col items-center text-center mb-8">
           <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-xl shadow-blue-500/10 mb-4">
             <Shield className="text-white" size={24} />
           </div>
-          <h2 className="text-2xl font-bold tracking-tight text-white">
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white transition-colors">
             {requires2FA ? 'Verificación de Seguridad' : isRegister ? 'Crear cuenta Hyperion' : 'Acceso al Sistema'}
           </h2>
-          <p className="text-slate-500 text-xs mt-1.5 max-w-[280px]">
+          <p className="text-slate-500 dark:text-slate-400 text-xs mt-1.5 max-w-[280px] transition-colors">
             {requires2FA
               ? 'Introduce el código de 6 dígitos de tu aplicación de autenticación para validar la firma perimetral.'
               : isRegister
@@ -131,25 +124,24 @@ export default function Login({ onLoginSuccess }) {
         <form onSubmit={handleSubmit} className="space-y-4">
 
           {error && (
-            <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-xl text-red-400 flex items-start gap-2.5 text-xs">
+            <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-xl text-red-600 dark:text-red-400 flex items-start gap-2.5 text-xs transition-colors">
               <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
 
-          {/* RENDER CONDICIONAL: Si NO requiere 2FA, pintamos los inputs habituales */}
           {!requires2FA ? (
             <>
               {isRegister && (
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Nombre Completo</label>
+                  <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block transition-colors">Nombre Completo</label>
                   <div className="relative">
-                    <User className="absolute left-3.5 top-3 text-slate-500" size={16} />
+                    <User className="absolute left-3.5 top-3 text-slate-400 dark:text-slate-500" size={16} />
                     <input
                       type="text"
                       required
                       placeholder="Elias Vicencio"
-                      className="w-full bg-slate-950/60 border border-slate-800 rounded-xl py-2.5 pl-11 pr-4 text-sm text-slate-200 placeholder-slate-600 focus:border-blue-500 outline-none transition-all"
+                      className="w-full bg-slate-50 dark:bg-slate-950/60 border border-hyperion-lightBorder dark:border-slate-800 rounded-xl py-2.5 pl-11 pr-4 text-sm text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 focus:border-blue-500 outline-none transition-all"
                       value={nombre}
                       onChange={(e) => setNombre(e.target.value)}
                     />
@@ -158,14 +150,14 @@ export default function Login({ onLoginSuccess }) {
               )}
 
               <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Correo Corporativo</label>
+                <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block transition-colors">Correo Corporativo</label>
                 <div className="relative">
-                  <Mail className="absolute left-3.5 top-3 text-slate-500" size={16} />
+                  <Mail className="absolute left-3.5 top-3 text-slate-400 dark:text-slate-500" size={16} />
                   <input
                     type="email"
                     required
                     placeholder="admin@hyperion.ops"
-                    className="w-full bg-slate-950/60 border border-slate-800 rounded-xl py-2.5 pl-11 pr-4 text-sm text-slate-200 placeholder-slate-600 focus:border-blue-500 outline-none transition-all"
+                    className="w-full bg-slate-50 dark:bg-slate-950/60 border border-hyperion-lightBorder dark:border-slate-800 rounded-xl py-2.5 pl-11 pr-4 text-sm text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 focus:border-blue-500 outline-none transition-all"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
@@ -174,25 +166,25 @@ export default function Login({ onLoginSuccess }) {
 
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
-                  <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Contraseña</label>
+                  <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block transition-colors">Contraseña</label>
                   {!isRegister && (
-                    <a href="#forgot" className="text-[11px] text-blue-500 hover:underline">¿Olvidaste tu clave?</a>
+                    <a href="#forgot" className="text-[11px] text-blue-600 dark:text-blue-500 hover:underline transition-colors">¿Olvidaste tu clave?</a>
                   )}
                 </div>
                 <div className="relative">
-                  <Lock className="absolute left-3.5 top-3 text-slate-500" size={16} />
+                  <Lock className="absolute left-3.5 top-3 text-slate-400 dark:text-slate-500" size={16} />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     required
                     placeholder="••••••••••••"
-                    className="w-full bg-slate-950/60 border border-slate-800 rounded-xl py-2.5 pl-11 pr-10 text-sm text-slate-200 placeholder-slate-600 focus:border-blue-500 outline-none transition-all"
+                    className="w-full bg-slate-50 dark:bg-slate-950/60 border border-hyperion-lightBorder dark:border-slate-800 rounded-xl py-2.5 pl-11 pr-10 text-sm text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 focus:border-blue-500 outline-none transition-all"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 text-slate-500 hover:text-slate-300 transition-colors"
+                    className="absolute right-3 top-3 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -200,7 +192,6 @@ export default function Login({ onLoginSuccess }) {
               </div>
             </>
           ) : (
-            /* SI REQUIERE 2FA: Mostramos una casilla unificada y limpia para el token */
             <div className="space-y-2 animate-fade-in text-center">
               <input
                 type="text"
@@ -209,12 +200,11 @@ export default function Login({ onLoginSuccess }) {
                 required
                 value={token2FA}
                 onChange={(e) => setToken2FA(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-3 text-center text-xl font-mono tracking-[0.5em] text-blue-400 focus:border-blue-500 outline-none transition-all"
+                className="w-full bg-slate-50 dark:bg-slate-950 border border-hyperion-lightBorder dark:border-slate-800 rounded-2xl py-3 text-center text-xl font-mono tracking-[0.5em] text-blue-600 dark:text-blue-400 focus:border-blue-500 outline-none transition-all"
               />
             </div>
           )}
 
-          {/* Botón de Envío */}
           <button
             type="submit"
             disabled={loading}
@@ -231,10 +221,9 @@ export default function Login({ onLoginSuccess }) {
           </button>
         </form>
 
-        {/* Selector de modo (Solo si no está en medio de un flujo 2FA) */}
         {!requires2FA && (
-          <div className="mt-6 pt-4 border-t border-slate-900 text-center">
-            <p className="text-xs text-slate-500">
+          <div className="mt-6 pt-4 border-t border-hyperion-lightBorder dark:border-slate-900 text-center transition-colors">
+            <p className="text-xs text-slate-500 dark:text-slate-400 transition-colors">
               {isRegister ? '¿Ya tienes una credencial?' : '¿Nuevo operador en el perímetro?'}
               <button
                 onClick={() => {
@@ -242,14 +231,13 @@ export default function Login({ onLoginSuccess }) {
                   setNombre('');
                   setError(null);
                 }}
-                className="text-blue-500 font-medium hover:underline pl-1"
+                className="text-blue-600 dark:text-blue-500 font-medium hover:underline pl-1 transition-colors"
               >
                 {isRegister ? 'Inicia Sesión' : 'Crea una cuenta'}
               </button>
             </p>
           </div>
         )}
-
       </div>
     </div>
   );

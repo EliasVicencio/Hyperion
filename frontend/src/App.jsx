@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Operadores from './pages/Operadores';
 import Vigilancia from './pages/Vigilancia';
 import Gobernanza from './pages/Gobernanza';
 import Logs from './pages/Logs';
-import Login from './pages/Login'; // 👈 1. Importa la nueva pantalla de Login
-import ConfiguracionFlotante from './components/ConfiguracionFlotante'; // 👈 Importamos la nueva pestaña flotante
+import Login from './pages/Login'; // Importa la pantalla de Login
+import ConfiguracionFlotante from './components/ConfiguracionFlotante'; // Importamos la pestaña flotante
 import { AnimatePresence, motion } from 'framer-motion';
 
 export default function App() {
@@ -14,8 +14,19 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [page, setPage] = useState('Analiticas');
   
-  // 👈 NUEVO: Estado global para controlar si la pestaña de configuración está abierta o no
+  // Estado global para controlar si la pestaña de configuración está abierta o no
   const [isConfigOpen, setIsConfigOpen] = useState(false);
+
+  // --- NUEVO: Efecto inicial para sincronizar el tema de Tailwind al cargar la app ---
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    // Si estaba guardado oscuro, o si es la primera vez y el sistema prefiere oscuro
+    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, []);
 
   // Si no está autenticado, renderizamos ÚNICAMENTE la pantalla de Login
   if (!isAuthenticated) {
@@ -31,18 +42,19 @@ export default function App() {
       case 'Logs':       return <Logs />;
       default:
         return (
-          <div className="h-[60vh] flex items-center justify-center border border-dashed border-slate-800 rounded-3xl">
-              <p className="text-slate-500 italic">Módulo {page} en fase de despliegue...</p>
+          // Modificado: Ahora el contenedor vacío también responde al modo claro/oscuro
+          <div className="h-[60vh] flex items-center justify-center border border-dashed dark:border-slate-800 border-slate-300 rounded-3xl">
+              <p className="dark:text-slate-500 text-slate-400 italic">Módulo {page} en fase de despliegue...</p>
           </div>
         );
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-200 flex font-sans selection:bg-blue-500/30">
-      {/* 👈 MODIFICADO: Le pasamos 'onOpenConfig' al Sidebar para que cuando hagan clic 
-        en "Configuración" en el menú, se ejecute 'setIsConfigOpen(true)'
-      */}
+    // ☀️ Modo Claro: bg-hyperion-lightBg, text-slate-800
+    // 🌙 Modo Oscuro: dark:bg-hyperion-dark, dark:text-slate-200
+    <div className="min-h-screen bg-hyperion-lightBg dark:bg-hyperion-dark text-slate-800 dark:text-slate-200 flex font-sans selection:bg-blue-500/30 transition-colors duration-300">
+      
       <Sidebar 
         currentPage={page} 
         setPage={setPage} 
@@ -67,7 +79,7 @@ export default function App() {
         </div>
       </main>
 
-      {/* 👈 NUEVO: Insertamos el componente flotante pasándole el estado y la función de cierre */}
+      {/* Insertamos el componente flotante pasándole el estado y la función de cierre */}
       <ConfiguracionFlotante 
         isOpen={isConfigOpen} 
         onClose={() => setIsConfigOpen(false)} 

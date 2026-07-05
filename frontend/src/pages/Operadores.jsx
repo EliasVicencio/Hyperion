@@ -6,13 +6,11 @@ export default function Operadores() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // Función para obtener los usuarios de la base de datos a través del backend
+    // Obtener los usuarios mediante el proxy inverso configurado
     const cargarUsuarios = async () => {
         setLoading(true);
         setError(null);
         try {
-            // Usamos la ruta relativa gracias al proxy de Nginx / Vercel
-            // Ya no dependemos de VITE_API_URL: vercel.json del frontend hace de proxy
             const response = await fetch('/api/v1/operadores');
             if (!response.ok) {
                 throw new Error('Error al conectar con la base de datos de operadores');
@@ -27,103 +25,109 @@ export default function Operadores() {
         }
     };
 
-    // Cargar automáticamente al montar el componente
     useEffect(() => {
         cargarUsuarios();
     }, []);
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 text-slate-300">
             {/* Encabezado */}
-            <header className="flex justify-between items-end">
+            <header className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
                         <Shield className="text-blue-500" size={28} /> Control de Operadores
                     </h1>
-                    <p className="text-slate-500 text-sm">Gestión de identidades con acceso al perímetro del SGSI (RBAC)</p>
+                    <p className="text-slate-400 text-sm mt-1">
+                        Gestión de identidades con acceso al perímetro del SGSI (RBAC)
+                    </p>
                 </div>
-                <div className="flex gap-3">
+                <div className="flex gap-3 w-full sm:w-auto justify-end">
                     <button
                         onClick={cargarUsuarios}
-                        className="p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 rounded-xl transition-all"
+                        disabled={loading}
+                        className="p-2.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 rounded-xl transition-all disabled:opacity-50"
                         title="Sincronizar base de datos"
                     >
                         <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
                     </button>
-                    <button className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-4 py-2 rounded-xl text-sm flex items-center gap-2 transition-all shadow-lg shadow-blue-600/10">
+                    <button className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-4 py-2 rounded-xl text-sm flex items-center gap-2 transition-all shadow-lg shadow-blue-600/20">
                         <UserPlus size={16} /> Alta de Operador
                     </button>
                 </div>
             </header>
 
-            {/* Estados de Carga y Error */}
+            {/* Estado de Carga */}
             {loading && (
-                <div className="bg-hyperion-card border border-slate-800/50 p-12 rounded-3xl text-center text-slate-400 italic">
+                <div className="bg-slate-900/50 border border-slate-800 p-12 rounded-2xl text-center text-slate-400 italic backdrop-blur-sm">
                     <RefreshCw size={24} className="animate-spin mx-auto mb-3 text-blue-500" />
                     Consultando registros inmutables en PostgreSQL...
                 </div>
             )}
 
-            {error && (
-                <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-3xl text-red-400 flex items-center gap-3">
-                    <ShieldAlert size={20} />
+            {/* Estado de Error */}
+            {error && !loading && (
+                <div className="bg-red-500/10 border border-red-500/20 p-5 rounded-2xl text-red-400 flex items-start gap-3">
+                    <ShieldAlert size={20} className="mt-0.5 shrink-0" />
                     <div>
-                        <p className="font-semibold">Error de enlace perimetral</p>
-                        <p className="text-xs opacity-80">{error}. Verifica que el contenedor del backend esté operativo.</p>
+                        <p className="font-semibold text-sm">Error de enlace perimetral</p>
+                        <p className="text-xs opacity-80 mt-0.5">{error}. Verifica que el contenedor del backend esté operativo.</p>
                     </div>
                 </div>
             )}
 
-            {/* Tabla de Usuarios vinculada a la DB */}
+            {/* Tabla de Usuarios */}
             {!loading && !error && (
-                <div className="bg-hyperion-card border border-slate-800/50 rounded-3xl overflow-hidden shadow-2xl">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-slate-950/50 text-slate-500 uppercase text-[10px] tracking-widest">
-                            <tr>
-                                <th className="px-6 py-4">Operador / Identidad</th>
-                                <th className="px-6 py-4">Rol asignado</th>
-                                <th className="px-6 py-4">Estado de Cuenta</th>
-                                <th className="px-6 py-4">Última Auditoría</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-800/40 text-xs md:text-sm">
-                            {usuarios.length > 0 ? (
-                                usuarios.map((user) => (
-                                    <tr key={user.id || user.email} className="hover:bg-blue-500/[0.01] transition-colors">
-                                        <td className="px-6 py-4">
-                                            <div className="flex flex-col">
-                                                <span className="text-slate-200 font-medium">{user.nombre || 'Sin Nombre'}</span>
-                                                <span className="text-[10px] font-mono text-slate-500">{user.email}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className="font-mono text-xs text-blue-400 font-bold bg-blue-500/5 px-2 py-1 rounded-md border border-blue-500/10">
-                                                {user.rol || 'OPERADOR'}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide ${user.activo
-                                                    ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                                    : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl backdrop-blur-sm">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-slate-950/60 border-b border-slate-800/60 text-slate-400 uppercase text-[10px] tracking-widest font-semibold">
+                                <tr>
+                                    <th className="px-6 py-4">Operador / Identidad</th>
+                                    <th className="px-6 py-4">Rol asignado</th>
+                                    <th className="px-6 py-4">Estado de Cuenta</th>
+                                    <th className="px-6 py-4">Última Auditoría</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800/40 text-xs sm:text-sm">
+                                {usuarios.length > 0 ? (
+                                    usuarios.map((user) => (
+                                        <tr key={user.id || user.email} className="hover:bg-blue-500/[0.02] transition-colors">
+                                            <td className="px-6 py-4">
+                                                <div className="flex flex-col">
+                                                    <span className="text-slate-200 font-medium">{user.nombre || 'Sin Nombre'}</span>
+                                                    <span className="text-[10px] font-mono text-slate-500 mt-0.5">{user.email}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="font-mono text-[11px] text-blue-400 font-bold bg-blue-500/10 px-2 py-1 rounded-md border border-blue-500/20 uppercase">
+                                                    {user.rol || 'OPERADOR'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide border ${
+                                                    user.activo
+                                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                                        : 'bg-slate-800 text-slate-400 border-slate-700'
                                                 }`}>
-                                                {user.activo ? <CheckCircle size={10} /> : <Clock size={10} />}
-                                                {user.activo ? 'ACTIVO' : 'SUSPENDIDO'}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-slate-500 font-mono text-xs">
-                                            {user.ultima_conexion || 'Nunca'}
+                                                    {user.activo ? <CheckCircle size={10} /> : <Clock size={10} />}
+                                                    {user.activo ? 'ACTIVO' : 'SUSPENDIDO'}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-slate-400 font-mono text-xs">
+                                                {user.ultima_conexion || 'Nunca'}
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan="4" className="px-6 py-12 text-center text-slate-500 italic">
+                                            No hay operadores registrados en la base de datos.
                                         </td>
                                     </tr>
-                                ))
-                            ) : (
-                                <tr>
-                                    <td colSpan="4" className="px-6 py-12 text-center text-slate-500 italic">
-                                        No hay operadores registrados en la base de datos.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             )}
         </div>
