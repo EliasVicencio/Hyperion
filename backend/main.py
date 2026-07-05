@@ -273,6 +273,41 @@ async def activate_2fa(data: TokenVerifyRequest, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error en activación de seguridad: {str(e)}")
+    
+# 2. Agrega este nuevo endpoint para obtener el estado actual (por si refrescan la pestaña)
+@app.get("/auth/status-2fa")
+async def get_2fa_status(username: str, db: Session = Depends(get_db)):
+    try:
+        query = text('SELECT two_factor_enabled FROM usuarios WHERE email = :email')
+        user_record = db.execute(query, {"email": username}).fetchone()
+        return {"two_factor_enabled": bool(user_record[0]) if user_record else False}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 3. Agrega el endpoint para DESACTIVAR el 2FA pidiendo confirmación de token
+@app.post("/auth/deactivate-2fa")
+async def deactivate_2fa(data: TokenVerifyRequest, db: Session = Depends(get_db)):
+    import pyotp
+    try:
+        query = text('SELECT two_factor_secret FROM usuarios WHERE email = :email')
+        user_record = db.execute(query, {"email": data.username}).fetchone()
+        
+        if not user_record or not user_record[0]:
+            raise HTTPException(status_code=400, detail="No hay una configuración 2FA activa en este usuario.")
+            
+        totp = pyotp.TOTP(user_record[0])
+        if not totp.verify(data.token):
+            raise HTTPException(status_code=400, detail="Código de desactivación incorrecto.")
+            
+        # Limpiamos los campos para remover el 2FA
+        query_update = text('UPDATE usuarios SET two_factor_enabled = FALSE, two_factor_secret = NULL WHERE email = :email')
+        db.execute(query_update, {"email": data.username})
+        db.commit()
+        
+        return {"status": "deactivated", "message": "Autenticación de dos factores removida."}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 app.include_router(router)
 

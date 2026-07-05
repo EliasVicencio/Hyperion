@@ -33,7 +33,9 @@ export default function Login({ onLoginSuccess }) {
           throw new Error(data.detail || 'Código de seguridad incorrecto.');
         }
 
-        localStorage.setItem('user_email', email); // Almacenamos id de sesión
+        // PERSISTENCIA COMPLETA: Guardamos el email y marcamos que tiene 2FA activo en localStorage
+        localStorage.setItem('user_email', email);
+        localStorage.setItem('two_factor_enabled', 'true'); 
         onLoginSuccess();
         return;
       }
@@ -88,8 +90,9 @@ export default function Login({ onLoginSuccess }) {
         if (data.status === 'requires_2fa') {
           setRequires2FA(true); // Mutamos la UI para pedir el código de 6 dígitos
         } else {
-          // Si no lo tiene activo, ingresa directamente (a merced del usuario)
+          // Si no lo tiene activo, ingresa directamente y guardamos su flag en false
           localStorage.setItem('user_email', data.username);
+          localStorage.setItem('two_factor_enabled', 'false'); 
           onLoginSuccess();
         }
       }
