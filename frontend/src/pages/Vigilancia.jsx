@@ -4,12 +4,11 @@ import { ShieldAlert, Radio, Terminal, AlertOctagon, RefreshCw, Eye, ShieldX, Ke
 const alertasIniciales = [
   { id: "EV-091", ip: "192.168.1.142", tipo: "Intento de Fuerza Bruta SSH", severidad: "CRÍTICA", timestamp: "Hace 2 min" },
   { id: "EV-090", ip: "10.0.0.5", tipo: "Escaneo de Puertos Detectado", severidad: "ALTA", timestamp: "Hace 14 min" },
-  { id: "EV-089", ip: "185.220.101.3", tipo: "IP en Lista Negra Tor Node", severidad: "MEDIA", timestamp: "Hace 1 hora" },
 ];
 
 export default function Vigilancia() {
-  // Estado original de tu interfaz
-  const [alertas] = useState(alertasIniciales);
+  // Ahora la cola de alertas es un estado completamente dinámico
+  const [alertas, setAlertas] = useState(alertasIniciales);
   const [syslog, setSyslog] = useState([
     "[INFO] Inicializando Socket de Escucha perimetral...",
     "[OK] Reglas IPTables cargadas para cumplimiento ISO 27001.",
@@ -17,24 +16,20 @@ export default function Vigilancia() {
   ]);
   const [scanning, setScanning] = useState(true);
 
-  // --- NUEVOS ESTADOS DE INTEGRACIÓN ---
   const [logsReales, setLogsReales] = useState([]);
   const [selectedElement, setSelectedElement] = useState(null); 
   const [loadingAPI, setLoadingAPI] = useState(false);
 
-  // 1. Sincronización real con el endpoint de auditoría de tu API
+  // Sincronización real con tu API (PostgreSQL)
   const consultarStreamingLogs = async () => {
     setLoadingAPI(true);
     try {
       const response = await fetch('/api/v1/logs');
       if (!response.ok) throw new Error('Error en el canal de vigilancia.');
       const data = await response.json();
-      
-      // Ordenar por ID descendente (más recientes primero)
       const ordenados = data.sort((a, b) => b.id - a.id);
       setLogsReales(ordenados);
       
-      // Auto-seleccionar la primera alerta estática si no hay selección
       if (!selectedElement) {
         setSelectedElement({ tipo_origen: 'ALERTA', ...alertasIniciales[0] });
       }
@@ -45,24 +40,55 @@ export default function Vigilancia() {
     }
   };
 
-  // 2. Efecto para inicializar la API
   useEffect(() => {
     consultarStreamingLogs();
   }, []);
 
-  // 3. Tu simulación original del feed del SIEM (Syslog)
+  // --- SONDA INTERACTIVA REFORZADA ---
+  // Genera Syslogs Y inyecta Alertas Críticas reactivas en la cola superior
   useEffect(() => {
     if (!scanning) return;
 
     const interval = setInterval(() => {
+      const vectoresAtaque = [
+        { tipo: "Inyección SQL Detectada en API", sev: "CRÍTICA" },
+        { tipo: "Tráfico Anómalo hacia Puerto 443", sev: "ALTA" },
+        { tipo: "Peticiones Concurrentes (DDoS Match)", sev: "CRÍTICA" },
+        { tipo: "Intento de Fuerza Bruta HTTP", sev: "ALTA" }
+      ];
+
       const logsNuevos = [
         `[AUDIT] Petición entrante validada desde Gateway central.`,
         `[INFO] Comprobando integridad del archivo de configuración... OK.`,
         `[ALERT] Intento de acceso denegado para el recurso /api/v1/auth/admin`
       ];
-      const logAleatorio = logsNuevos[Math.floor(Math.random() * logsNuevos.length)];
-      setSyslog(prev => [logAleatorio, ...prev.slice(0, 7)]);
-    }, 4000);
+
+      // Decidimos aleatoriamente si este ciclo genera una alerta visual arriba (35% de probabilidad)
+      const generarAlertaGrave = Math.random() < 0.35;
+
+      if (generarAlertaGrave) {
+        const ataque = vectoresAtaque[Math.floor(Math.random() * vectoresAtaque.length)];
+        const nuevoId = `EV-${Math.floor(100 + Math.random() * 900)}`;
+        const nuevaIp = `185.190.${Math.floor(1 * 254)}.${Math.floor(1 * 254)}`;
+        
+        const nuevaAlerta = {
+          id: nuevoId,
+          ip: nuevaIp,
+          tipo: ataque.tipo,
+          severidad: ataque.sev,
+          timestamp: "En vivo"
+        };
+
+        // La agregamos al inicio de la lista de alertas y limitamos a un máximo de 4 para no romper el layout
+        setAlertas(prev => [nuevaAlerta, ...prev.slice(0, 3)]);
+        setSyslog(prev => [`[ALERT] Amenaza interceptada en red: ${ataque.tipo} desde IP ${nuevaIp}`, ...prev.slice(0, 6)]);
+      } else {
+        // Si no es alerta grave, solo empuja un log normal a la consola SIEM
+        const logAleatorio = logsNuevos[Math.floor(Math.random() * logsNuevos.length)];
+        setSyslog(prev => [logAleatorio, ...prev.slice(0, 7)]);
+      }
+
+    }, 4000); // Cada 4 segundos evalúa el tráfico
 
     return () => clearInterval(interval);
   }, [scanning]);
@@ -106,16 +132,15 @@ export default function Vigilancia() {
         {/* Columna Izquierda: Listas de Eventos (Alertas + Logs de BD) */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* Bloque A: Alertas de Red (Código original) */}
+          {/* Bloque A: Alertas de Red ¡AHORA DINÁMICAS! */}
           <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 shadow-xl backdrop-blur-sm">
             <h3 className="text-xs font-bold text-slate-400 mb-4 flex items-center gap-2 uppercase tracking-wider">
-              <ShieldAlert className="text-red-400" size={16} /> Cola de Alertas Recientes (Red)
+              <ShieldAlert className="text-red-400" size={16} /> Cola de Alertas Recientes (Red en Vivo)
             </h3>
 
             <div className="space-y-3">
               {alertas.map(alerta => {
                 const isCritica = alerta.severidad === 'CRÍTICA';
-                const isAlta = alerta.severidad === 'ALTA';
                 const estaSeleccionado = selectedElement?.id === alerta.id && selectedElement?.tipo_origen === 'ALERTA';
                 
                 return (
@@ -132,9 +157,7 @@ export default function Vigilancia() {
                       <div className={`p-2 rounded-lg border shrink-0 ${
                         isCritica 
                           ? 'bg-red-500/10 text-red-400 border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.1)]' 
-                          : isAlta 
-                            ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' 
-                            : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                          : 'bg-amber-500/10 text-amber-400 border-amber-500/20' 
                       }`}>
                         <AlertOctagon size={18} />
                       </div>
@@ -152,7 +175,7 @@ export default function Vigilancia() {
                       }`}>
                         {alerta.severidad}
                       </span>
-                      <span className="text-[11px] text-slate-500 block sm:mt-1 mt-2">{alerta.timestamp}</span>
+                      <span className={`text-[11px] block sm:mt-1 mt-2 font-mono ${alerta.timestamp === 'En vivo' ? 'text-red-400 animate-pulse font-bold' : 'text-slate-500'}`}>{alerta.timestamp}</span>
                     </div>
                   </div>
                 );
@@ -205,10 +228,8 @@ export default function Vigilancia() {
 
         </div>
 
-        {/* Columna Derecha: Consola SIEM + Panel de Inspección Criptográfica */}
+        {/* Columna Derecha: Inspector de Evidencias */}
         <div className="space-y-6">
-          
-          {/* Panel Dinámico de Inspección e Integridad */}
           {selectedElement ? (
             <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 shadow-xl backdrop-blur-sm space-y-4">
               <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
@@ -216,7 +237,6 @@ export default function Vigilancia() {
               </h3>
 
               {selectedElement.tipo_origen === 'BD' ? (
-                /* Vista si el log viene de la BD inmutable */
                 <div className="space-y-3 font-mono text-[11px]">
                   <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-900">
                     <span className="text-slate-500 block text-[9px]">PREVIOUS_HASH:</span>
@@ -235,12 +255,11 @@ export default function Vigilancia() {
                   </div>
                 </div>
               ) : (
-                /* Vista alternativa si el elemento es una alerta de red sintética */
                 <div className="space-y-3 font-mono text-[11px]">
                   <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-900 text-slate-400">
                     <p><span className="text-slate-500">SIGN_ID:</span> {selectedElement.id}</p>
                     <p className="mt-1"><span className="text-slate-500">TARGET_IP:</span> {selectedElement.ip}</p>
-                    <p className="mt-1"><span className="text-slate-500">VECTOR:</span> Paquete malicioso interceptado por socket raw.</p>
+                    <p className="mt-1"><span className="text-slate-500">VECTOR:</span> {selectedElement.tipo}</p>
                   </div>
                   <div className="flex items-center gap-2 bg-amber-500/5 border border-amber-500/20 text-amber-400 p-2 rounded-xl text-[10px]">
                     <AlertOctagon size={12} /> Alerta en caliente no consolidada en cadena.
@@ -248,12 +267,11 @@ export default function Vigilancia() {
                 </div>
               )}
 
-              {/* Acciones del Operador */}
               <div className="pt-2 border-t border-slate-800/60 space-y-2">
                 <span className="text-[10px] font-mono text-slate-500 uppercase block">Acciones de Contramedida</span>
                 <div className="grid grid-cols-2 gap-2 text-xs font-mono">
                   <button 
-                    onClick={() => alert(`Baneando tráfico de: ${selectedElement.ip || 'Actor del sistema'}`)}
+                    onClick={() => alert(`Baneando tráfico de la IP: ${selectedElement.ip || 'Local Node'}`)}
                     className="flex items-center justify-center gap-2 p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl transition-all"
                   >
                     <ShieldX size={13} /> BLOCK_NODE
@@ -269,7 +287,7 @@ export default function Vigilancia() {
             </div>
           ) : null}
 
-          {/* Módulo Original: Consola SIEM Live Feed */}
+          {/* Consola SIEM Live Feed */}
           <div className="bg-[#040712] border border-slate-900 rounded-2xl p-5 shadow-inner flex flex-col justify-between min-h-[280px]">
             <div>
               <div className="flex items-center justify-between border-b border-slate-900 pb-3 mb-4">
@@ -298,7 +316,6 @@ export default function Vigilancia() {
               <span className="text-[10px] text-slate-600 block">Canal seguro cifrado con TLS 1.3</span>
             </div>
           </div>
-
         </div>
 
       </div>
