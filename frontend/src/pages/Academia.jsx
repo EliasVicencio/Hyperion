@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient'; // Ajusta la ruta según tu estructura de carpetas
+import { supabase } from '../supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Academia() {
