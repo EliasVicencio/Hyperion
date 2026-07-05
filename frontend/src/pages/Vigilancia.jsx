@@ -7,7 +7,6 @@ const alertasIniciales = [
 ];
 
 export default function Vigilancia() {
-  // Ahora la cola de alertas es un estado completamente dinámico
   const [alertas, setAlertas] = useState(alertasIniciales);
   const [syslog, setSyslog] = useState([
     "[INFO] Inicializando Socket de Escucha perimetral...",
@@ -44,8 +43,34 @@ export default function Vigilancia() {
     consultarStreamingLogs();
   }, []);
 
-  // --- SONDA INTERACTIVA REFORZADA ---
-  // Genera Syslogs Y inyecta Alertas Críticas reactivas en la cola superior
+  // --- ACCIÓN DE MITIGACIÓN REAL (BLOCK_NODE) ---
+  const ejecutarBloqueoNodo = (elemento) => {
+    if (!elemento) return;
+
+    if (elemento.tipo_origen === 'ALERTA') {
+      // 1. Inyectamos reporte de mitigación en el Syslog
+      setSyslog(prev => [
+        `[KILLED] 🛡️ IP [${elemento.ip}] bloqueada permanentemente vía IPTables/Drop.`,
+        `[INFO] Alerta ${elemento.id} mitigada con éxito por el operador.`,
+        ...prev
+      ]);
+
+      // 2. Removemos la alerta de la lista usando su ID
+      setAlertas(prev => prev.filter(alerta => alerta.id !== elemento.id));
+      
+      // 3. Limpiamos o reajustamos la selección del inspector
+      setSelectedElement(null);
+    } else {
+      // Si es un log real de la BD, no lo borramos (por normativas de inmutabilidad), pero registramos la contramedida
+      setSyslog(prev => [
+        `[COUNTERMEASURE] Sesión revocada criptográficamente para actor: ${elemento.actor || 'system'}`,
+        ...prev
+      ]);
+      alert(`Contramedida enviada para el actor real: ${elemento.actor || 'system'}. El log permanece intacto en PostgreSQL para auditoría conforme a ISO 27001.`);
+    }
+  };
+
+  // Sonda interactiva que genera ataques aleatorios
   useEffect(() => {
     if (!scanning) return;
 
@@ -63,13 +88,12 @@ export default function Vigilancia() {
         `[ALERT] Intento de acceso denegado para el recurso /api/v1/auth/admin`
       ];
 
-      // Decidimos aleatoriamente si este ciclo genera una alerta visual arriba (35% de probabilidad)
       const generarAlertaGrave = Math.random() < 0.35;
 
       if (generarAlertaGrave) {
         const ataque = vectoresAtaque[Math.floor(Math.random() * vectoresAtaque.length)];
         const nuevoId = `EV-${Math.floor(100 + Math.random() * 900)}`;
-        const nuevaIp = `185.190.${Math.floor(1 * 254)}.${Math.floor(1 * 254)}`;
+        const nuevaIp = `185.190.${Math.floor(Math.random() * 254)}.${Math.floor(Math.random() * 254)}`;
         
         const nuevaAlerta = {
           id: nuevoId,
@@ -79,16 +103,14 @@ export default function Vigilancia() {
           timestamp: "En vivo"
         };
 
-        // La agregamos al inicio de la lista de alertas y limitamos a un máximo de 4 para no romper el layout
         setAlertas(prev => [nuevaAlerta, ...prev.slice(0, 3)]);
         setSyslog(prev => [`[ALERT] Amenaza interceptada en red: ${ataque.tipo} desde IP ${nuevaIp}`, ...prev.slice(0, 6)]);
       } else {
-        // Si no es alerta grave, solo empuja un log normal a la consola SIEM
         const logAleatorio = logsNuevos[Math.floor(Math.random() * logsNuevos.length)];
         setSyslog(prev => [logAleatorio, ...prev.slice(0, 7)]);
       }
 
-    }, 4000); // Cada 4 segundos evalúa el tráfico
+    }, 4000);
 
     return () => clearInterval(interval);
   }, [scanning]);
@@ -126,64 +148,68 @@ export default function Vigilancia() {
         </div>
       </header>
 
-      {/* Grid de Tres Columnas */}
+      {/* Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* Columna Izquierda: Listas de Eventos (Alertas + Logs de BD) */}
+        {/* Columna Izquierda: Alertas y Logs */}
         <div className="lg:col-span-2 space-y-6">
           
-          {/* Bloque A: Alertas de Red ¡AHORA DINÁMICAS! */}
+          {/* Alertas de Red */}
           <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 shadow-xl backdrop-blur-sm">
             <h3 className="text-xs font-bold text-slate-400 mb-4 flex items-center gap-2 uppercase tracking-wider">
               <ShieldAlert className="text-red-400" size={16} /> Cola de Alertas Recientes (Red en Vivo)
             </h3>
 
             <div className="space-y-3">
-              {alertas.map(alerta => {
-                const isCritica = alerta.severidad === 'CRÍTICA';
-                const estaSeleccionado = selectedElement?.id === alerta.id && selectedElement?.tipo_origen === 'ALERTA';
-                
-                return (
-                  <div
-                    key={alerta.id}
-                    onClick={() => setSelectedElement({ ...alerta, tipo_origen: 'ALERTA' })}
-                    className={`border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all cursor-pointer ${
-                      estaSeleccionado 
-                        ? 'bg-red-500/10 border-red-500/40 shadow-lg' 
-                        : 'bg-slate-950/40 border-slate-900 hover:border-slate-800'
-                    }`}
-                  >
-                    <div className="flex items-start sm:items-center gap-3">
-                      <div className={`p-2 rounded-lg border shrink-0 ${
-                        isCritica 
-                          ? 'bg-red-500/10 text-red-400 border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.1)]' 
-                          : 'bg-amber-500/10 text-amber-400 border-amber-500/20' 
-                      }`}>
-                        <AlertOctagon size={18} />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-slate-200 font-semibold text-sm">{alerta.tipo}</span>
-                          <span className="text-[10px] bg-slate-900 border border-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono font-bold">{alerta.id}</span>
+              {alertas.length === 0 ? (
+                <div className="text-center py-8 bg-slate-950/20 border border-dashed border-slate-800 rounded-xl text-xs font-mono text-emerald-400/80">
+                  ✔ Perimeter secure // Sin amenazas pendientes de mitigación.
+                </div>
+              ) : (
+                alertas.map(alerta => {
+                  const isCritica = alerta.severidad === 'CRÍTICA';
+                  const estaSeleccionado = selectedElement?.id === alerta.id && selectedElement?.tipo_origen === 'ALERTA';
+                  
+                  return (
+                    <div
+                      key={alerta.id}
+                      onClick={() => setSelectedElement({ ...alerta, tipo_origen: 'ALERTA' })}
+                      className={`border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all cursor-pointer ${
+                        estaSeleccionado 
+                          ? 'bg-red-500/10 border-red-500/40 shadow-lg' 
+                          : 'bg-slate-950/40 border-slate-900 hover:border-slate-800'
+                      }`}
+                    >
+                      <div className="flex items-start sm:items-center gap-3">
+                        <div className={`p-2 rounded-lg border shrink-0 ${
+                          isCritica ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20' 
+                        }`}>
+                          <AlertOctagon size={18} />
                         </div>
-                        <p className="text-xs text-slate-500 mt-1 font-mono">Origen IP: <span className="text-slate-400">{alerta.ip}</span></p>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-slate-200 font-semibold text-sm">{alerta.tipo}</span>
+                            <span className="text-[10px] bg-slate-900 border border-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono font-bold">{alerta.id}</span>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-1 font-mono">Origen IP: <span className="text-slate-400">{alerta.ip}</span></p>
+                        </div>
+                      </div>
+                      <div className="text-left sm:text-right shrink-0">
+                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded border tracking-wide ${
+                          isCritica ? 'text-red-400 bg-red-950/40 border-red-900/30' : 'text-amber-400 bg-amber-950/40 border-amber-900/30'
+                        }`}>
+                          {alerta.severidad}
+                        </span>
+                        <span className={`text-[11px] block sm:mt-1 mt-2 font-mono ${alerta.timestamp === 'En vivo' ? 'text-red-400 animate-pulse font-bold' : 'text-slate-500'}`}>{alerta.timestamp}</span>
                       </div>
                     </div>
-                    <div className="text-left sm:text-right shrink-0">
-                      <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded border tracking-wide ${
-                        isCritica ? 'text-red-400 bg-red-950/40 border-red-900/30' : 'text-amber-400 bg-amber-950/40 border-amber-900/30'
-                      }`}>
-                        {alerta.severidad}
-                      </span>
-                      <span className={`text-[11px] block sm:mt-1 mt-2 font-mono ${alerta.timestamp === 'En vivo' ? 'text-red-400 animate-pulse font-bold' : 'text-slate-500'}`}>{alerta.timestamp}</span>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
 
-          {/* Bloque B: Logs de Auditoría Real (Base de Datos / SGSI) */}
+          {/* Logs Reales de PostgreSQL */}
           <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 shadow-xl backdrop-blur-sm">
             <h3 className="text-xs font-bold text-slate-400 mb-4 flex items-center gap-2 uppercase tracking-wider">
               <Terminal className="text-blue-400" size={16} /> Logs de Eventos de Auditoría (PostgreSQL / Inmutables)
@@ -199,13 +225,11 @@ export default function Vigilancia() {
                       key={log.id}
                       onClick={() => setSelectedElement({ ...log, tipo_origen: 'BD' })}
                       className={`border rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all cursor-pointer font-mono text-xs ${
-                        estaSeleccionado 
-                          ? 'bg-blue-500/10 border-blue-500/40 shadow-lg' 
-                          : 'bg-slate-950/40 border-slate-900 hover:border-slate-800'
+                        estaSeleccionado ? 'bg-blue-500/10 border-blue-500/40 shadow-lg' : 'bg-slate-950/40 border-slate-900 hover:border-slate-800'
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.4)]" />
+                        <span className="w-2 h-2 rounded-full bg-emerald-400" />
                         <div>
                           <p className="text-slate-200 font-bold">{log.event_type || 'SYSTEM_EVENT'}</p>
                           <p className="text-[10px] text-slate-500 mt-0.5">Actor: <span className="text-slate-400">{log.actor || 'system'}</span> | Modulo: <span className="text-slate-400">{log.service || 'core'}</span></p>
@@ -228,7 +252,7 @@ export default function Vigilancia() {
 
         </div>
 
-        {/* Columna Derecha: Inspector de Evidencias */}
+        {/* Columna Derecha */}
         <div className="space-y-6">
           {selectedElement ? (
             <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-5 shadow-xl backdrop-blur-sm space-y-4">
@@ -240,18 +264,11 @@ export default function Vigilancia() {
                 <div className="space-y-3 font-mono text-[11px]">
                   <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-900">
                     <span className="text-slate-500 block text-[9px]">PREVIOUS_HASH:</span>
-                    <span className="break-all text-slate-400 tracking-tighter">
-                      {selectedElement.previous_hash || "0000000000000000000000000000000000000000000000000000000000000000"}
-                    </span>
+                    <span className="break-all text-slate-400 tracking-tighter">{selectedElement.previous_hash || "00000000..."}</span>
                   </div>
                   <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-900">
                     <span className="text-emerald-400 block text-[9px]">CURRENT_BLOCK_HASH (SHA-256):</span>
-                    <span className="break-all font-bold text-emerald-400 tracking-tighter">
-                      {selectedElement.current_hash || "Sello criptográfico activo"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 bg-emerald-500/5 border border-emerald-500/20 text-emerald-400 p-2 rounded-xl text-[10px]">
-                    <Eye size={12} /> Bloque auditado inmutable.
+                    <span className="break-all font-bold text-emerald-400 tracking-tighter">{selectedElement.current_hash}</span>
                   </div>
                 </div>
               ) : (
@@ -261,33 +278,28 @@ export default function Vigilancia() {
                     <p className="mt-1"><span className="text-slate-500">TARGET_IP:</span> {selectedElement.ip}</p>
                     <p className="mt-1"><span className="text-slate-500">VECTOR:</span> {selectedElement.tipo}</p>
                   </div>
-                  <div className="flex items-center gap-2 bg-amber-500/5 border border-amber-500/20 text-amber-400 p-2 rounded-xl text-[10px]">
-                    <AlertOctagon size={12} /> Alerta en caliente no consolidada en cadena.
-                  </div>
                 </div>
               )}
 
               <div className="pt-2 border-t border-slate-800/60 space-y-2">
                 <span className="text-[10px] font-mono text-slate-500 uppercase block">Acciones de Contramedida</span>
-                <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                <div className="grid grid-cols-1 gap-2 text-xs font-mono">
                   <button 
-                    onClick={() => alert(`Baneando tráfico de la IP: ${selectedElement.ip || 'Local Node'}`)}
-                    className="flex items-center justify-center gap-2 p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl transition-all"
+                    onClick={() => ejecutarBloqueoNodo(selectedElement)}
+                    className="flex items-center justify-center gap-2 p-2.5 bg-red-500/10 hover:bg-red-600 hover:text-white text-red-400 border border-red-500/20 rounded-xl transition-all font-bold shadow-sm"
                   >
-                    <ShieldX size={13} /> BLOCK_NODE
-                  </button>
-                  <button 
-                    onClick={() => alert('Rotando firmas criptográficas perimetrales')}
-                    className="flex items-center justify-center gap-2 p-2 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-xl transition-all"
-                  >
-                    <KeyRound size={13} /> ROTATE_KEY
+                    <ShieldX size={14} /> MITIGATE & BLOCK_NODE
                   </button>
                 </div>
               </div>
             </div>
-          ) : null}
+          ) : (
+            <div className="bg-slate-900/20 border border-slate-800 p-6 rounded-2xl text-center text-xs font-mono text-slate-500">
+              SELECCIONE_UN_INCIDENTE_PARA_INSPECCIÓN
+            </div>
+          )}
 
-          {/* Consola SIEM Live Feed */}
+          {/* Consola SIEM */}
           <div className="bg-[#040712] border border-slate-900 rounded-2xl p-5 shadow-inner flex flex-col justify-between min-h-[280px]">
             <div>
               <div className="flex items-center justify-between border-b border-slate-900 pb-3 mb-4">
@@ -296,19 +308,16 @@ export default function Vigilancia() {
                 </span>
                 {scanning && <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>}
               </div>
-              <div className="space-y-2.5 font-mono text-[11px] leading-relaxed max-h-[220px] overflow-y-auto pr-1 select-none">
+              <div className="space-y-2.5 font-mono text-[11px] leading-relaxed max-h-[220px] overflow-y-auto pr-1">
                 {syslog.map((log, index) => {
                   let logColor = 'text-slate-400';
-                  if (log.includes('[ALERT]')) logColor = 'text-red-400 font-semibold';
+                  if (log.includes('[KILLED]')) logColor = 'text-emerald-400 font-bold border-l-2 border-emerald-500 pl-1';
+                  else if (log.includes('[ALERT]')) logColor = 'text-red-400 font-semibold';
                   else if (log.includes('[WARN]')) logColor = 'text-amber-400';
                   else if (log.includes('[OK]')) logColor = 'text-emerald-400';
                   else if (log.includes('[AUDIT]')) logColor = 'text-blue-400';
 
-                  return (
-                    <p key={index} className={logColor}>
-                      {log}
-                    </p>
-                  );
+                  return <p key={index} className={logColor}>{log}</p>;
                 })}
               </div>
             </div>
