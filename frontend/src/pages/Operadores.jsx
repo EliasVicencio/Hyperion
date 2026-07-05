@@ -7,7 +7,7 @@ export default function Operadores() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    
+
     // --- NUEVO: Estado para rastrear qué operador se está eliminando actualmente ---
     const [eliminandoId, setEliminandoId] = useState(null);
 
@@ -37,19 +37,22 @@ export default function Operadores() {
         cargarUsuarios();
     };
 
-    // --- NUEVA: Función para revocar acceso / eliminar operador ---
+    // --- Función corregida para eliminar usando la Clave Primaria (ID) ---
     const handleEliminarOperador = async (userId, userEmail) => {
-        // Confirmación nativa de seguridad antes de proceder
-        const confirmar = window.confirm(`¿Está seguro de que desea revocar el acceso y eliminar permanentemente al operador ${userEmail}?`);
+        // Si por alguna razón userId no está definido, lanzamos una alerta para debuggear
+        if (!userId) {
+            alert(`⚠️ Error de consistencia: El operador con email ${userEmail} no tiene un ID válido en el frontend.`);
+            return;
+        }
+
+        const confirmar = window.confirm(`¿Está seguro de que desea revocar el acceso y eliminar permanentemente al operador ${userEmail} (ID: ${userId})?`);
         if (!confirmar) return;
 
-        // Usamos el ID del usuario, si no existe usamos el email (dependiendo de tu estructura de BD)
-        const idAEnviar = userId || userEmail;
-        setEliminandoId(idAEnviar);
+        setEliminandoId(userId);
 
         try {
-            // Reemplaza esta URL por el endpoint DELETE real de tu API
-            const response = await fetch(`/api/v1/operadores/${idAEnviar}`, {
+            // Ahora la URL llamará exactamente a: /api/v1/operadores/2
+            const response = await fetch(`/api/v1/operadores/${userId}`, {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json',
@@ -61,7 +64,7 @@ export default function Operadores() {
                 throw new Error(errorData.detail || 'No se pudo eliminar el operador del perímetro.');
             }
 
-            // Si el backend responde OK, refrescamos la tabla de inmediato
+            // Refrescar la tabla tras el borrado exitoso en PostgreSQL
             await cargarUsuarios();
         } catch (err) {
             console.error(err);
@@ -92,8 +95,8 @@ export default function Operadores() {
                     >
                         <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
                     </button>
-                    
-                    <button 
+
+                    <button
                         onClick={() => setIsModalOpen(true)}
                         className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-4 py-2 rounded-xl text-sm flex items-center gap-2 transition-all shadow-lg shadow-blue-600/20"
                     >
@@ -156,11 +159,10 @@ export default function Operadores() {
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide border ${
-                                                        user.activo
+                                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide border ${user.activo
                                                             ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                                                             : 'bg-slate-800 text-slate-400 border-slate-700'
-                                                    }`}>
+                                                        }`}>
                                                         {user.activo ? <CheckCircle size={10} /> : <Clock size={10} />}
                                                         {user.activo ? 'ACTIVO' : 'SUSPENDIDO'}
                                                     </span>
@@ -199,7 +201,7 @@ export default function Operadores() {
                 </div>
             )}
 
-            <ModalCrearOperador 
+            <ModalCrearOperador
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onUserCreated={handleUserCreated}
