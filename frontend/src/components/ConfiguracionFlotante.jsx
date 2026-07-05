@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { QRCodeSVG } from 'qrcode.react'; // 👈 Renderizador nativo de QR
 
 export default function ConfiguracionFlotante({ isOpen, onClose }) {
   // --- Estados de la Interfaz ---
@@ -9,8 +10,18 @@ export default function ConfiguracionFlotante({ isOpen, onClose }) {
 
   // --- Estados de Formulario ---
   const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
+  
+  // --- NUEVO: Estados Sincronizados con el Backend para 2FA Real ---
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
-  const [totpSecret, setTotpSecret] = useState('JBSWY3DPEHPK3PXP'); // Sincronizado con tu .env
+  const [qrUri, setQrUri] = useState('');
+  const [totpSecret, setTotpSecret] = useState('');
+  const [tokenInput, setTokenInput] = useState('');
+  const [isActivated, setIsActivated] = useState(false);
+  const [error2FA, setError2FA] = useState(null);
+  const [loading2FA, setLoading2FA] = useState(false);
+
+  // Intentamos recuperar el email guardado en el login
+  const username = localStorage.getItem('user_email') || 'operador@hyperion.ops';
 
   // --- Efecto para el Cambio de Tema ---
   useEffect(() => {
@@ -25,20 +36,80 @@ export default function ConfiguracionFlotante({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
+  // Lógica de activación/inicialización del secreto en DB al activar switch
+  const handleToggle2FA = async () => {
+    if (twoFactorEnabled || isActivated) {
+      // Reseteo local voluntario
+      setTwoFactorEnabled(false);
+      setIsActivated(false);
+      setQrUri('');
+      setTotpSecret('');
+      return;
+    }
+
+    setLoading2FA(true);
+    setError2FA(null);
+
+    try {
+      const response = await fetch(`/auth/setup-2fa?username=${encodeURIComponent(username)}`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'No se pudo configurar el perímetro 2FA.');
+      }
+
+      setTotpSecret(data.secret);
+      setQrUri(data.qr_uri);
+      setTwoFactorEnabled(true);
+    } catch (err) {
+      setError2FA(err.message);
+    } finally {
+      setLoading2FA(false);
+    }
+  };
+
+  // Endpoint de confirmación final enviando el token de 6 dígitos
+  const handleVerifyAndActivate = async (e) => {
+    e.preventDefault();
+    setError2FA(null);
+    setLoading2FA(true);
+
+    try {
+      const response = await fetch('/auth/activate-2fa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, token: tokenInput }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Código incorrecto. Inténtalo de nuevo.');
+      }
+
+      setIsActivated(true);
+      setTwoFactorEnabled(false); // Cerramos el panel de configuración del QR
+      alert('¡Autenticación de dos factores vinculada exitosamente!');
+    } catch (err) {
+      setError2FA(err.message);
+    } finally {
+      setLoading2FA(false);
+    }
+  };
+
   const handlePasswordChange = (e) => {
     e.preventDefault();
     if (passwords.new !== passwords.confirm) {
       alert('Las contraseñas nuevas no coinciden');
       return;
     }
-    // Aquí invocas a tu proxy: fetch('/api/v1/auth/change-password', ...)
     alert('Solicitud de cambio de clave enviada al perímetro.');
     setPasswords({ current: '', new: '', confirm: '' });
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-end bg-black bg-opacity-50 backdrop-blur-sm animate-fade-in">
-      {/* Contenedor Flotante (Drawer Derecho) */}
       <div className="w-full max-w-md h-full bg-slate-900 text-slate-100 p-6 shadow-2xl flex flex-col border-l border-slate-800 animate-slide-in">
         
         {/* Cabecera */}
@@ -125,6 +196,12 @@ export default function ConfiguracionFlotante({ isOpen, onClose }) {
           {/* PESTAÑA: CONFIGURACIÓN 2FA */}
           {activeTab === '2fa' && (
             <div className="space-y-6">
+              {error2FA && (
+                <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-xl text-red-400 text-xs">
+                  {error2FA}
+                </div>
+              )}
+
               <div className="flex items-center justify-between bg-slate-800 p-4 rounded-xl border border-slate-700">
                 <div>
                   <h4 className="text-sm font-bold text-white">Autenticación de Dos Factores</h4>
@@ -133,26 +210,56 @@ export default function ConfiguracionFlotante({ isOpen, onClose }) {
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input 
                     type="checkbox" 
-                    checked={twoFactorEnabled} 
-                    onChange={() => setTwoFactorEnabled(!twoFactorEnabled)}
+                    checked={twoFactorEnabled || isActivated} 
+                    disabled={isActivated || loading2FA}
+                    onChange={handleToggle2FA}
                     className="sr-only peer" 
                   />
                   <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                 </label>
               </div>
 
-              {twoFactorEnabled && (
+              {/* Se despliega el código QR real generado dinámicamente */}
+              {twoFactorEnabled && !isActivated && qrUri && (
                 <div className="bg-slate-800/50 border border-dashed border-slate-700 p-4 rounded-xl text-center space-y-4 animate-fade-in">
                   <p className="text-xs text-slate-300">Escanea este código o introduce la clave en tu app autenticadora (Google Auth / Authy)</p>
                   
-                  {/* Marcador de posición para el QR generado con el TOTP_SECRET de tu .env */}
-                  <div className="w-40 h-40 bg-white mx-auto flex items-center justify-center rounded-lg shadow-inner">
-                    <span className="text-xs text-slate-800 font-mono font-bold">[ CÓDIGO QR TOTP ]</span>
+                  {/* Renderizador SVG del QR Real */}
+                  <div className="bg-white p-3 inline-block rounded-xl mx-auto shadow-xl">
+                    <QRCodeSVG value={qrUri} size={150} fgColor="#020617" />
                   </div>
                   
                   <div className="text-xs bg-slate-900 p-2 rounded border border-slate-800 font-mono select-all text-blue-400">
                     Secreto: {totpSecret}
                   </div>
+
+                  <form onSubmit={handleVerifyAndActivate} className="space-y-3 pt-3 border-t border-slate-800 text-left">
+                    <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Código del Autenticador</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text"
+                        maxLength="6"
+                        placeholder="000000"
+                        value={tokenInput}
+                        onChange={(e) => setTokenInput(e.target.value)}
+                        className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm font-mono tracking-widest text-center text-white focus:outline-none focus:border-blue-500"
+                        required
+                      />
+                      <button 
+                        type="submit" 
+                        disabled={loading2FA}
+                        className="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        {loading2FA ? '...' : 'Vincular'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+
+              {isActivated && (
+                <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl text-center text-emerald-400 text-xs font-medium">
+                  🔒 Perímetro asegurado: La protección 2FA se encuentra activa en esta cuenta.
                 </div>
               )}
             </div>

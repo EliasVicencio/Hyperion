@@ -10,8 +10,9 @@ export default function Login({ onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Ya no dependemos de VITE_API_URL: vercel.json del frontend hace de proxy
-  // y reenvía /api, /auth y /health directo al backend. Rutas siempre relativas.
+  // --- NUEVO: Estados del Flujo Voluntario de 2FA ---
+  const [requires2FA, setRequires2FA] = useState(false);
+  const [token2FA, setToken2FA] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,8 +20,26 @@ export default function Login({ onLoginSuccess }) {
     setLoading(true);
 
     try {
+      // CASO A: Si el usuario ya fue verificado en paso 1 y posee 2FA activado
+      if (requires2FA) {
+        const response = await fetch('/auth/verify-2fa', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: email, token: token2FA }),
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.detail || 'Código de seguridad incorrecto.');
+        }
+
+        localStorage.setItem('user_email', email); // Almacenamos id de sesión
+        onLoginSuccess();
+        return;
+      }
+
+      // CASO B: Flujo tradicional (Paso 1 o Registro)
       if (isRegister) {
-        // Alta de operador real contra el backend / Supabase
         const response = await fetch('/api/v1/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -34,20 +53,17 @@ export default function Login({ onLoginSuccess }) {
         const data = await response.json();
 
         if (!response.ok) {
-          // FastAPI manda el detalle en `detail` (string) o, en errores de
-          // validación de Pydantic, en una lista de objetos.
           const detail = Array.isArray(data.detail)
             ? data.detail.map((d) => d.msg).join(' / ')
             : data.detail;
           throw new Error(detail || 'No se pudo registrar el operador.');
         }
 
-        // Registro exitoso: pasamos a modo login con el email precargado
         setIsRegister(false);
         setPassword('');
         setNombre('');
       } else {
-        // Login real: OAuth2PasswordRequestForm espera form-urlencoded
+        // Login tradicional
         const body = new URLSearchParams();
         body.set('username', email);
         body.set('password', password);
@@ -68,7 +84,14 @@ export default function Login({ onLoginSuccess }) {
           throw new Error(data.detail || 'Credenciales incorrectas.');
         }
 
-        onLoginSuccess();
+        // CONTROL PERIMETRAL: Analizamos la respuesta opcional
+        if (data.status === 'requires_2fa') {
+          setRequires2FA(true); // Mutamos la UI para pedir el código de 6 dígitos
+        } else {
+          // Si no lo tiene activo, ingresa directamente (a merced del usuario)
+          localStorage.setItem('user_email', data.username);
+          onLoginSuccess();
+        }
       }
     } catch (err) {
       setError(err.message);
@@ -79,11 +102,9 @@ export default function Login({ onLoginSuccess }) {
 
   return (
     <div className="min-h-screen bg-[#020617] flex items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-blue-500/30">
-      {/* Efecto de luz de fondo cyberpunk */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-600/10 blur-[120px] rounded-full pointer-events-none"></div>
       <div className="absolute bottom-1/4 left-1/2 -translate-x-1/2 translate-y-1/2 w-[400px] h-[400px] bg-purple-600/5 blur-[100px] rounded-full pointer-events-none"></div>
 
-      {/* Tarjeta Contenedora Principal */}
       <div className="w-full max-w-md bg-[#0b111e]/80 border border-slate-800/80 backdrop-blur-xl rounded-3xl p-8 shadow-2xl relative z-10">
 
         {/* Encabezado e Isotipo */}
@@ -92,10 +113,12 @@ export default function Login({ onLoginSuccess }) {
             <Shield className="text-white" size={24} />
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-white">
-            {isRegister ? 'Crear cuenta Hyperion' : 'Acceso al Sistema'}
+            {requires2FA ? 'Verificación de Seguridad' : isRegister ? 'Crear cuenta Hyperion' : 'Acceso al Sistema'}
           </h2>
           <p className="text-slate-500 text-xs mt-1.5 max-w-[280px]">
-            {isRegister
+            {requires2FA
+              ? 'Introduce el código de 6 dígitos de tu aplicación de autenticación para validar la firma perimetral.'
+              : isRegister
               ? 'Regístrate para la gestión unificada de políticas e incidentes SGSI.'
               : 'Introduce tus credenciales autorizadas para iniciar auditoría.'}
           </p>
@@ -111,67 +134,82 @@ export default function Login({ onLoginSuccess }) {
             </div>
           )}
 
-          {/* Campo Nombre (Solo si es Registro) */}
-          {isRegister && (
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Nombre Completo</label>
-              <div className="relative">
-                <User className="absolute left-3.5 top-3 text-slate-500" size={16} />
-                <input
-                  type="text"
-                  required
-                  placeholder="Elias Vicencio"
-                  className="w-full bg-slate-950/60 border border-slate-800 rounded-xl py-2.5 pl-11 pr-4 text-sm text-slate-200 placeholder-slate-600 focus:border-blue-500 outline-none transition-all"
-                  value={nombre}
-                  onChange={(e) => setNombre(e.target.value)}
-                />
+          {/* RENDER CONDICIONAL: Si NO requiere 2FA, pintamos los inputs habituales */}
+          {!requires2FA ? (
+            <>
+              {isRegister && (
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Nombre Completo</label>
+                  <div className="relative">
+                    <User className="absolute left-3.5 top-3 text-slate-500" size={16} />
+                    <input
+                      type="text"
+                      required
+                      placeholder="Elias Vicencio"
+                      className="w-full bg-slate-950/60 border border-slate-800 rounded-xl py-2.5 pl-11 pr-4 text-sm text-slate-200 placeholder-slate-600 focus:border-blue-500 outline-none transition-all"
+                      value={nombre}
+                      onChange={(e) => setNombre(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Correo Corporativo</label>
+                <div className="relative">
+                  <Mail className="absolute left-3.5 top-3 text-slate-500" size={16} />
+                  <input
+                    type="email"
+                    required
+                    placeholder="admin@hyperion.ops"
+                    className="w-full bg-slate-950/60 border border-slate-800 rounded-xl py-2.5 pl-11 pr-4 text-sm text-slate-200 placeholder-slate-600 focus:border-blue-500 outline-none transition-all"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
               </div>
+
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Contraseña</label>
+                  {!isRegister && (
+                    <a href="#forgot" className="text-[11px] text-blue-500 hover:underline">¿Olvidaste tu clave?</a>
+                  )}
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-3 text-slate-500" size={16} />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    placeholder="••••••••••••"
+                    className="w-full bg-slate-950/60 border border-slate-800 rounded-xl py-2.5 pl-11 pr-10 text-sm text-slate-200 placeholder-slate-600 focus:border-blue-500 outline-none transition-all"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-3 text-slate-500 hover:text-slate-300 transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            /* SI REQUIERE 2FA: Mostramos una casilla unificada y limpia para el token */
+            <div className="space-y-2 animate-fade-in text-center">
+              <input
+                type="text"
+                maxLength="6"
+                placeholder="000000"
+                required
+                value={token2FA}
+                onChange={(e) => setToken2FA(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-3 text-center text-xl font-mono tracking-[0.5em] text-blue-400 focus:border-blue-500 outline-none transition-all"
+              />
             </div>
           )}
-
-          {/* Campo Email */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Correo Corporativo</label>
-            <div className="relative">
-              <Mail className="absolute left-3.5 top-3 text-slate-500" size={16} />
-              <input
-                type="email"
-                required
-                placeholder="admin@hyperion.ops"
-                className="w-full bg-slate-950/60 border border-slate-800 rounded-xl py-2.5 pl-11 pr-4 text-sm text-slate-200 placeholder-slate-600 focus:border-blue-500 outline-none transition-all"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* Campo Contraseña */}
-          <div className="space-y-1.5">
-            <div className="flex justify-between items-center">
-              <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Contraseña</label>
-              {!isRegister && (
-                <a href="#forgot" className="text-[11px] text-blue-500 hover:underline">¿Olvidaste tu clave?</a>
-              )}
-            </div>
-            <div className="relative">
-              <Lock className="absolute left-3.5 top-3 text-slate-500" size={16} />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                required
-                placeholder="••••••••••••"
-                className="w-full bg-slate-950/60 border border-slate-800 rounded-xl py-2.5 pl-11 pr-10 text-sm text-slate-200 placeholder-slate-600 focus:border-blue-500 outline-none transition-all"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3 text-slate-500 hover:text-slate-300 transition-colors"
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-          </div>
 
           {/* Botón de Envío */}
           <button
@@ -183,29 +221,31 @@ export default function Login({ onLoginSuccess }) {
               <Loader2 size={16} className="animate-spin" />
             ) : (
               <>
-                {isRegister ? 'Registrar Operador' : 'Autenticar'}
+                {requires2FA ? 'Verificar Token' : isRegister ? 'Registrar Operador' : 'Autenticar'}
                 <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
               </>
             )}
           </button>
         </form>
 
-        {/* Selector de modo (Login / Registro) */}
-        <div className="mt-6 pt-4 border-t border-slate-900 text-center">
-          <p className="text-xs text-slate-500">
-            {isRegister ? '¿Ya tienes una credencial?' : '¿Nuevo operador en el perímetro?'}
-            <button
-              onClick={() => {
-                setIsRegister(!isRegister);
-                setNombre('');
-                setError(null);
-              }}
-              className="text-blue-500 font-medium hover:underline pl-1"
-            >
-              {isRegister ? 'Inicia Sesión' : 'Crea una cuenta'}
-            </button>
-          </p>
-        </div>
+        {/* Selector de modo (Solo si no está en medio de un flujo 2FA) */}
+        {!requires2FA && (
+          <div className="mt-6 pt-4 border-t border-slate-900 text-center">
+            <p className="text-xs text-slate-500">
+              {isRegister ? '¿Ya tienes una credencial?' : '¿Nuevo operador en el perímetro?'}
+              <button
+                onClick={() => {
+                  setIsRegister(!isRegister);
+                  setNombre('');
+                  setError(null);
+                }}
+                className="text-blue-500 font-medium hover:underline pl-1"
+              >
+                {isRegister ? 'Inicia Sesión' : 'Crea una cuenta'}
+              </button>
+            </p>
+          </div>
+        )}
 
       </div>
     </div>
