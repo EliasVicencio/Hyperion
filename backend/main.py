@@ -201,6 +201,44 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error en el proceso de autenticación: {str(e)}")
+    
+@app.delete("/api/v1/operadores/{id}")
+async def eliminar_operador(id: int, db: Session = Depends(get_db)):
+    if not RAW_DB_URL:
+        raise HTTPException(
+            status_code=500, 
+            detail="Error de configuración: La variable DATABASE_URL está vacía."
+        )
+        
+    try:
+        # 1. Verificar primero si el operador existe para dar un mensaje preciso
+        check_query = text("SELECT email FROM usuarios WHERE id = :id")
+        user = db.execute(check_query, {"id": id}).fetchone()
+        
+        if not user:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Operador con ID {id} no encontrado en el sistema."
+            )
+            
+        # 2. Ejecutar la eliminación inmutable en PostgreSQL
+        delete_query = text("DELETE FROM usuarios WHERE id = :id")
+        await run_in_threadpool(db.execute, delete_query, {"id": id})
+        db.commit()
+        
+        return {
+            "status": "success",
+            "message": f"Acceso revocado permanentemente para el operador {user[0]}."
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error en la base de datos al purgar registro: {str(e)}"
+        )
 
 @app.post("/auth/verify-2fa")
 async def verify_2fa(data: TokenVerifyRequest, db: Session = Depends(get_db)):
