@@ -61,6 +61,30 @@ def verify_password(password: str, hashed: str) -> bool:
         return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
     except ValueError:
         return False
+    
+# --- FUNCIÓN INTERNA: REGISTRO DE AUDITORÍA INMUTABLE ---
+async def registrar_log(db: Session, operador: str, accion: str, categoria: str = "INFO", origen_ip: str = "0.0.0.0", detalles: str = None):
+    """Inserta un registro de auditoría en la base de datos de forma segura."""
+    try:
+        query = text("""
+            INSERT INTO logs_auditoria (operador, accion, categoria, origen_ip, detalles)
+            VALUES (:operador, :accion, :categoria, :origen_ip, :detalles)
+        """)
+        await run_in_threadpool(
+            db.execute, 
+            query, 
+            {
+                "operador": operador,
+                "accion": accion,
+                "categoria": categoria.upper(),
+                "origen_ip": origen_ip,
+                "detalles": detalles
+            }
+        )
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"🚨 CRITICAL: Falló el registro del log de auditoría: {str(e)}")
 
 # --- MODELOS PYDANTIC ---
 class LoginAttempt(BaseModel):
@@ -74,7 +98,6 @@ class NuevoOperador(BaseModel):
     nombre: str | None = None
     role: str = "operador"
 
-# Nuevos modelos para soportar el flujo 2FA Voluntario
 class TokenVerifyRequest(BaseModel):
     username: str
     token: str
@@ -83,10 +106,45 @@ class Setup2FAResponse(BaseModel):
     secret: str
     qr_uri: str
 
+class LogFiltro(BaseModel):
+    categoria: str | None = None
+    operador: str | None = None
+    
+
 # --- ENDPOINTS ---
 @app.get("/health/deep")
 def deep_health():
     return {"status": "healthy", "has_db_url": bool(RAW_DB_URL), "timestamp": datetime.now().isoformat()}
+
+@app.get("/api/v1/logs")
+async def get_logs_auditoria(categoria: str | None = None, db: Session = Depends(get_db)):
+    if not RAW_DB_URL:
+        raise HTTPException(status_code=500, detail="DATABASE_URL no configurada.")
+        
+    try:
+        if categoria:
+            query = text("SELECT id, timestamp, operador, accion, categoria, origen_ip, detalles FROM logs_auditoria WHERE categoria = :categoria ORDER BY timestamp DESC LIMIT 100")
+            result = await run_in_threadpool(db.execute, query, {"categoria": categoria.upper()})
+        else:
+            query = text("SELECT id, timestamp, operador, accion, categoria, origen_ip, detalles FROM logs_auditoria ORDER BY timestamp DESC LIMIT 100")
+            result = await run_in_threadpool(db.execute, query)
+            
+        rows = result.fetchall()
+        
+        lista_logs = []
+        for row in rows:
+            lista_logs.append({
+                "id": row[0],
+                "timestamp": row[1].strftime("%Y-%m-%d %H:%M:%S") if row[1] else datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "operador": row[2],
+                "accion": row[3],
+                "categoria": row[4],
+                "origen_ip": row[5],
+                "detalles": row[6] if row[6] else ""
+            })
+        return lista_logs
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al consultar logs: {str(e)}")
 
 @app.get("/api/v1/operadores")
 async def get_operadores_database(db: Session = Depends(get_db)):
@@ -139,7 +197,9 @@ async def _crear_operador_en_bd(payload: "NuevoOperador", db: Session):
         )
         row = result.fetchone()
         db.commit()
-
+        
+        await registrar_log(db, payload.email, "OPERADOR_CREATED", "WARN", detalles=f"Alta de nueva identidad por el sistema. Rol: {payload.role}")
+        
         return {
             "id": row[0],
             "nombre": row[3] if row[3] else "Operador Corporativo",
@@ -165,16 +225,12 @@ async def register(payload: NuevoOperador, db: Session = Depends(get_db)):
 async def crear_operador(payload: NuevoOperador, db: Session = Depends(get_db)):
     return await _crear_operador_en_bd(payload, db)
 
-# =====================================================================
-# 🔐 MODIFICADO: LOGIN EN DOS PASOS VOLUNTARIO (MFA OPCIONAL)
-# =====================================================================
 @app.post("/auth/login")
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     username = form_data.username
     password = form_data.password
     
     try:
-        # Obtenemos la contraseña hash y las flags de verificación 2FA desde Supabase
         query = text('SELECT password, role, two_factor_enabled FROM usuarios WHERE email = :email')
         user_record = db.execute(query, {"email": username}).fetchone()
 
@@ -183,7 +239,6 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
 
         two_factor_enabled = bool(user_record[2])
 
-        # FLUJO COMPORTAMIENTO: Si tiene el 2FA encendido, no le damos el éxito directo, exigimos token.
         if two_factor_enabled:
             return {
                 "status": "requires_2fa",
@@ -191,7 +246,8 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
                 "username": username
             }
 
-        # COMPORTAMIENTO VOLUNTARIO: Si no lo tiene activo, pasa directo sin trabas a merced del usuario.
+        await registrar_log(db, username, "LOGIN_SUCCESS", "INFO", detalles="Inicio de sesión perimetral correcto.")
+        
         return {
             "status": "success", 
             "username": username,
@@ -211,7 +267,6 @@ async def eliminar_operador(id: int, db: Session = Depends(get_db)):
         )
         
     try:
-        # 1. Verificar primero si el operador existe para dar un mensaje preciso
         check_query = text("SELECT email FROM usuarios WHERE id = :id")
         user = db.execute(check_query, {"id": id}).fetchone()
         
@@ -221,10 +276,11 @@ async def eliminar_operador(id: int, db: Session = Depends(get_db)):
                 detail=f"Operador con ID {id} no encontrado en el sistema."
             )
             
-        # 2. Ejecutar la eliminación inmutable en PostgreSQL
         delete_query = text("DELETE FROM usuarios WHERE id = :id")
         await run_in_threadpool(db.execute, delete_query, {"id": id})
         db.commit()
+        
+        await registrar_log(db, user[0], "ACCESS_REVOKED", "CRITICAL", detalles=f"Puga de credenciales completada para el ID {id}.")
         
         return {
             "status": "success",
@@ -242,7 +298,6 @@ async def eliminar_operador(id: int, db: Session = Depends(get_db)):
 
 @app.post("/auth/verify-2fa")
 async def verify_2fa(data: TokenVerifyRequest, db: Session = Depends(get_db)):
-    """Verifica el código de 6 dígitos introducido por el operador durante el Login."""
     import pyotp
     try:
         query = text('SELECT two_factor_secret, role FROM usuarios WHERE email = :email')
@@ -263,12 +318,8 @@ async def verify_2fa(data: TokenVerifyRequest, db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Fallo en verificación perimetral: {str(e)}")
 
-# =====================================================================
-# ⚙️ NUEVOS ENDPOINTS PERFIL: GENERACIÓN Y ACTIVACIÓN DESDE CONFIGURACIÓN
-# =====================================================================
 @app.post("/auth/setup-2fa", response_model=Setup2FAResponse)
 async def setup_2fa(username: str, db: Session = Depends(get_db)):
-    """Inicializa la configuración del 2FA. Devuelve la llave y la uri para el QR."""
     import pyotp
     try:
         secret = pyotp.random_base32()
@@ -277,7 +328,6 @@ async def setup_2fa(username: str, db: Session = Depends(get_db)):
             issuer_name="Hyperion Core"
         )
         
-        # Guardamos el secreto en estado inactivo hasta que el usuario lo verifique con éxito
         query = text('UPDATE usuarios SET two_factor_secret = :secret, two_factor_enabled = FALSE WHERE email = :email')
         db.execute(query, {"secret": secret, "email": username})
         db.commit()
@@ -289,7 +339,6 @@ async def setup_2fa(username: str, db: Session = Depends(get_db)):
 
 @app.post("/auth/activate-2fa")
 async def activate_2fa(data: TokenVerifyRequest, db: Session = Depends(get_db)):
-    """Confirma el escaneo exitoso del código. Si es válido, blinda la cuenta activando el flag."""
     import pyotp
     try:
         query = text('SELECT two_factor_secret FROM usuarios WHERE email = :email')
@@ -302,7 +351,6 @@ async def activate_2fa(data: TokenVerifyRequest, db: Session = Depends(get_db)):
         if not totp.verify(data.token):
             raise HTTPException(status_code=400, detail="El código de confirmación no coincide con el autenticador.")
             
-        # Activamos definitivamente el flag para exigir 2FA en los siguientes inicios de sesión
         query_update = text('UPDATE usuarios SET two_factor_enabled = TRUE WHERE email = :email')
         db.execute(query_update, {"email": data.username})
         db.commit()
@@ -312,7 +360,6 @@ async def activate_2fa(data: TokenVerifyRequest, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error en activación de seguridad: {str(e)}")
     
-# 2. Agrega este nuevo endpoint para obtener el estado actual (por si refrescan la pestaña)
 @app.get("/auth/status-2fa")
 async def get_2fa_status(username: str, db: Session = Depends(get_db)):
     try:
@@ -322,7 +369,6 @@ async def get_2fa_status(username: str, db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# 3. Agrega el endpoint para DESACTIVAR el 2FA pidiendo confirmación de token
 @app.post("/auth/deactivate-2fa")
 async def deactivate_2fa(data: TokenVerifyRequest, db: Session = Depends(get_db)):
     import pyotp
@@ -337,7 +383,6 @@ async def deactivate_2fa(data: TokenVerifyRequest, db: Session = Depends(get_db)
         if not totp.verify(data.token):
             raise HTTPException(status_code=400, detail="Código de desactivación incorrecto.")
             
-        # Limpiamos los campos para remover el 2FA
         query_update = text('UPDATE usuarios SET two_factor_enabled = FALSE, two_factor_secret = NULL WHERE email = :email')
         db.execute(query_update, {"email": data.username})
         db.commit()
