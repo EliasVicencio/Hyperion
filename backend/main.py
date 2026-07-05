@@ -1,11 +1,11 @@
-from fastapi import FastAPI, APIRouter, Depends, HTTPException, status
+from fastapi import FastAPI, APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
 import os
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy import Column, DateTime, Integer, String, create_engine, text
+from sqlalchemy.orm import sessionmaker, Session, declarative_base  # 🌟 Corregido Base
 from sqlalchemy.exc import IntegrityError
 from fastapi.concurrency import run_in_threadpool
 import bcrypt
@@ -23,6 +23,9 @@ app.add_middleware(
 )
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+# --- BASE DECLARATIVA REAL DE SQLALCHEMY ---
+Base = declarative_base()  # 🌟 Esto reemplaza el import incorrecto de unittest
 
 # --- CONEXIÓN DE BASE DE DATOS ULTRA LIGERA PARA VERCEL ---
 RAW_DB_URL = os.getenv("DATABASE_URL")
@@ -62,30 +65,6 @@ def verify_password(password: str, hashed: str) -> bool:
     except ValueError:
         return False
     
-# --- FUNCIÓN INTERNA: REGISTRO DE AUDITORÍA INMUTABLE ---
-async def registrar_log(db: Session, operador: str, accion: str, categoria: str = "INFO", origen_ip: str = "0.0.0.0", detalles: str = None):
-    """Inserta un registro de auditoría en la base de datos de forma segura."""
-    try:
-        query = text("""
-            INSERT INTO logs_auditoria (operador, accion, categoria, origen_ip, detalles)
-            VALUES (:operador, :accion, :categoria, :origen_ip, :detalles)
-        """)
-        await run_in_threadpool(
-            db.execute, 
-            query, 
-            {
-                "operador": operador,
-                "accion": accion,
-                "categoria": categoria.upper(),
-                "origen_ip": origen_ip,
-                "detalles": detalles
-            }
-        )
-        db.commit()
-    except Exception as e:
-        db.rollback()
-        print(f"🚨 CRITICAL: Falló el registro del log de auditoría: {str(e)}")
-
 # --- MODELOS PYDANTIC ---
 class LoginAttempt(BaseModel):
     user_email: str
@@ -109,7 +88,76 @@ class Setup2FAResponse(BaseModel):
 class LogFiltro(BaseModel):
     categoria: str | None = None
     operador: str | None = None
-    
+
+# --- MODELO ORM DE VIGILANCIA ---
+class EventoVigilancia(Base):
+    __tablename__ = "eventos_vigilancia"
+    id = Column(Integer, primary_key=True, index=True)
+    accion = Column(String, nullable=False)
+    detalles = Column(String, nullable=True)
+    severidad = Column(String, default="INFO")
+    fecha_creacion = Column(DateTime, default=datetime.utcnow)
+
+# Crear tablas automáticamente si estamos en entorno SQLite local
+if not RAW_DB_URL:
+    Base.metadata.create_all(bind=engine)
+
+# --- GESTOR DE CONEXIONES EN VIVO (WEBSOCKETS) ---
+class VigilanciaManager:
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []  # 🌟 Corregido el tipo de lista de ast a nativo
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        for connection in self.active_connections:
+            try:
+                await connection.send_json(message)
+            except Exception:
+                pass
+
+manager = VigilanciaManager()
+
+# --- FUNCIÓN INTERNA: REGISTRO DE AUDITORÍA E INYECCIÓN EN VIVO ---
+async def registrar_log(db: Session, operador: str, accion: str, categoria: str = "INFO", origen_ip: str = "0.0.0.0", detalles: str = None):
+    """Inserta un registro en logs_auditoria y lo transmite en tiempo real a Vigilancia."""
+    categoria = categoria.upper()
+    try:
+        query = text("""
+            INSERT INTO logs_auditoria (operador, accion, categoria, origen_ip, detalles)
+            VALUES (:operador, :accion, :categoria, :origen_ip, :detalles)
+        """)
+        await run_in_threadpool(
+            db.execute, 
+            query, 
+            {
+                "operador": operador,
+                "accion": accion,
+                "categoria": categoria,
+                "origen_ip": origen_ip,
+                "detalles": detalles
+            }
+        )
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"🚨 CRITICAL: Falló el registro del log de auditoría: {str(e)}")
+
+    # 🌟 TRANSMISIÓN EN TIEMPO REAL AL WEBSOCKET DE VIGILANCIA
+    # Esto asegura que CUALQUIER evento en el sistema actualice el frontend automáticamente
+    await manager.broadcast({
+        "accion": accion,
+        "operador": operador,
+        "severidad": "CRITICAL" if categoria in ["CRITICAL", "WARN"] else "INFO",
+        "detalles": detalles if detalles else "",
+        "fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    })
 
 # --- ENDPOINTS ---
 @app.get("/health/deep")
@@ -170,7 +218,7 @@ async def get_operadores_database(db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Excepción en la base de datos: {str(e)}")
 
-async def _crear_operador_en_bd(payload: "NuevoOperador", db: Session):
+async def _crear_operador_en_bd(payload: NuevoOperador, db: Session):
     if not RAW_DB_URL:
         raise HTTPException(status_code=500, detail="Error de configuración: La variable DATABASE_URL está vacía en Vercel.")
 
@@ -198,6 +246,7 @@ async def _crear_operador_en_bd(payload: "NuevoOperador", db: Session):
         row = result.fetchone()
         db.commit()
         
+        # 🚨 Envía la alerta de creación a Vigilancia automáticamente por medio del nuevo registrar_log
         await registrar_log(db, payload.email, "OPERADOR_CREATED", "WARN", detalles=f"Alta de nueva identidad por el sistema. Rol: {payload.role}")
         
         return {
@@ -235,6 +284,8 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
         user_record = db.execute(query, {"email": username}).fetchone()
 
         if not user_record or not verify_password(password, user_record[0]):
+            # 🚨 Alerta de seguridad si fallan el login
+            await registrar_log(db, username, "LOGIN_FAILED", "WARN", detalles="Intento fallido de autenticación.")
             raise HTTPException(status_code=400, detail="Credenciales incorrectas o usuario no registrado.")
 
         two_factor_enabled = bool(user_record[2])
@@ -246,6 +297,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
                 "username": username
             }
 
+        # 🚨 Alerta en tiempo real de inicio correcto
         await registrar_log(db, username, "LOGIN_SUCCESS", "INFO", detalles="Inicio de sesión perimetral correcto.")
         
         return {
@@ -261,41 +313,33 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
 @app.delete("/api/v1/operadores/{id}")
 async def eliminar_operador(id: int, db: Session = Depends(get_db)):
     if not RAW_DB_URL:
-        raise HTTPException(
-            status_code=500, 
-            detail="Error de configuración: La variable DATABASE_URL está vacía."
-        )
+        raise HTTPException(status_code=500, detail="Error de configuración: La variable DATABASE_URL está vacía.")
         
     try:
         check_query = text("SELECT email FROM usuarios WHERE id = :id")
         user = db.execute(check_query, {"id": id}).fetchone()
         
         if not user:
-            raise HTTPException(
-                status_code=404, 
-                detail=f"Operador con ID {id} no encontrado en el sistema."
-            )
+            raise HTTPException(status_code=404, detail=f"Operador con ID {id} no encontrado en el sistema.")
             
         delete_query = text("DELETE FROM usuarios WHERE id = :id")
         await run_in_threadpool(db.execute, delete_query, {"id": id})
         db.commit()
         
-        await registrar_log(db, user[0], "ACCESS_REVOKED", "CRITICAL", detalles=f"Puga de credenciales completada para el ID {id}.")
+        # 🚨 Alerta crítica: El operador fue purgado
+        await registrar_log(db, user[0], "ACCESS_REVOKED", "CRITICAL", detalles=f"Purga de credenciales completada para el ID {id}.")
         
         return {
             "status": "success",
             "message": f"Acceso revocado permanentemente para el operador {user[0]}."
         }
-        
     except HTTPException:
         raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(
-            status_code=500, 
-            detail=f"Error en la base de datos al purgar registro: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error en la base de datos al purgar registro: {str(e)}")
 
+# --- ENDPOINTS 2FA ---
 @app.post("/auth/verify-2fa")
 async def verify_2fa(data: TokenVerifyRequest, db: Session = Depends(get_db)):
     import pyotp
@@ -308,13 +352,17 @@ async def verify_2fa(data: TokenVerifyRequest, db: Session = Depends(get_db)):
             
         totp = pyotp.TOTP(user_record[0])
         if not totp.verify(data.token):
+            await registrar_log(db, data.username, "2FA_FAILED", "WARN", detalles="Fallo de código de verificación 2FA.")
             raise HTTPException(status_code=400, detail="Código de seguridad inválido o expirado.")
             
+        await registrar_log(db, data.username, "2FA_SUCCESS", "INFO", detalles="Doble factor validado.")
         return {
             "status": "success",
             "username": data.username,
             "role": (user_record[1].upper() + "_ROLE") if user_record[1] else "OPERADOR_ROLE"
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Fallo en verificación perimetral: {str(e)}")
 
@@ -355,7 +403,10 @@ async def activate_2fa(data: TokenVerifyRequest, db: Session = Depends(get_db)):
         db.execute(query_update, {"email": data.username})
         db.commit()
         
+        await registrar_log(db, data.username, "2FA_ACTIVATED", "INFO", detalles="El operador activó el resguardo por token TOTP.")
         return {"status": "activated", "message": "Autenticación de Dos Factores vinculada correctamente al sistema."}
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error en activación de seguridad: {str(e)}")
@@ -387,12 +438,47 @@ async def deactivate_2fa(data: TokenVerifyRequest, db: Session = Depends(get_db)
         db.execute(query_update, {"email": data.username})
         db.commit()
         
+        await registrar_log(db, data.username, "2FA_DEACTIVATED", "CRITICAL", detalles="Doble factor removido por el operador.")
         return {"status": "deactivated", "message": "Autenticación de dos factores removida."}
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
 app.include_router(router)
+
+# --- WEBSOCKET CANAL DE VIGILANCIA EN VIVO ---
+@app.websocket("/api/vigilancia/ws/live")
+async def websocket_vigilancia(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            # Escucha latidos o eventos desde el front si los hay
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+# Endpoint tradicional para consultar el historial de eventos guardados
+@app.get("/api/vigilancia/historial")
+def obtener_historial_vigilancia(db: Session = Depends(get_db)):
+    # Nota: Si estás usando logs_auditoria directo mediante raw queries, podemos leer de ahí.
+    # Para consistencia con tu sistema, jalamos los últimos 50 logs directamente:
+    try:
+        query = text("SELECT timestamp, operador, accion, categoria, detalles FROM logs_auditoria ORDER BY timestamp DESC LIMIT 50")
+        result = db.execute(query)
+        rows = result.fetchall()
+        return [
+            {
+                "fecha": r[0].strftime("%Y-%m-%d %H:%M:%S") if r[0] else datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "operador": r[1],
+                "accion": r[2],
+                "severidad": r[3],
+                "detalles": r[4]
+            } for r in rows
+        ]
+    except Exception as e:
+        return []
 
 if __name__ == "__main__":
     import uvicorn

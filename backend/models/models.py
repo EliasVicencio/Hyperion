@@ -1,17 +1,14 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime
-from .database import Base  # El punto es importante
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from database import Base
 import datetime
 
-class User(Base):
-    __tablename__ = "users"
-    id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True)
-    email = Column(String, unique=True, index=True)
-    hashed_password = Column(String)
+class EventoVigilancia(Base):
+    __tablename__ = "eventos_vigilancia"
 
-class Metric(Base):
-    __tablename__ = "metrics"
     id = Column(Integer, primary_key=True, index=True)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
-    value = Column(Float)
-    sensor_name = Column(String)
+    operador_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    accion = Column(String, nullable=False)  # Ej: "LOGIN_FALLIDO", "ACCESO_RECURSO"
+    detalles = Column(String, nullable=True) # JSON o Texto con info extra
+    ip_origen = Column(String, nullable=True)
+    severidad = Column(String, default="INFO") # INFO, WARNING, CRITICAL
+    fecha_creacion = Column(DateTime, default=datetime.datetime.utcnow)
