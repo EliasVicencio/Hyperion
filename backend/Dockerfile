@@ -2,9 +2,10 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Añade esta línea quirúrgica justo aquí:
-RUN pip install --no-cache-dir kafka-python sqlalchemy psycopg2-binary
+# 🌟 Aseguramos que fastapi y uvicorn se instalen en la imagen
+RUN pip install --no-cache-dir fastapi uvicorn sqlalchemy psycopg2-binary redis bcrypt email-validator python-multipart
 
 COPY . .
 
-CMD ["python", "worker_ingestor.py"]
+# 🚀 El comando por defecto correcto para levantar la API
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7860"]
