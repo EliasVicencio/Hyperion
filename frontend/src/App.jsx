@@ -6,12 +6,16 @@ import Vigilancia from './pages/Vigilancia';
 import Gobernanza from './pages/Gobernanza';
 import Logs from './pages/Logs';
 import Login from './pages/Login'; // 👈 1. Importa la nueva pantalla de Login
+import ConfiguracionFlotante from './components/ConfiguracionFlotante'; // 👈 Importamos la nueva pestaña flotante
 import { AnimatePresence, motion } from 'framer-motion';
 
 export default function App() {
   // Estado para controlar si el operador tiene acceso o no
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [page, setPage] = useState('Analiticas');
+  
+  // 👈 NUEVO: Estado global para controlar si la pestaña de configuración está abierta o no
+  const [isConfigOpen, setIsConfigOpen] = useState(false);
 
   // Si no está autenticado, renderizamos ÚNICAMENTE la pantalla de Login
   if (!isAuthenticated) {
@@ -36,8 +40,16 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200 flex font-sans selection:bg-blue-500/30">
-      {/* Pasamos una función para que el botón "Cerrar Sistema" funcione y bloquee la app */}
-      <Sidebar currentPage={page} setPage={setPage} onLogout={() => setIsAuthenticated(false)} />
+      {/* 👈 MODIFICADO: Le pasamos 'onOpenConfig' al Sidebar para que cuando hagan clic 
+        en "Configuración" en el menú, se ejecute 'setIsConfigOpen(true)'
+      */}
+      <Sidebar 
+        currentPage={page} 
+        setPage={setPage} 
+        onLogout={() => setIsAuthenticated(false)} 
+        onOpenConfig={() => setIsConfigOpen(true)} 
+        isConfigOpen={isConfigOpen}
+      />
       
       <main className="flex-1 ml-64 min-h-screen relative">
         <div className="p-8 max-w-7xl mx-auto">
@@ -54,6 +66,12 @@ export default function App() {
           </AnimatePresence>
         </div>
       </main>
+
+      {/* 👈 NUEVO: Insertamos el componente flotante pasándole el estado y la función de cierre */}
+      <ConfiguracionFlotante 
+        isOpen={isConfigOpen} 
+        onClose={() => setIsConfigOpen(false)} 
+      />
     </div>
   );
 }
