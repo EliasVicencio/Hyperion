@@ -116,9 +116,8 @@ async def get_operadores_database(db: Session = Depends(get_db)):
         # Devolvemos el error real en texto para saber exactamente qué tabla o permiso falló
         raise HTTPException(status_code=500, detail=f"Excepción en la base de datos: {str(e)}")
 
-@app.post("/api/v1/operadores", status_code=status.HTTP_201_CREATED)
-async def crear_operador(payload: NuevoOperador, db: Session = Depends(get_db)):
-    """Da de alta un operador nuevo directo en Supabase, con password hasheada."""
+async def _crear_operador_en_bd(payload: "NuevoOperador", db: Session):
+    """Lógica compartida de alta de operador: hashea password e inserta en Supabase."""
     if not RAW_DB_URL:
         raise HTTPException(status_code=500, detail="Error de configuración: La variable DATABASE_URL está vacía en Vercel.")
 
@@ -157,9 +156,21 @@ async def crear_operador(payload: NuevoOperador, db: Session = Depends(get_db)):
     except IntegrityError:
         db.rollback()
         raise HTTPException(status_code=409, detail="Ya existe un operador registrado con ese email.")
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Excepción en la base de datos: {str(e)}")
+
+@app.post("/api/v1/register", status_code=status.HTTP_201_CREATED)
+async def register(payload: NuevoOperador, db: Session = Depends(get_db)):
+    """Endpoint público de auto-registro, usado por la pantalla de Login."""
+    return await _crear_operador_en_bd(payload, db)
+
+@app.post("/api/v1/operadores", status_code=status.HTTP_201_CREATED)
+async def crear_operador(payload: NuevoOperador, db: Session = Depends(get_db)):
+    """Alta de operador desde el gestor de usuarios (Mission Control)."""
+    return await _crear_operador_en_bd(payload, db)
 
 @app.post("/auth/login")
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):

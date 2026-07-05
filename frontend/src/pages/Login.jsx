@@ -20,11 +20,17 @@ export default function Login({ onLoginSuccess }) {
     try {
       if (isRegister) {
         // Alta de operador real contra el backend / Supabase
-        const response = await fetch(`${baseUrl}/api/v1/operadores`, {
+        const response = await fetch(`${baseUrl}/api/v1/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password, nombre, role: 'operador' }),
         });
+
+        if (!response.headers.get('content-type')?.includes('application/json')) {
+          throw new Error(
+            `El backend no respondió JSON (¿VITE_API_URL mal configurada? Está pegando a: ${baseUrl || '(vacío, usando dominio del frontend)'})`
+          );
+        }
 
         const data = await response.json();
 
@@ -52,6 +58,12 @@ export default function Login({ onLoginSuccess }) {
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body,
         });
+
+        if (!response.headers.get('content-type')?.includes('application/json')) {
+          throw new Error(
+            `El backend no respondió JSON (¿VITE_API_URL mal configurada? Está pegando a: ${baseUrl || '(vacío, usando dominio del frontend)'})`
+          );
+        }
 
         const data = await response.json();
 
