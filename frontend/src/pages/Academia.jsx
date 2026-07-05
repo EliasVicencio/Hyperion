@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient'; // Ajusta la ruta según la estructura de tu proyecto
+import { supabase } from '../supabase'; // Ajusta la ruta según la estructura de tu proyecto
 import { BookOpen, Clock, CheckCircle2, AlertTriangle, HelpCircle, ChevronRight } from 'lucide-react';
 
 export default function Academia({ user }) {
