@@ -1,20 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Operadores from './pages/Operadores';
 import Vigilancia from './pages/Vigilancia';
 import Gobernanza from './pages/Gobernanza';
 import Logs from './pages/Logs';
-import Login from './pages/Login'; 
-import Academia from './pages/Academia';
-import ConfiguracionFlotante from './components/ConfiguracionFlotante'; 
+import Login from './pages/Login';
+import ConfiguracionFlotante from './components/ConfiguracionFlotante';
 import { AnimatePresence, motion } from 'framer-motion';
+
+// Carga perezosa: si Academia falla (p. ej. por variables de entorno de Supabase
+// faltantes), no rompe el resto de la aplicación al arrancar.
+const Academia = lazy(() => import('./pages/Academia'));
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem('hyperion_auth') === 'true';
   });
-  
+
   const [page, setPage] = useState('Analiticas');
   const [isConfigOpen, setIsConfigOpen] = useState(false);
 
@@ -73,8 +76,24 @@ export default function App() {
       'gobernanza': <Gobernanza />,
       'logs': <Logs />,
       'logs de auditoria': <Logs />,
-      'academia': <Academia user={currentUser} />,
-      'academia compliance': <Academia user={currentUser} />
+      'academia': (
+        <Suspense fallback={
+          <div className="h-[60vh] flex items-center justify-center">
+            <p className="dark:text-slate-500 text-slate-400 italic">Cargando Academia...</p>
+          </div>
+        }>
+          <Academia user={currentUser} />
+        </Suspense>
+      ),
+      'academia compliance': (
+        <Suspense fallback={
+          <div className="h-[60vh] flex items-center justify-center">
+            <p className="dark:text-slate-500 text-slate-400 italic">Cargando Academia...</p>
+          </div>
+        }>
+          <Academia user={currentUser} />
+        </Suspense>
+      )
     };
 
     return views[key] || (
