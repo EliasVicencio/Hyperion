@@ -6,6 +6,7 @@ import Vigilancia from './pages/Vigilancia';
 import Gobernanza from './pages/Gobernanza';
 import Logs from './pages/Logs';
 import Login from './pages/Login'; // Importa la pantalla de Login
+import Academia from './pages/Academia';
 import ConfiguracionFlotante from './components/ConfiguracionFlotante'; // Importamos la pestaña flotante
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -23,7 +24,6 @@ export default function App() {
   // --- Efecto inicial para sincronizar el tema de Tailwind al cargar la app ---
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
-    // Si estaba guardado oscuro, o si es la primera vez y el sistema prefiere oscuro
     if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
       document.documentElement.classList.add('dark');
     } else {
@@ -34,7 +34,6 @@ export default function App() {
   // --- NUEVO: Manejador de éxito en la autenticación ---
   const handleLoginSuccess = (userData) => {
     localStorage.setItem('hyperion_auth', 'true');
-    // Guardamos los datos devueltos por FastAPI (username, role, etc.) por si tus subcomponentes los necesitan
     localStorage.setItem('hyperion_user', JSON.stringify(userData));
     setIsAuthenticated(true);
   };
@@ -51,16 +50,34 @@ export default function App() {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
+  // --- CORREGIDO: Mapeo tolerante a variaciones de nombres mediante normalización ---
   const renderPage = () => {
-    switch (page) {
-      case 'Analiticas': return <Dashboard />;
-      case 'Vigilancia': return <Vigilancia />;
-      case 'Operadores': return <Operadores />;
-      case 'Gobernanza': return <Gobernanza />;
-      case 'Logs':       return <Logs />;
+    // Convierte a minúsculas, remueve acentos/diacríticos y limpia espacios extra
+    const normalizedPage = page
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
+
+    switch (normalizedPage) {
+      case 'analiticas':
+      case 'dashboard':
+        return <Dashboard />;
+      case 'vigilancia':
+        return <Vigilancia />;
+      case 'operadores':
+      case 'gestion de usuarios': // Mapea el texto exacto de tu Sidebar
+        return <Operadores />;
+      case 'gobernanza':
+        return <Gobernanza />;
+      case 'logs':
+      case 'logs de auditoria':   // Mapea el texto exacto de tu Sidebar
+        return <Logs />;
+      case 'academia':
+      case 'academia compliance': // Mapea el texto exacto de tu Sidebar
+        return <Academia />;
       default:
         return (
-          // Modificado: Ahora el contenedor vacío también responde al modo claro/oscuro
           <div className="h-[60vh] flex items-center justify-center border border-dashed dark:border-slate-800 border-slate-300 rounded-3xl">
               <p className="dark:text-slate-500 text-slate-400 italic">Módulo {page} en fase de despliegue...</p>
           </div>
@@ -71,7 +88,8 @@ export default function App() {
   return (
     // ☀️ Modo Claro: bg-hyperion-lightBg, text-slate-800
     // 🌙 Modo Oscuro: dark:bg-hyperion-dark, dark:text-slate-200
-    <div className="min-h-screen bg-hyperion-lightBg dark:bg-hyperion-dark text-slate-800 dark:text-slate-200 flex font-sans selection:bg-blue-500/30 transition-colors duration-300">
+    // 🛡️ Agregados bg-slate-50 y dark:bg-slate-950 como salvaguardas nativas
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 bg-hyperion-lightBg dark:bg-hyperion-dark text-slate-800 dark:text-slate-200 flex font-sans selection:bg-blue-500/30 transition-colors duration-300">
       
       <Sidebar 
         currentPage={page} 
