@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, ShieldAlert, UserPlus, RefreshCw, CheckCircle, Clock } from 'lucide-react';
-import ModalCrearOperador from './ModalCrearOperador'; // Asegúrate de ajustar la ruta si está en otra carpeta
+import { Shield, ShieldAlert, UserPlus, RefreshCw, CheckCircle, Clock, Trash2, Loader2 } from 'lucide-react';
+import ModalCrearOperador from './ModalCrearOperador';
 
 export default function Operadores() {
     const [usuarios, setUsuarios] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    
-    // --- NUEVO: Estado para controlar la visibilidad del Modal ---
     const [isModalOpen, setIsModalOpen] = useState(false);
+    
+    // --- NUEVO: Estado para rastrear qué operador se está eliminando actualmente ---
+    const [eliminandoId, setEliminandoId] = useState(null);
 
-    // Obtener los usuarios mediante el proxy inverso configurado
     const cargarUsuarios = async () => {
         setLoading(true);
         setError(null);
@@ -33,10 +33,42 @@ export default function Operadores() {
         cargarUsuarios();
     }, []);
 
-    // --- NUEVO: Manejador ejecutado tras registrar con éxito un operador en el modal ---
-    const handleUserCreated = (newUserData) => {
-        // Recargamos la lista desde el backend para garantizar consistencia con PostgreSQL
+    const handleUserCreated = () => {
         cargarUsuarios();
+    };
+
+    // --- NUEVA: Función para revocar acceso / eliminar operador ---
+    const handleEliminarOperador = async (userId, userEmail) => {
+        // Confirmación nativa de seguridad antes de proceder
+        const confirmar = window.confirm(`¿Está seguro de que desea revocar el acceso y eliminar permanentemente al operador ${userEmail}?`);
+        if (!confirmar) return;
+
+        // Usamos el ID del usuario, si no existe usamos el email (dependiendo de tu estructura de BD)
+        const idAEnviar = userId || userEmail;
+        setEliminandoId(idAEnviar);
+
+        try {
+            // Reemplaza esta URL por el endpoint DELETE real de tu API
+            const response = await fetch(`/api/v1/operadores/${idAEnviar}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || 'No se pudo eliminar el operador del perímetro.');
+            }
+
+            // Si el backend responde OK, refrescamos la tabla de inmediato
+            await cargarUsuarios();
+        } catch (err) {
+            console.error(err);
+            alert(`⚠️ Error al eliminar operador: ${err.message}`);
+        } finally {
+            setEliminandoId(null);
+        }
     };
 
     return (
@@ -61,7 +93,6 @@ export default function Operadores() {
                         <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
                     </button>
                     
-                    {/* Botón interactivo vinculado al Modal */}
                     <button 
                         onClick={() => setIsModalOpen(true)}
                         className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-4 py-2 rounded-xl text-sm flex items-center gap-2 transition-all shadow-lg shadow-blue-600/20"
@@ -71,8 +102,8 @@ export default function Operadores() {
                 </div>
             </header>
 
-            {/* Estado de Carga */}
-            {loading && (
+            {/* Estado de Carga Inicial */}
+            {loading && usuarios.length === 0 && (
                 <div className="bg-slate-900/50 border border-slate-800 p-12 rounded-2xl text-center text-slate-400 italic backdrop-blur-sm">
                     <RefreshCw size={24} className="animate-spin mx-auto mb-3 text-blue-500" />
                     Consultando registros inmutables en PostgreSQL...
@@ -91,7 +122,7 @@ export default function Operadores() {
             )}
 
             {/* Tabla de Usuarios */}
-            {!loading && !error && (
+            {(!loading || usuarios.length > 0) && !error && (
                 <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl backdrop-blur-sm">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
@@ -101,41 +132,63 @@ export default function Operadores() {
                                     <th className="px-6 py-4">Rol asignado</th>
                                     <th className="px-6 py-4">Estado de Cuenta</th>
                                     <th className="px-6 py-4">Última Auditoría</th>
+                                    {/* NUEVA COLUMNA */}
+                                    <th className="px-6 py-4 text-right">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800/40 text-xs sm:text-sm">
                                 {usuarios.length > 0 ? (
-                                    usuarios.map((user) => (
-                                        <tr key={user.id || user.email} className="hover:bg-blue-500/[0.02] transition-colors">
-                                            <td className="px-6 py-4">
-                                                <div className="flex flex-col">
-                                                    <span className="text-slate-200 font-medium">{user.nombre || 'Sin Nombre'}</span>
-                                                    <span className="text-[10px] font-mono text-slate-500 mt-0.5">{user.email}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="font-mono text-[11px] text-blue-400 font-bold bg-blue-500/10 px-2 py-1 rounded-md border border-blue-500/20 uppercase">
-                                                    {user.rol || 'OPERADOR'}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide border ${
-                                                    user.activo
-                                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                                        : 'bg-slate-800 text-slate-400 border-slate-700'
-                                                }`}>
-                                                    {user.activo ? <CheckCircle size={10} /> : <Clock size={10} />}
-                                                    {user.activo ? 'ACTIVO' : 'SUSPENDIDO'}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-slate-400 font-mono text-xs">
-                                                {user.ultima_conexion || 'Nunca'}
-                                            </td>
-                                        </tr>
-                                    ))
+                                    usuarios.map((user) => {
+                                        const idActual = user.id || user.email;
+                                        const estaEliminando = eliminandoId === idActual;
+
+                                        return (
+                                            <tr key={idActual} className="hover:bg-blue-500/[0.02] transition-colors">
+                                                <td className="px-6 py-4">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-slate-200 font-medium">{user.nombre || 'Sin Nombre'}</span>
+                                                        <span className="text-[10px] font-mono text-slate-500 mt-0.5">{user.email}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className="font-mono text-[11px] text-blue-400 font-bold bg-blue-500/10 px-2 py-1 rounded-md border border-blue-500/20 uppercase">
+                                                        {user.rol || 'OPERADOR'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide border ${
+                                                        user.activo
+                                                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                                            : 'bg-slate-800 text-slate-400 border-slate-700'
+                                                    }`}>
+                                                        {user.activo ? <CheckCircle size={10} /> : <Clock size={10} />}
+                                                        {user.activo ? 'ACTIVO' : 'SUSPENDIDO'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 text-slate-400 font-mono text-xs">
+                                                    {user.ultima_conexion || 'Nunca'}
+                                                </td>
+                                                {/* NUEVA CELDA: Botón Eliminar con estética Hyperion */}
+                                                <td className="px-6 py-4 text-right">
+                                                    <button
+                                                        onClick={() => handleEliminarOperador(user.id, user.email)}
+                                                        disabled={estaEliminando || loading}
+                                                        className="p-2 bg-slate-950/40 hover:bg-red-500/10 text-slate-500 hover:text-red-400 border border-slate-900 hover:border-red-500/20 rounded-xl transition-all disabled:opacity-40"
+                                                        title="Revocar credenciales de operador"
+                                                    >
+                                                        {estaEliminando ? (
+                                                            <Loader2 size={14} className="animate-spin text-red-400" />
+                                                        ) : (
+                                                            <Trash2 size={14} />
+                                                        )}
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
                                 ) : (
                                     <tr>
-                                        <td colSpan="4" className="px-6 py-12 text-center text-slate-500 italic">
+                                        <td colSpan="5" className="px-6 py-12 text-center text-slate-500 italic">
                                             No hay operadores registrados en la base de datos.
                                         </td>
                                     </tr>
@@ -146,7 +199,6 @@ export default function Operadores() {
                 </div>
             )}
 
-            {/* --- NUEVO: Inyección del Modal Renderizado Condicionalmente --- */}
             <ModalCrearOperador 
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
