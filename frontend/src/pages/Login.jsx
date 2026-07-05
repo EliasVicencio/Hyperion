@@ -10,7 +10,8 @@ export default function Login({ onLoginSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const baseUrl = import.meta.env.VITE_API_URL || '';
+  // Ya no dependemos de VITE_API_URL: vercel.json del frontend hace de proxy
+  // y reenvía /api, /auth y /health directo al backend. Rutas siempre relativas.
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -20,16 +21,14 @@ export default function Login({ onLoginSuccess }) {
     try {
       if (isRegister) {
         // Alta de operador real contra el backend / Supabase
-        const response = await fetch(`${baseUrl}/api/v1/register`, {
+        const response = await fetch('/api/v1/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password, nombre, role: 'operador' }),
         });
 
         if (!response.headers.get('content-type')?.includes('application/json')) {
-          throw new Error(
-            `El backend no respondió JSON (¿VITE_API_URL mal configurada? Está pegando a: ${baseUrl || '(vacío, usando dominio del frontend)'})`
-          );
+          throw new Error('El backend no respondió JSON. Revisa el proxy en vercel.json del frontend.');
         }
 
         const data = await response.json();
@@ -53,16 +52,14 @@ export default function Login({ onLoginSuccess }) {
         body.set('username', email);
         body.set('password', password);
 
-        const response = await fetch(`${baseUrl}/auth/login`, {
+        const response = await fetch('/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body,
         });
 
         if (!response.headers.get('content-type')?.includes('application/json')) {
-          throw new Error(
-            `El backend no respondió JSON (¿VITE_API_URL mal configurada? Está pegando a: ${baseUrl || '(vacío, usando dominio del frontend)'})`
-          );
+          throw new Error('El backend no respondió JSON. Revisa el proxy en vercel.json del frontend.');
         }
 
         const data = await response.json();

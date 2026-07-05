@@ -1,6 +1,18 @@
 {
   "rewrites": [
     {
+      "source": "/api/:path*",
+      "destination": "https://hyperion-pi-nine.vercel.app/api/:path*"
+    },
+    {
+      "source": "/auth/:path*",
+      "destination": "https://hyperion-pi-nine.vercel.app/auth/:path*"
+    },
+    {
+      "source": "/health/:path*",
+      "destination": "https://hyperion-pi-nine.vercel.app/health/:path*"
+    },
+    {
       "source": "/:path*",
       "destination": "/index.html"
     }

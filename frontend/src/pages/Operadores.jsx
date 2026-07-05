@@ -12,8 +12,8 @@ export default function Operadores() {
         setError(null);
         try {
             // Usamos la ruta relativa gracias al proxy de Nginx / Vercel
-            const baseUrl = import.meta.env.VITE_API_URL || '';
-            const response = await fetch(`${baseUrl}/api/v1/operadores`);
+            // Ya no dependemos de VITE_API_URL: vercel.json del frontend hace de proxy
+            const response = await fetch('/api/v1/operadores');
             if (!response.ok) {
                 throw new Error('Error al conectar con la base de datos de operadores');
             }
