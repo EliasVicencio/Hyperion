@@ -17,13 +17,13 @@ export default function Academia() {
       try {
         setLoading(true);
         
-        // 🌟 MODIFICADO: Leer el usuario logueado en tu sistema híbrido (FastAPI)
+        // Leer el usuario logueado desde el localStorage que maneja tu App.jsx
         const savedUser = localStorage.getItem('hyperion_user');
         let currentUserId = null;
         
         if (savedUser) {
           const parsedUser = JSON.parse(savedUser);
-          currentUserId = parsedUser.id; // Asume que tu backend retorna un .id o .uuid
+          currentUserId = parsedUser.id; 
           setUserId(currentUserId);
         }
 
@@ -39,7 +39,7 @@ export default function Academia() {
         if (familyError) throw familyError;
         setFamilies(familyData || []);
 
-        // Auto-seleccionar la primera lección si está disponible
+        // Auto-seleccionar la primera lección si está disponible (Uso de ?. preventivo)
         if (familyData?.[0]?.academy_lessons?.[0]) {
           await handleSelectLesson(familyData[0].academy_lessons[0], currentUserId);
         }
@@ -59,20 +59,25 @@ export default function Academia() {
 
   // 2. Función independiente para recargar las métricas de progreso
   const loadMetrics = async (uid) => {
-    if (!uid) return;
-    const { data, error } = await supabase.rpc('get_user_academy_metrics', { target_user_id: uid });
-    if (!error && data && data.length > 0) {
-      setMetrics({
-        completed: data[0].lessons_completed,
-        total: data[0].total_lessons,
-        percent: parseFloat(data[0].percentage_completed) || 0,
-        hours: parseFloat(data[0].hours_dedicated) || 0
-      });
+    if (!uid) return; // Salvaguarda si el uid es nulo o indefinido
+    try {
+      const { data, error } = await supabase.rpc('get_user_academy_metrics', { target_user_id: uid });
+      if (!error && data && data.length > 0) {
+        setMetrics({
+          completed: data[0].lessons_completed || 0,
+          total: data[0].total_lessons || 0,
+          percent: parseFloat(data[0].percentage_completed) || 0,
+          hours: parseFloat(data[0].hours_dedicated) || 0
+        });
+      }
+    } catch (e) {
+      console.error("Error cargando métricas rpc:", e);
     }
   };
 
   // 3. Manejador para cambiar de lección activa y jalar su Checkpoint (Quiz)
   const handleSelectLesson = async (lesson, uid = userId) => {
+    if (!lesson) return;
     setSelectedLesson(lesson);
     setSelectedAnswer(''); // Resetear radio button
     setCheckpoint(null);
@@ -191,7 +196,7 @@ export default function Academia() {
         
         {/* LISTADO DE TEMARIOS */}
         <div className="lg:col-span-2 space-y-6">
-          {families.map(family => (
+          {families?.map(family => (
             <div key={family.id} className="p-6 bg-slate-900/30 border border-slate-850 rounded-2xl space-y-4">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-mono px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded uppercase tracking-widest font-semibold">
@@ -255,7 +260,7 @@ export default function Academia() {
                 {selectedLesson.mapped_controls && (
                   <div className="flex gap-1.5 pt-2">
                     <span className="text-[9px] font-mono text-slate-500 mt-0.5">MARCO ASOCIADO:</span>
-                    {selectedLesson.mapped_controls.map(ctrl => (
+                    {selectedLesson.mapped_controls?.map(ctrl => (
                       <span key={ctrl} className="text-[9px] font-mono text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-850">
                         {ctrl}
                       </span>
