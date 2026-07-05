@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabase } from '../supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Academia() {
@@ -11,15 +11,21 @@ export default function Academia() {
   const [userId, setUserId] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // 1. Cargar Usuario, Datos de la Academia y Métricas Iniciales
+  // 1. Cargar Usuario desde LocalStorage, Datos de la Academia y Métricas Iniciales
   useEffect(() => {
     async function initAcademy() {
       try {
         setLoading(true);
         
-        // Obtener el usuario autenticado en Supabase
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) setUserId(user.id);
+        // 🌟 MODIFICADO: Leer el usuario logueado en tu sistema híbrido (FastAPI)
+        const savedUser = localStorage.getItem('hyperion_user');
+        let currentUserId = null;
+        
+        if (savedUser) {
+          const parsedUser = JSON.parse(savedUser);
+          currentUserId = parsedUser.id; // Asume que tu backend retorna un .id o .uuid
+          setUserId(currentUserId);
+        }
 
         // Cargar familias de controles y sus lecciones asociadas
         const { data: familyData, error: familyError } = await supabase
@@ -35,12 +41,12 @@ export default function Academia() {
 
         // Auto-seleccionar la primera lección si está disponible
         if (familyData?.[0]?.academy_lessons?.[0]) {
-          await handleSelectLesson(familyData[0].academy_lessons[0], user?.id);
+          await handleSelectLesson(familyData[0].academy_lessons[0], currentUserId);
         }
 
         // Cargar métricas globales de progreso del alumno
-        if (user) {
-          await loadMetrics(user.id);
+        if (currentUserId) {
+          await loadMetrics(currentUserId);
         }
       } catch (err) {
         console.error("Error inicializando el Compliance Hub:", err.message);
@@ -76,7 +82,7 @@ export default function Academia() {
       .from('academy_checkpoints')
       .select('*')
       .eq('lesson_id', lesson.id)
-      .maybeSingle(); // Evita reventar si una lección no tiene quiz cargado aún
+      .maybeSingle(); 
 
     if (!error && data) {
       setCheckpoint(data);
@@ -85,7 +91,10 @@ export default function Academia() {
 
   // 4. Verificar respuesta y registrar completado en `user_academy_progress`
   const handleVerifyAnswer = async () => {
-    if (!selectedAnswer || !checkpoint || !userId) return;
+    if (!selectedAnswer || !checkpoint || !userId) {
+      if(!userId) alert("Error de sesión: No se detectó un identificador de usuario válido.");
+      return;
+    }
 
     const isCorrect = selectedAnswer === checkpoint.correct_option_id;
 
@@ -124,11 +133,10 @@ export default function Academia() {
 
   return (
     <div className="space-y-8">
-      {/* --- ENCABEZADO Y TÍTULO DE TU CAPTURA --- */}
+      {/* --- ENCABEZADO Y TÍTULO --- */}
       <div>
         <div className="flex items-center gap-3 mb-2">
           <div className="p-2.5 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-xl">
-            {/* Icono de Libro/Academia */}
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.753 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
@@ -142,11 +150,9 @@ export default function Academia() {
 
       {/* --- TARJETAS DE MÉTRICAS DINÁMICAS --- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Card 1: Porcentaje */}
         <div className="p-5 bg-slate-900/40 border border-slate-850 rounded-2xl relative overflow-hidden">
           <p className="text-xs font-mono uppercase text-slate-500 tracking-wider">Certificación Global</p>
           <p className="text-2xl font-bold mt-1 text-slate-200 font-mono">{metrics.percent}% <span className="text-sm font-normal text-slate-400">COMPLETADO</span></p>
-          {/* Barra de progreso visual de tu captura */}
           <div className="w-full h-1.5 bg-slate-800 rounded-full mt-4 overflow-hidden">
             <motion.div 
               className="h-full bg-blue-500"
@@ -157,7 +163,6 @@ export default function Academia() {
           </div>
         </div>
 
-        {/* Card 2: Horas */}
         <div className="p-5 bg-slate-900/40 border border-slate-850 rounded-2xl">
           <p className="text-xs font-mono uppercase text-slate-500 tracking-wider">Tiempo Dedicado</p>
           <p className="text-2xl font-bold mt-1 text-slate-200 font-mono">
@@ -166,7 +171,6 @@ export default function Academia() {
           <p className="text-xs text-slate-500 mt-3">Calculado dinámicamente según duración de laboratorios superados.</p>
         </div>
 
-        {/* Card 3: Controles Entendidos */}
         <div className="p-5 bg-slate-900/40 border border-slate-850 rounded-2xl flex items-center justify-between">
           <div>
             <p className="text-xs font-mono uppercase text-slate-500 tracking-wider">Controles Entendidos</p>
@@ -182,10 +186,10 @@ export default function Academia() {
         </div>
       </div>
 
-      {/* --- SECCIÓN PRINCIPAL EN DOS COLUMNAS --- */}
+      {/* --- SECCIÓN PRINCIPAL --- */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         
-        {/* COLUMNA IZQUIERDA (2/3): Listado de Familias y Temarios */}
+        {/* LISTADO DE TEMARIOS */}
         <div className="lg:col-span-2 space-y-6">
           {families.map(family => (
             <div key={family.id} className="p-6 bg-slate-900/30 border border-slate-850 rounded-2xl space-y-4">
@@ -199,7 +203,6 @@ export default function Academia() {
                 <p className="text-xs text-slate-400 mt-1">{family.description}</p>
               </div>
 
-              {/* Botones/Lecciones de esta familia */}
               <div className="space-y-2.5 pt-2">
                 {family.academy_lessons?.map(lesson => {
                   const isSelected = selectedLesson?.id === lesson.id;
@@ -225,7 +228,7 @@ export default function Academia() {
           ))}
         </div>
 
-        {/* COLUMNA DERECHA (1/3): Terminal de Estudio y Checkpoint Dinámico */}
+        {/* TERMINAL DE ESTUDIO */}
         <div className="lg:col-span-1">
           <AnimatePresence mode="wait">
             {selectedLesson ? (
@@ -237,7 +240,6 @@ export default function Academia() {
                 transition={{ duration: 0.2 }}
                 className="p-5 bg-slate-900/50 border border-slate-800 rounded-2xl space-y-5"
               >
-                {/* Cabecera Terminal */}
                 <div className="flex justify-between items-center pb-3 border-b border-slate-850">
                   <h4 className="text-[10px] font-mono uppercase text-slate-400 tracking-widest flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
@@ -246,15 +248,13 @@ export default function Academia() {
                   <span className="text-[9px] font-mono text-slate-500 uppercase tracking-tight">LECTURE_MODE</span>
                 </div>
 
-                {/* Contenido Formateado */}
                 <div className="text-xs text-slate-300 font-sans leading-relaxed whitespace-pre-wrap">
                   {selectedLesson.content_markdown}
                 </div>
 
-                {/* Mapeo de controles pequeños en el pie de la terminal */}
                 {selectedLesson.mapped_controls && (
                   <div className="flex gap-1.5 pt-2">
-                    <span className="text-[9px] font-mono text-slate-500 mt-0.5">MARCO REGLAMENTARIO ASOCIADO:</span>
+                    <span className="text-[9px] font-mono text-slate-500 mt-0.5">MARCO ASOCIADO:</span>
                     {selectedLesson.mapped_controls.map(ctrl => (
                       <span key={ctrl} className="text-[9px] font-mono text-slate-400 bg-slate-950 px-1.5 py-0.5 rounded border border-slate-850">
                         {ctrl}
@@ -263,17 +263,16 @@ export default function Academia() {
                   </div>
                 )}
 
-                {/* CHECKPOINT INTERACTIVO (QUIZ) */}
+                {/* QUIZ INTERACTIVO */}
                 {checkpoint && (
                   <div className="mt-6 pt-5 border-t border-slate-850 space-y-4">
                     <h5 className="text-[10px] font-mono text-purple-400 tracking-widest font-semibold">
-                      ⚡ CHECKPOINT DE VALIDACIÓN (NIST)
+                      ⚡ CHECKPOINT DE VALIDACIÓN
                     </h5>
                     <p className="text-xs font-medium text-slate-200 leading-normal">
                       {checkpoint.question}
                     </p>
                     
-                    {/* Opciones de respuesta */}
                     <div className="space-y-2">
                       {checkpoint.options?.map(opt => {
                         const isChecked = selectedAnswer === opt.id;
@@ -300,7 +299,6 @@ export default function Academia() {
                       })}
                     </div>
 
-                    {/* Botón de Enviar */}
                     <button
                       onClick={handleVerifyAnswer}
                       disabled={!selectedAnswer}
@@ -317,7 +315,7 @@ export default function Academia() {
               </motion.div>
             ) : (
               <div className="p-5 bg-slate-900/20 border border-dashed border-slate-800 rounded-2xl text-center py-12">
-                <p className="text-xs text-slate-500 italic">Selecciona un módulo del catálogo normativo para iniciar la terminal de estudio.</p>
+                <p className="text-xs text-slate-500 italic">Selecciona un módulo para iniciar.</p>
               </div>
             )}
           </AnimatePresence>
