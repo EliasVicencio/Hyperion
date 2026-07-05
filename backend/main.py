@@ -22,21 +22,24 @@ app.add_middleware(
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
-# --- CONEXIÓN DE BASE DE DATOS ULTRA LIGERA PARA VERCEL ---
 RAW_DB_URL = os.getenv("DATABASE_URL")
 
-# Reparar el string por si viene de Supabase con postgres://
-if RAW_DB_URL and RAW_DB_URL.startswith("postgres://"):
-    RAW_DB_URL = RAW_DB_URL.replace("postgres://", "postgresql://", 1)
+# Reparar el string: forzar dialecto pg8000 (puro Python, sin libpq nativo)
+if RAW_DB_URL:
+    if RAW_DB_URL.startswith("postgres://"):
+        RAW_DB_URL = RAW_DB_URL.replace("postgres://", "postgresql+pg8000://", 1)
+    elif RAW_DB_URL.startswith("postgresql://"):
+        RAW_DB_URL = RAW_DB_URL.replace("postgresql://", "postgresql+pg8000://", 1)
 
-# IMPORTANTE: Desactivamos el pooling estático usando NullPool. 
-# Esto evita que Vercel Serverless aborte la ejecución al iniciar.
 if RAW_DB_URL:
     from sqlalchemy.pool import NullPool
-    engine = create_engine(RAW_DB_URL, poolclass=NullPool)
+    engine = create_engine(
+        RAW_DB_URL,
+        poolclass=NullPool,
+        connect_args={"ssl_context": True},  # Supabase exige SSL
+    )
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 else:
-    # Respaldo temporal si no se detecta la variable
     engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
