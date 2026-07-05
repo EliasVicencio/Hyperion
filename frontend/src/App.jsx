@@ -10,14 +10,17 @@ import ConfiguracionFlotante from './components/ConfiguracionFlotante'; // Impor
 import { AnimatePresence, motion } from 'framer-motion';
 
 export default function App() {
-  // Estado para controlar si el operador tiene acceso o no
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // --- MODIFICADO: Estado inicial busca persistencia en localStorage para evitar logout al recargar ---
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem('hyperion_auth') === 'true';
+  });
+  
   const [page, setPage] = useState('Analiticas');
   
   // Estado global para controlar si la pestaña de configuración está abierta o no
   const [isConfigOpen, setIsConfigOpen] = useState(false);
 
-  // --- NUEVO: Efecto inicial para sincronizar el tema de Tailwind al cargar la app ---
+  // --- Efecto inicial para sincronizar el tema de Tailwind al cargar la app ---
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     // Si estaba guardado oscuro, o si es la primera vez y el sistema prefiere oscuro
@@ -28,9 +31,24 @@ export default function App() {
     }
   }, []);
 
+  // --- NUEVO: Manejador de éxito en la autenticación ---
+  const handleLoginSuccess = (userData) => {
+    localStorage.setItem('hyperion_auth', 'true');
+    // Guardamos los datos devueltos por FastAPI (username, role, etc.) por si tus subcomponentes los necesitan
+    localStorage.setItem('hyperion_user', JSON.stringify(userData));
+    setIsAuthenticated(true);
+  };
+
+  // --- NUEVO: Manejador de cierre de sesión seguro ---
+  const handleLogout = () => {
+    localStorage.removeItem('hyperion_auth');
+    localStorage.removeItem('hyperion_user');
+    setIsAuthenticated(false);
+  };
+
   // Si no está autenticado, renderizamos ÚNICAMENTE la pantalla de Login
   if (!isAuthenticated) {
-    return <Login onLoginSuccess={() => setIsAuthenticated(true)} />;
+    return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
   const renderPage = () => {
@@ -58,7 +76,7 @@ export default function App() {
       <Sidebar 
         currentPage={page} 
         setPage={setPage} 
-        onLogout={() => setIsAuthenticated(false)} 
+        onLogout={handleLogout} 
         onOpenConfig={() => setIsConfigOpen(true)} 
         isConfigOpen={isConfigOpen}
       />

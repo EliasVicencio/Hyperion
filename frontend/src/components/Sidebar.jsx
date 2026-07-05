@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Shield, ShieldAlert, FileText, Settings, LogOut, Zap } from 'lucide-react';
+import { LayoutDashboard, Shield, ShieldAlert, FileText, Settings, LogOut, Zap, BookOpen } from 'lucide-react';
 
 export default function Sidebar({ currentPage, setPage, onLogout, onOpenConfig, isConfigOpen }) {
   const menu = [
@@ -8,6 +8,7 @@ export default function Sidebar({ currentPage, setPage, onLogout, onOpenConfig, 
     { id: 'Operadores', label: 'Gestión de Usuarios', icon: <Shield size={18} /> },
     { id: 'Gobernanza', label: 'Gobernanza', icon: <Zap size={18} /> },
     { id: 'Logs', label: 'Logs de Auditoría', icon: <FileText size={18} /> },
+    { id: 'Academia', label: 'Academia Compliance', icon: <BookOpen size={18} /> }, // <-- Integrado con éxito
   ];
 
   return (

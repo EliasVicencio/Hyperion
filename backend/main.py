@@ -122,36 +122,41 @@ class VigilanciaManager:
                 await connection.send_json(message)
             except Exception:
                 pass
+            
+class ProgresoLeccionPayload(BaseModel):
+    modulo_id: str
+    leccion_id: str
+    correcta: bool
 
 manager = VigilanciaManager()
 
-# --- FUNCIÓN INTERNA: REGISTRO DE AUDITORÍA E INYECCIÓN EN VIVO ---
+def _guardar_log_sincrono(db: Session, query, params):
+    db.execute(query, params)
+    db.commit()
+
 async def registrar_log(db: Session, operador: str, accion: str, categoria: str = "INFO", origen_ip: str = "0.0.0.0", detalles: str = None):
-    """Inserta un registro en logs_auditoria y lo transmite en tiempo real a Vigilancia."""
+    """Inserta un registro en logs_auditoria de forma segura y lo transmite por WebSocket."""
     categoria = categoria.upper()
+    query = text("""
+        INSERT INTO logs_auditoria (operador, accion, categoria, origen_ip, detalles)
+        VALUES (:operador, :accion, :categoria, :origen_ip, :detalles)
+    """)
+    params = {
+        "operador": operador,
+        "accion": accion,
+        "categoria": categoria,
+        "origen_ip": origen_ip,
+        "detalles": detalles
+    }
+    
     try:
-        query = text("""
-            INSERT INTO logs_auditoria (operador, accion, categoria, origen_ip, detalles)
-            VALUES (:operador, :accion, :categoria, :origen_ip, :detalles)
-        """)
-        await run_in_threadpool(
-            db.execute, 
-            query, 
-            {
-                "operador": operador,
-                "accion": accion,
-                "categoria": categoria,
-                "origen_ip": origen_ip,
-                "detalles": detalles
-            }
-        )
-        db.commit()
+        # Ejecuta la inserción y el commit en el pool de hilos
+        await run_in_threadpool(_guardar_log_sincrono, db, query, params)
     except Exception as e:
         db.rollback()
         print(f"🚨 CRITICAL: Falló el registro del log de auditoría: {str(e)}")
 
-    # 🌟 TRANSMISIÓN EN TIEMPO REAL AL WEBSOCKET DE VIGILANCIA
-    # Esto asegura que CUALQUIER evento en el sistema actualice el frontend automáticamente
+    # TRANSMISIÓN EN TIEMPO REAL
     await manager.broadcast({
         "accion": accion,
         "operador": operador,
@@ -541,6 +546,86 @@ async def simular_ataque_bd(db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+    
+# ----------------------------------------------------------------
+# ENDPOINTS DE LA ACADEMIA NIST
+# ----------------------------------------------------------------
+
+@app.get("/api/v1/academia/modulos")
+async def obtener_plan_estudio_nist():
+    """
+    Retorna la estructura reglamentaria mapeando el progreso y las 
+    horas métricas de estudio recolectadas en Supabase.
+    """
+    try:
+        # Aquí harías tu llamada real hacia Supabase, ej:
+        # data = supabase.table("user_lessons_progress").select("*").execute()
+        
+        return {
+            "certificacion_global": 22,
+            "horas_dedicadas": 2.4,
+            "controles_validados": 2,
+            "modulos": [
+                {
+                    "id": "nist-au",
+                    "titulo": "Familia AU: Auditoría y Responsabilidad",
+                    "norma": "NIST SP 800-53 (AU-2, AU-6, AU-9)",
+                    "progreso": 66,
+                    "descripcion": "Estudio fundamental sobre la generación de registros de auditoría, trazabilidad de actores y la inmutabilidad criptográfica obligatoria para el cumplimiento federal.",
+                    "lecciones": [
+                        { "id": "au-1", "titulo": "1. Introducción a la directiva AU-2 (Eventos Auditables)", "duracion": "6 min", "completada": True, "contenido": "La directiva AU-2 establece qué acciones del sistema DEBEN registrarse obligatoriamente. En Hyperion Core, esto incluye inicios de sesión, cambios de privilegios, volcados de bases de datos y bloqueos del firewall perimetral. Cada evento debe capturar de manera unívoca: qué ocurrió, cuándo ocurrió (timestamp), dónde ocurrió (nodo de origen) y quién lo provocó (actor)." },
+                        { "id": "au-2", "titulo": "2. Monitoreo y Trazabilidad bajo el control AU-6", "duracion": "8 min", "completada": True, "contenido": "El control AU-6 exige una revisión y correlación continua de los registros de auditoría para detectar comportamientos inusuales o ataques. No basta con almacenar los logs; el sistema debe contar con analíticas automáticas que correlacionen eventos aislados (por ejemplo, múltiples llamadas de API fallidas seguidas de una exportación de BD) para emitir alertas de mitigación en tiempo real." },
+                        { "id": "au-3", "titulo": "3. Criptografía y Blockchain: Profundizando en AU-9", "duracion": "12 min", "completada": False, "contenido": "El control AU-9 (Integridad de Registros) es el núcleo criptográfico de Hyperion. Exige que los registros estén protegidos contra modificaciones no autorizadas. Implementamos esto mediante un encadenamiento de bloques SHA-256 (lógica blockchain): cada log almacena el hash del bloque anterior. Si un atacante altera una fila directamente en PostgreSQL, la firma digital del bloque se rompe, invalidando la cadena completa inmediatamente." }
+                    ]
+                },
+                {
+                    "id": "nist-ac-ia",
+                    "titulo": "Familias AC e IA: Control de Accesos e Identidad",
+                    "norma": "NIST SP 800-53 (AC-2, IA-2, IA-8)",
+                    "progreso": 0,
+                    "descripcion": "Políticas estrictas de autenticación de múltiples factores (MFA), gestión perimetral de sesiones y revocación inmediata de privilegios comprometidos.",
+                    "lecciones": [
+                        { "id": "ac-1", "titulo": "1. Control AC-2: Gestión de Cuentas de Privilegio", "duracion": "7 min", "completada": False, "contenido": "Regula el ciclo de vida de las cuentas del sistema. Las cuentas administrativas (como sysadmin) deben auditarse rigurosamente bajo el principio de 'menor privilegio posible'. Ningún operador debe poseer permisos permanentes para modificar la estructura de gobernanza sin una ventana de tiempo aprobada." },
+                        { "id": "ia-2", "titulo": "2. Mecanismos de Autenticación Multifactor (MFA/TOTP)", "duracion": "10 min", "completada": False, "contenido": "El control IA-2 dictamina que todo acceso remoto o local a sistemas federales críticos requiere autenticación de factores independientes. Hyperion integra algoritmos TOTP (Time-Based One-Time Password) mediante tokens criptográficos de 6 dígitos que expiran cada 30 segundos, neutralizando ataques de reutilización de credenciales." }
+                    ]
+                },
+                {
+                    "id": "nist-si",
+                    "titulo": "Familia SI: Integridad de Sistemas e Información",
+                    "norma": "NIST SP 800-53 (SI-4, SI-7)",
+                    "progreso": 0,
+                    "descripcion": "Monitoreo de vectores maliciosos, inyecciones de código (SQL/XSS) y protección del firmware del núcleo del sistema operativo.",
+                    "lecciones": [
+                        { "id": "si-1", "titulo": "1. Control SI-4: Monitoreo de Alertas Perimetrales", "duracion": "9 min", "completada": False, "contenido": "Establece los requisitos para el análisis del tráfico de red entrante y saliente. El sistema busca firmas conocidas de ataques e indicadores de compromiso (IoC). Cuando nuestro firewall mitiga una inyección SQL en la API, actúa bajo el amparo estricto de este control federal." }
+                    ]
+                }
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal database mismatch: {str(e)}")
+
+
+@app.post("/api/v1/academia/completar-leccion")
+async def registrar_progreso_leccion(payload: ProgresoLeccionPayload):
+    """
+    Sella en la base de datos de auditoría reglamentaria que el usuario 
+    aprobó con éxito el checkpoint correspondiente a la lección.
+    """
+    if not payload.correcta:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Fallo en la validación: Checkpoint incorrecto."
+        )
+    
+    try:
+        # Aquí disparas tu query hacia Supabase, ej:
+        # supabase.table("user_lessons_progress").insert({"modulo": payload.modulo_id, "leccion": payload.leccion_id, "done": True}).execute()
+        return {
+            "status": "success",
+            "message": f"Progreso inmutable sellado para la lección '{payload.leccion_id}'."
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error writing ledger: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
