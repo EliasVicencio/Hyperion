@@ -22,15 +22,21 @@ app.add_middleware(
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
+# --- CONEXIÓN DE BASE DE DATOS ULTRA LIGERA PARA VERCEL ---
 RAW_DB_URL = os.getenv("DATABASE_URL")
 
-# Reparar el string: forzar dialecto pg8000 (puro Python, sin libpq nativo)
+# Reparar el string por si viene de Supabase con postgres:// o postgresql://
+# Forzamos el dialecto pg8000 (driver 100% Python, sin libpq nativo) porque
+# psycopg2-binary crashea la función serverless en Vercel con
+# "libpq.so.5: cannot open shared object file" (FUNCTION_INVOCATION_FAILED).
 if RAW_DB_URL:
     if RAW_DB_URL.startswith("postgres://"):
         RAW_DB_URL = RAW_DB_URL.replace("postgres://", "postgresql+pg8000://", 1)
     elif RAW_DB_URL.startswith("postgresql://"):
         RAW_DB_URL = RAW_DB_URL.replace("postgresql://", "postgresql+pg8000://", 1)
 
+# IMPORTANTE: Desactivamos el pooling estático usando NullPool. 
+# Esto evita que Vercel Serverless aborte la ejecución al iniciar.
 if RAW_DB_URL:
     from sqlalchemy.pool import NullPool
     engine = create_engine(
@@ -40,6 +46,7 @@ if RAW_DB_URL:
     )
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 else:
+    # Respaldo temporal si no se detecta la variable
     engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
