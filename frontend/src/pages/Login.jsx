@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Mail, Lock, User, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Shield, Mail, Lock, User, ArrowRight, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function Login({ onLoginSuccess }) {
   const [isRegister, setIsRegister] = useState(false);
@@ -7,12 +7,65 @@ export default function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nombre, setNombre] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  const handleSubmit = (e) => {
+  const baseUrl = import.meta.env.VITE_API_URL || '';
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Aquí conectarás con tu FastAPI /api/v1/auth/token en el futuro.
-    // Por ahora, simulamos el éxito:
-    onLoginSuccess();
+    setError(null);
+    setLoading(true);
+
+    try {
+      if (isRegister) {
+        // Alta de operador real contra el backend / Supabase
+        const response = await fetch(`${baseUrl}/api/v1/operadores`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, nombre, role: 'operador' }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          // FastAPI manda el detalle en `detail` (string) o, en errores de
+          // validación de Pydantic, en una lista de objetos.
+          const detail = Array.isArray(data.detail)
+            ? data.detail.map((d) => d.msg).join(' / ')
+            : data.detail;
+          throw new Error(detail || 'No se pudo registrar el operador.');
+        }
+
+        // Registro exitoso: pasamos a modo login con el email precargado
+        setIsRegister(false);
+        setPassword('');
+        setNombre('');
+      } else {
+        // Login real: OAuth2PasswordRequestForm espera form-urlencoded
+        const body = new URLSearchParams();
+        body.set('username', email);
+        body.set('password', password);
+
+        const response = await fetch(`${baseUrl}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body,
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.detail || 'Credenciales incorrectas.');
+        }
+
+        onLoginSuccess();
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -41,6 +94,13 @@ export default function Login({ onLoginSuccess }) {
 
         {/* Formulario */}
         <form onSubmit={handleSubmit} className="space-y-4">
+
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-xl text-red-400 flex items-start gap-2.5 text-xs">
+              <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
 
           {/* Campo Nombre (Solo si es Registro) */}
           {isRegister && (
@@ -107,10 +167,17 @@ export default function Login({ onLoginSuccess }) {
           {/* Botón de Envío */}
           <button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-xl text-sm mt-2 flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-600/10 group"
+            disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl text-sm mt-2 flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-600/10 group"
           >
-            {isRegister ? 'Registrar Operador' : 'Autenticar'}
-            <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+            {loading ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <>
+                {isRegister ? 'Registrar Operador' : 'Autenticar'}
+                <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+              </>
+            )}
           </button>
         </form>
 
@@ -122,6 +189,7 @@ export default function Login({ onLoginSuccess }) {
               onClick={() => {
                 setIsRegister(!isRegister);
                 setNombre('');
+                setError(null);
               }}
               className="text-blue-500 font-medium hover:underline pl-1"
             >
