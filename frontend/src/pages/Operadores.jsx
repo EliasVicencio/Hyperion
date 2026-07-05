@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, ShieldAlert, UserPlus, RefreshCw, CheckCircle, Clock } from 'lucide-react';
+import ModalCrearOperador from './ModalCrearOperador'; // Asegúrate de ajustar la ruta si está en otra carpeta
 
 export default function Operadores() {
     const [usuarios, setUsuarios] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    
+    // --- NUEVO: Estado para controlar la visibilidad del Modal ---
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     // Obtener los usuarios mediante el proxy inverso configurado
     const cargarUsuarios = async () => {
@@ -29,6 +33,12 @@ export default function Operadores() {
         cargarUsuarios();
     }, []);
 
+    // --- NUEVO: Manejador ejecutado tras registrar con éxito un operador en el modal ---
+    const handleUserCreated = (newUserData) => {
+        // Recargamos la lista desde el backend para garantizar consistencia con PostgreSQL
+        cargarUsuarios();
+    };
+
     return (
         <div className="space-y-6 text-slate-300">
             {/* Encabezado */}
@@ -50,7 +60,12 @@ export default function Operadores() {
                     >
                         <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
                     </button>
-                    <button className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-4 py-2 rounded-xl text-sm flex items-center gap-2 transition-all shadow-lg shadow-blue-600/20">
+                    
+                    {/* Botón interactivo vinculado al Modal */}
+                    <button 
+                        onClick={() => setIsModalOpen(true)}
+                        className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-4 py-2 rounded-xl text-sm flex items-center gap-2 transition-all shadow-lg shadow-blue-600/20"
+                    >
                         <UserPlus size={16} /> Alta de Operador
                     </button>
                 </div>
@@ -130,6 +145,13 @@ export default function Operadores() {
                     </div>
                 </div>
             )}
+
+            {/* --- NUEVO: Inyección del Modal Renderizado Condicionalmente --- */}
+            <ModalCrearOperador 
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onUserCreated={handleUserCreated}
+            />
         </div>
     );
 }
