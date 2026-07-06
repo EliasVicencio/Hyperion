@@ -134,6 +134,11 @@ class ProgresoLeccionPayload(BaseModel):
     leccion_id: str
     correcta: bool
 
+class PasswordRecovery2FARequest(BaseModel):
+    username: EmailStr = Field(..., description="El email corporativo del operador")
+    new_password: str = Field(..., min_length=8, description="La nueva contraseña")
+    token: str = Field(..., description="Código TOTP de 6 dígitos para validar identidad")
+
 manager = VigilanciaManager()
 
 def _guardar_log_sincrono(db: Session, query, params):
@@ -353,6 +358,65 @@ async def update_password(payload: PasswordUpdateRequest, db: Session = Depends(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+    
+# --- ENDPOINT DE RECUPERACIÓN (Fuera de sesión / Público) ---
+@app.post("/auth/recover-password")
+async def recover_password_via_2fa(payload: PasswordRecovery2FARequest, db: Session = Depends(get_db)):
+    """
+    Permite restablecer la contraseña desde el exterior del perímetro (Login)
+    validando la identidad unívoca del operador mediante su token TOTP (MFA).
+    """
+    import pyotp
+    if not RAW_DB_URL:
+        raise HTTPException(status_code=500, detail="DATABASE_URL no configurada.")
+
+    try:
+        # 1. Buscar al usuario y su semilla 2FA
+        query = text("SELECT two_factor_secret, two_factor_enabled FROM usuarios WHERE email = :email")
+        user_record = db.execute(query, {"email": payload.username}).fetchone()
+
+        if not user_record:
+            # Por seguridad (NIST AC-2), evitamos revelar si el email existe o no
+            raise HTTPException(status_code=400, detail="Verificación de identidad fallida o parámetros inválidos.")
+
+        secret_totp = user_record[0]
+        mfa_enabled = bool(user_record[1])
+
+        # 2. Obligar a tener 2FA activo para usar este método auto-servicio
+        if not mfa_enabled or not secret_totp:
+            raise HTTPException(
+                status_code=400, 
+                detail="Esta cuenta no cuenta con recuperación por TOTP activa. Contacte al administrador del sistema."
+            )
+
+        # 3. Validar el código de 6 dígitos actual
+        totp = pyotp.TOTP(secret_totp)
+        if not totp.verify(payload.token):
+            await registrar_log(db, payload.username, "RECOVERY_FAILED", "WARN", detalles="Código TOTP de recuperación inválido.")
+            raise HTTPException(status_code=400, detail="Código de seguridad inválido o expirado.")
+
+        # 4. Generar el nuevo hash y actualizar de forma inmutable
+        new_hashed_password = hash_password(payload.new_password)
+        update_query = text("UPDATE usuarios SET password = :password WHERE email = :email")
+        await run_in_threadpool(db.execute, update_query, {"password": new_hashed_password, "email": payload.username})
+        db.commit()
+
+        # 5. Dejar registro inmutable en la cadena de auditoría (NIST AU-2)
+        await registrar_log(
+            db, 
+            operador=payload.username, 
+            accion="PASSWORD_RECOVERED", 
+            categoria="WARN", 
+            detalles="Restablecimiento auto-servicio exitoso mediante validación token 2FA/TOTP."
+        )
+
+        return {"status": "success", "message": "Credenciales actualizadas correctamente en Hyperion Core."}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error en pasarela de recuperación: {str(e)}")
     
 @app.delete("/api/v1/operadores/{id}")
 async def eliminar_operador(id: int, db: Session = Depends(get_db)):

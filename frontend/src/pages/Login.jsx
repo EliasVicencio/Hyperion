@@ -2,23 +2,25 @@ import React, { useState } from 'react';
 import { Shield, Mail, Lock, User, ArrowRight, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function Login({ onLoginSuccess }) {
-  const [isRegister, setIsRegister] = useState(false);
+  const [view, setView] = useState('login'); // 'login', 'register', 'recovery', '2fa'
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nombre, setNombre] = useState('');
+  const [token2FA, setToken2FA] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [requires2FA, setRequires2FA] = useState(false);
-  const [token2FA, setToken2FA] = useState('');
+  const [successMessage, setSuccessMessage] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+    setSuccessMessage(null);
     setLoading(true);
 
     try {
-      if (requires2FA) {
+      // 1. FLUJO: VERIFICACIÓN 2FA ESTÁNDAR
+      if (view === '2fa') {
         const response = await fetch('/auth/verify-2fa', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -36,7 +38,31 @@ export default function Login({ onLoginSuccess }) {
         return;
       }
 
-      if (isRegister) {
+      // 2. FLUJO: RECOVERY (¿Olvidaste tu clave?)
+      if (view === 'recovery') {
+        const response = await fetch('/auth/recover-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: email, new_password: password, token: token2FA }),
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.detail || 'Fallo en la verificación perimetral.');
+        }
+
+        setSuccessMessage('¡Contraseña actualizada con éxito! Ya puedes autenticarte.');
+        setTimeout(() => {
+          setView('login');
+          setPassword('');
+          setToken2FA('');
+          setSuccessMessage(null);
+        }, 2500);
+        return;
+      }
+
+      // 3. FLUJO: REGISTRO DE OPERADOR
+      if (view === 'register') {
         const response = await fetch('/api/v1/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -56,10 +82,12 @@ export default function Login({ onLoginSuccess }) {
           throw new Error(detail || 'No se pudo registrar el operador.');
         }
 
-        setIsRegister(false);
+        setView('login');
         setPassword('');
         setNombre('');
-      } else {
+      } 
+      // 4. FLUJO: LOGIN TRADICIONAL
+      else {
         const body = new URLSearchParams();
         body.set('username', email);
         body.set('password', password);
@@ -81,7 +109,7 @@ export default function Login({ onLoginSuccess }) {
         }
 
         if (data.status === 'requires_2fa') {
-          setRequires2FA(true);
+          setView('2fa');
         } else {
           localStorage.setItem('user_email', data.username);
           localStorage.setItem('two_factor_enabled', 'false'); 
@@ -96,7 +124,6 @@ export default function Login({ onLoginSuccess }) {
   };
 
   return (
-    // Se adapta al modo claro si la raíz tiene la clase clara, usando gris suave o azul profundo
     <div className="min-h-screen bg-hyperion-lightBg dark:bg-hyperion-dark flex items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-blue-500/30 transition-colors duration-300">
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-600/10 blur-[120px] rounded-full pointer-events-none"></div>
       <div className="absolute bottom-1/4 left-1/2 -translate-x-1/2 translate-y-1/2 w-[400px] h-[400px] bg-purple-600/5 blur-[100px] rounded-full pointer-events-none"></div>
@@ -109,14 +136,16 @@ export default function Login({ onLoginSuccess }) {
             <Shield className="text-white" size={24} />
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white transition-colors">
-            {requires2FA ? 'Verificación de Seguridad' : isRegister ? 'Crear cuenta Hyperion' : 'Acceso al Sistema'}
+            {view === '2fa' && 'Verificación de Seguridad'}
+            {view === 'register' && 'Crear cuenta Hyperion'}
+            {view === 'recovery' && 'Recuperar Credenciales'}
+            {view === 'login' && 'Acceso al Sistema'}
           </h2>
           <p className="text-slate-500 dark:text-slate-400 text-xs mt-1.5 max-w-[280px] transition-colors">
-            {requires2FA
-              ? 'Introduce el código de 6 dígitos de tu aplicación de autenticación para validar la firma perimetral.'
-              : isRegister
-              ? 'Regístrate para la gestión unificada de políticas e incidentes SGSI.'
-              : 'Introduce tus credenciales autorizadas para iniciar auditoría.'}
+            {view === '2fa' && 'Introduce el código de 6 dígitos de tu aplicación de autenticación para validar la firma perimetral.'}
+            {view === 'register' && 'Regístrate para la gestión unificada de políticas e incidentes SGSI.'}
+            {view === 'recovery' && 'Ingresa tu correo, la nueva clave y tu token OTP para forzar el restablecimiento.'}
+            {view === 'login' && 'Introduce tus credenciales autorizadas para iniciar auditoría.'}
           </p>
         </div>
 
@@ -130,9 +159,17 @@ export default function Login({ onLoginSuccess }) {
             </div>
           )}
 
-          {!requires2FA ? (
+          {successMessage && (
+            <div className="bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-xl text-emerald-600 dark:text-emerald-400 flex items-start gap-2.5 text-xs transition-colors">
+              <Shield size={16} className="flex-shrink-0 mt-0.5" />
+              <span>{successMessage}</span>
+            </div>
+          )}
+
+          {/* VISTA FORMULARIO (LOGIN / REGISTER / RECOVERY) */}
+          {view !== '2fa' && (
             <>
-              {isRegister && (
+              {view === 'register' && (
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block transition-colors">Nombre Completo</label>
                   <div className="relative">
@@ -166,9 +203,17 @@ export default function Login({ onLoginSuccess }) {
 
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
-                  <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block transition-colors">Contraseña</label>
-                  {!isRegister && (
-                    <a href="#forgot" className="text-[11px] text-blue-600 dark:text-blue-500 hover:underline transition-colors">¿Olvidaste tu clave?</a>
+                  <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block transition-colors">
+                    {view === 'recovery' ? 'Nueva Contraseña' : 'Contraseña'}
+                  </label>
+                  {view === 'login' && (
+                    <button 
+                      type="button" 
+                      onClick={() => { setView('recovery'); setError(null); setPassword(''); }}
+                      className="text-[11px] text-blue-600 dark:text-blue-500 hover:underline transition-colors focus:outline-none"
+                    >
+                      ¿Olvidaste tu clave?
+                    </button>
                   )}
                 </div>
                 <div className="relative">
@@ -190,8 +235,27 @@ export default function Login({ onLoginSuccess }) {
                   </button>
                 </div>
               </div>
+
+              {/* EN CASO DE RECUPERACIÓN, SE EXIGE EL CAPTURE DEL TOKEN EN ESTE MISMO BLOQUE */}
+              {view === 'recovery' && (
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block transition-colors">Código de Seguridad 2FA (TOTP)</label>
+                  <input
+                    type="text"
+                    maxLength="6"
+                    placeholder="000000"
+                    required
+                    value={token2FA}
+                    onChange={(e) => setToken2FA(e.target.value.replace(/\D/g, ''))}
+                    className="w-full bg-slate-50 dark:bg-slate-950/60 border border-hyperion-lightBorder dark:border-slate-800 rounded-xl py-2.5 text-center text-md font-mono tracking-[0.3em] text-blue-600 dark:text-blue-400 focus:border-blue-500 outline-none transition-all"
+                  />
+                </div>
+              )}
             </>
-          ) : (
+          )}
+
+          {/* VISTA EXCLUSIVA: SÓLO INPUT DE TOKEN EN LOGINS CON 2FA REQUERIDO */}
+          {view === '2fa' && (
             <div className="space-y-2 animate-fade-in text-center">
               <input
                 type="text"
@@ -214,30 +278,54 @@ export default function Login({ onLoginSuccess }) {
               <Loader2 size={16} className="animate-spin" />
             ) : (
               <>
-                {requires2FA ? 'Verificar Token' : isRegister ? 'Registrar Operador' : 'Autenticar'}
+                {view === '2fa' && 'Verificar Token'}
+                {view === 'register' && 'Registrar Operador'}
+                {view === 'recovery' && 'Restablecer Acceso'}
+                {view === 'login' && 'Autenticar'}
                 <ArrowRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
               </>
             )}
           </button>
         </form>
 
-        {!requires2FA && (
-          <div className="mt-6 pt-4 border-t border-hyperion-lightBorder dark:border-slate-900 text-center transition-colors">
-            <p className="text-xs text-slate-500 dark:text-slate-400 transition-colors">
-              {isRegister ? '¿Ya tienes una credencial?' : '¿Nuevo operador en el perímetro?'}
+        {/* FOOTER INTERACTIVO PARA VOLVER O CAMBIAR DE VISTAS */}
+        <div className="mt-6 pt-4 border-t border-hyperion-lightBorder dark:border-slate-900 text-center transition-colors">
+          <p className="text-xs text-slate-500 dark:text-slate-400 transition-colors">
+            {view === 'recovery' && (
               <button
-                onClick={() => {
-                  setIsRegister(!isRegister);
-                  setNombre('');
-                  setError(null);
-                }}
-                className="text-blue-600 dark:text-blue-500 font-medium hover:underline pl-1 transition-colors"
+                type="button"
+                onClick={() => { setView('login'); setError(null); }}
+                className="text-blue-600 dark:text-blue-500 font-medium hover:underline transition-colors"
               >
-                {isRegister ? 'Inicia Sesión' : 'Crea una cuenta'}
+                Volver al inicio de sesión
               </button>
-            </p>
-          </div>
-        )}
+            )}
+            {view === 'register' && (
+              <>
+                ¿Ya tienes una credencial?
+                <button
+                  type="button"
+                  onClick={() => { setView('login'); setNombre(''); setError(null); }}
+                  className="text-blue-600 dark:text-blue-500 font-medium hover:underline pl-1 transition-colors"
+                >
+                  Inicia Sesión
+                </button>
+              </>
+            )}
+            {view === 'login' && (
+              <>
+                ¿Nuevo operador en el perímetro?
+                <button
+                  type="button"
+                  onClick={() => { setView('register'); setNombre(''); setError(null); }}
+                  className="text-blue-600 dark:text-blue-500 font-medium hover:underline pl-1 transition-colors"
+                >
+                  Crea una cuenta
+                </button>
+              </>
+            )}
+          </p>
+        </div>
       </div>
     </div>
   );
