@@ -4,13 +4,12 @@ import Dashboard from './pages/Dashboard';
 import Operadores from './pages/Operadores';
 import Vigilancia from './pages/Vigilancia';
 import Gobernanza from './pages/Gobernanza';
+import ActivosRiesgos from './pages/ActivosRiesgos'; // ⬅️ IMPORTADO CON ÉXITO
 import Logs from './pages/Logs';
 import Login from './pages/Login';
 import ConfiguracionFlotante from './components/ConfiguracionFlotante';
 import { AnimatePresence, motion } from 'framer-motion';
 
-// Carga perezosa: si Academia falla (p. ej. por variables de entorno de Supabase
-// faltantes), no rompe el resto de la aplicación al arrancar.
 const Academia = lazy(() => import('./pages/Academia'));
 
 export default function App() {
@@ -21,7 +20,6 @@ export default function App() {
   const [page, setPage] = useState('Analiticas');
   const [isConfigOpen, setIsConfigOpen] = useState(false);
 
-  // Estado seguro para el usuario mitigando crashes de parseo
   const [currentUser, setCurrentUser] = useState(() => {
     const saved = localStorage.getItem('hyperion_user');
     try {
@@ -32,7 +30,6 @@ export default function App() {
     }
   });
 
-  // 🌟 CAMBIO AQUÍ: Simplificada la lectura explícita al montar para evitar parpadeos no controlados
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -60,7 +57,6 @@ export default function App() {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
-  // Mapeo limpio y directo usando un diccionario estándar de llaves normalizadas
   const renderPage = (targetPage) => {
     const key = targetPage
       .toLowerCase()
@@ -75,6 +71,8 @@ export default function App() {
       'operadores': <Operadores />,
       'gestion de usuarios': <Operadores />,
       'gobernanza': <Gobernanza />,
+      'activos y riesgos': <ActivosRiesgos />, // ⬅️ ENRUTADO PARA MENU 
+      'activosriesgos': <ActivosRiesgos />,    // ⬅️ RESPALDO DE SEGURIDAD POR KEY
       'logs': <Logs />,
       'logs de auditoria': <Logs />,
       'academia': (
@@ -104,7 +102,6 @@ export default function App() {
     );
   };
 
-  // Normalizamos el string de la página una sola vez para que coincida perfectamente con la KEY de la animación
   const normalizedPageKey = page
     .toLowerCase()
     .normalize("NFD")
@@ -126,7 +123,7 @@ export default function App() {
         <div className="p-8 max-w-7xl mx-auto">
           <AnimatePresence mode="wait">
             <motion.div
-              key={normalizedPageKey} // Sincronizado al 100% con la vista interna
+              key={normalizedPageKey}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}

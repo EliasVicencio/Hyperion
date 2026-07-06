@@ -791,5 +791,41 @@ async def descargar_regla_pdf(leccion_id: str):
             media_type="application/pdf", 
             filename=f"NIST_SP_800_53_{safe_id}.pdf"
         )
+        
+@app.get("/api/v1/riesgos/dashboard")
+async def obtener_dashboard_activos_y_riesgos(db: Session = Depends(get_db)):
+    """Devuelve el inventario de activos y la matriz de riesgos cruzada."""
+    try:
+        # 1. Traer activos
+        query_activos = text("""
+            SELECT id, nombre, tipo, criticidad_base, responsable, estado_salud, ultimo_control 
+            FROM activos_informacion ORDER BY id ASC
+        """)
+        activos_res = db.execute(query_activos).fetchall()
+        
+        activos = [{
+            "id": r[0], "nombre": r[1], "tipo": r[2], 
+            "criticidad": r[3], "responsable": r[4], 
+            "estado": r[5], "ultimo_control": r[6].isoformat() if r[6] else None
+        } for r in activos_res]
+        
+        # 2. Traer matriz de riesgos
+        query_riesgos = text("""
+            SELECT r.id, a.nombre, r.amenaza, r.probabilidad, r.impacto, r.nivel_riesgo, r.estado_mitigacion
+            FROM matriz_riesgos r
+            JOIN activos_informacion a ON r.activo_id = a.id
+            ORDER BY r.nivel_riesgo DESC
+        """)
+        riesgos_res = db.execute(query_riesgos).fetchall()
+        
+        riesgos = [{
+            "id": r[0], "activo_name": r[1], "amenaza": r[2],
+            "probabilidad": r[3], "impacto": r[4], 
+            "nivel": r[5], "estado": r[6]
+        } for r in riesgos_res]
+        
+        return {"activos": activos, "matriz_riesgos": riesgos}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     
     raise HTTPException(status_code=404, detail="Recurso modular no localizado.")

@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Shield, ShieldAlert, FileText, Settings, LogOut, Zap, BookOpen } from 'lucide-react';
+import { LayoutDashboard, Shield, ShieldAlert, FileText, Settings, LogOut, Zap, BookOpen, Layers } from 'lucide-react'; // ⬅️ Añadido Layers
 
 export default function Sidebar({ currentPage, setPage, onLogout, onOpenConfig, isConfigOpen }) {
   const menu = [
@@ -7,8 +7,9 @@ export default function Sidebar({ currentPage, setPage, onLogout, onOpenConfig, 
     { id: 'Vigilancia', label: 'Vigilancia', icon: <ShieldAlert size={18} /> },
     { id: 'Operadores', label: 'Gestión de Usuarios', icon: <Shield size={18} /> },
     { id: 'Gobernanza', label: 'Gobernanza', icon: <Zap size={18} /> },
+    { id: 'ActivosRiesgos', label: 'Activos y Riesgos', icon: <Layers size={18} /> }, // ⬅️ INYECTADO EN MENÚ INTERNO
     { id: 'Logs', label: 'Logs de Auditoría', icon: <FileText size={18} /> },
-    { id: 'Academia', label: 'Academia Compliance', icon: <BookOpen size={18} /> }, // <-- Integrado con éxito
+    { id: 'Academia', label: 'Academia Compliance', icon: <BookOpen size={18} /> },
   ];
 
   return (
