@@ -147,28 +147,19 @@ export default function Academia({ user }) {
     }
   };
 
-  // 🛠️ FUNCIÓN CON EL CAMBIO IMPLEMENTADO (URL ABSOLUTA PARA EVITAR 404)
+  // 🛠️ FUNCIÓN MODIFICADA: REDIRECCIÓN DIRECTA AL DOCUMENTO OFICIAL DE NIST
   const handleDownloadDocument = async () => {
     if (!selectedLesson) return;
     try {
       setDownloading(true);
       
-      // Creamos un anclaje nativo invisible temporal para forzar la descarga binaria desde FastAPI
-      const link = document.createElement('a');
+      // Abre directamente la URL oficial de la publicación NIST SP 800-53 Rev. 5 en una pestaña nueva
+      window.open('https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-53r5.pdf', '_blank');
       
-      // Apuntamos directamente a la URL absoluta del backend de FastAPI
-      // (Cambia el puerto a 7860 si tu FastAPI levanta en ese puerto en vez de 8000)
-      link.href = 'http://localhost:8000/api/v1/academia/descargar-norma'; 
-      link.setAttribute('target', '_blank');
-      link.setAttribute('download', 'NIST_SP_800-53_Rev5_Official.pdf');
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
     } catch (err) {
-      console.warn("Falla en el API unificado. Ejecutando fallback local de emergencia...", err.message);
+      console.warn("Falla al abrir el sitio oficial. Ejecutando fallback local de emergencia...", err.message);
       
-      // Fallback inmutable original por si el backend local pierde enlace
+      // Fallback original por si ocurre un bloqueo inesperado en el navegador
       const element = document.createElement("a");
       const file = new Blob([selectedLesson.content_markdown], { type: 'text/plain;charset=utf-8' });
       element.href = URL.createObjectURL(file);
@@ -177,8 +168,8 @@ export default function Academia({ user }) {
       element.click();
       document.body.removeChild(element);
     } finally {
-      // Retardo estético para la animación del botón
-      setTimeout(() => setDownloading(false), 800);
+      // Retardo para mantener el estado visual correcto del botón
+      setTimeout(() => setDownloading(false), 600);
     }
   };
 
@@ -345,7 +336,7 @@ export default function Academia({ user }) {
                     title="Descargar Norma Oficial"
                   >
                     <Download size={13} className={downloading ? "animate-bounce" : ""} />
-                    <span>{downloading ? "DESCARGANDO..." : "REGULA_PDF_DOC"}</span>
+                    <span>{downloading ? "ABRIENDO..." : "REGULA_PDF_DOC"}</span>
                   </button>
                 </div>
 
