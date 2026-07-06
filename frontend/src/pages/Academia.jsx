@@ -55,12 +55,15 @@ export default function Academia({ user }) {
         setLessons(resLessons.data || []);
         setCheckpoints(resCheckpoints.data || []);
 
-        // Preseleccionar la primera familia y lección si existen
+        // 🌟 CORRECCIÓN: Aseguramos la preselección uniforme forzando la consistencia de tipos
         if (resFamilies.data && resFamilies.data.length > 0) {
           const firstFam = resFamilies.data[0].id;
           setSelectedFamily(firstFam);
           
-          const firstLess = resLessons.data.find(l => l.family_id === firstFam);
+          // Buscamos la lección ignorando diferencias de mayúsculas/minúsculas y espacios en blanco
+          const firstLess = resLessons.data.find(l => 
+            l.family_id?.trim().toUpperCase() === firstFam.trim().toUpperCase()
+          );
           if (firstLess) setSelectedLesson(firstLess);
         }
 
@@ -80,9 +83,9 @@ export default function Academia({ user }) {
     localStorage.setItem('hyperion_academy_progress', JSON.stringify(userProgress));
   }, [userProgress]);
 
-  // 2. FILTRADO DE LECCIONES SEGÚN LA FAMILIA SELECCIONADA
+  // 2. 🌟 CORRECCIÓN: Sanitización de los strings al hacer el filtrado (.trim() evita fallos por espacios invisibles en la BD)
   const currentLessons = lessons.filter(
-    lesson => lesson.family_id?.toUpperCase() === selectedFamily?.toUpperCase()
+    lesson => lesson.family_id?.trim().toUpperCase() === selectedFamily?.trim().toUpperCase()
   );
 
   // Buscar el checkpoint (quiz) correspondiente a la lección activa
@@ -117,7 +120,10 @@ export default function Academia({ user }) {
     setQuizFeedback(null);
     setSelectedAnswer(null);
     
-    const firstLessonOfFamily = lessons.find(l => l.family_id?.toUpperCase() === familyId.toUpperCase());
+    // 🌟 CORRECCIÓN: Sanitización también aplicada durante el cambio manual de familia
+    const firstLessonOfFamily = lessons.find(l => 
+      l.family_id?.trim().toUpperCase() === familyId.trim().toUpperCase()
+    );
     setSelectedLesson(firstLessonOfFamily || null);
   };
 
