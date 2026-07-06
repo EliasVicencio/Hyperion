@@ -6,7 +6,6 @@ import uuid
 import json
 from pathlib import Path
 
-# Agregar el directorio raíz al path por si acaso
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from dotenv import load_dotenv
@@ -14,36 +13,29 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import text
 
-# Cargar las variables de entorno de tu archivo .env
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-# 1. Configurar la URL asíncrona de la base de datos
 DATABASE_URL = os.getenv("DATABASE_URL") or os.getenv("BACKEND_URL")
-
 if not DATABASE_URL:
-    print("❌ Error: No se encontró DATABASE_URL en las variables de entorno (.env)")
+    print("❌ Error: No se encontró DATABASE_URL.")
     sys.exit(1)
 
-# Asegurar que use el driver asíncrono asyncpg para PostgreSQL
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
 elif DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-# 2. Crear el motor asíncrono y la fábrica de sesiones de forma independiente
 async_engine = create_async_engine(DATABASE_URL, echo=False)
 AsyncSessionLocal = sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
 
 async def seed_iso_academy():
     print("🌍 [HYPERION] Inicializando academia con los controles REALES extraídos...")
     
-    # Buscar el JSON en la ubicación global (app/data/iso_controls.json) que creó setup_iso_analyzer.py
     backend_root = Path(__file__).parent.parent if Path(__file__).parent.name == "scripts" else Path(__file__).parent
     iso_json_path = backend_root / "app" / "data" / "iso_controls.json"
     
     if not iso_json_path.exists():
         print(f"⚠️ No se encontró el archivo: {iso_json_path}")
-        print("Por favor, ejecuta primero: python scripts/setup_iso_analyzer.py")
         return
 
     with open(iso_json_path, 'r', encoding='utf-8') as f:
@@ -52,7 +44,6 @@ async def seed_iso_academy():
     all_controls = iso_data.get("controls", [])
     print(f"📊 Procesando {len(all_controls)} controles reales de la ISO 27001:2022.")
 
-    # Conexión usando el gestor de contexto asíncrono local seguro
     async with AsyncSessionLocal() as session:
         try:
             print("🧹 Limpiando registros académicos previos en cascada...")
@@ -60,8 +51,7 @@ async def seed_iso_academy():
             await session.execute(text("TRUNCATE TABLE academy_lessons CASCADE;"))
             await session.execute(text("TRUNCATE TABLE iso_domains CASCADE;"))
             
-            # 1. Insertar la estructura limpia de los 4 Dominios Oficiales de la ISO 27001:2022
-            print("📁 Cargando los 4 pilares del Anexo A...")
+            print("📁 Cargando los 4 pilares estructurales del Anexo A...")
             sql_domains = text("""
                 INSERT INTO iso_domains (id, name, description) VALUES
                 (:id5, :name5, :desc5),
@@ -76,8 +66,6 @@ async def seed_iso_academy():
                 "id8": "A.8", "name8": "Controles Tecnológicos", "desc8": "Cifrado avanzado, criptografía, seguridad en redes, ingeniería de sistemas y desarrollo seguro."
             })
 
-            # 2. Mapear dinámicamente controles reales leídos de tu JSON a lecciones didácticas
-            print("📝 Vinculando controles del JSON a los módulos académicos...")
             sql_lessons = text("""
                 INSERT INTO academy_lessons (id, domain_id, title, duration_minutes, mapped_controls, content_markdown, sort_order) 
                 VALUES (:id, :domain_id, :title, :duration_minutes, :mapped_controls, :content_markdown, :sort_order);
@@ -87,78 +75,91 @@ async def seed_iso_academy():
                 VALUES (:id, :lesson_id, :question, :options, :correct_option_id);
             """)
 
+            domain_map = {
+                "organizational": "A.5",
+                "people": "A.6",
+                "physical": "A.7",
+                "technological": "A.8"
+            }
+
             sort_order = 1
             for control in all_controls:
-                raw_id = control.get("id", "N/A")  # Ej: "8.24", "8.20"
+                raw_id = control.get("id", "N/A")
                 title_real = control.get("title", "Sin título oficial")
                 category = control.get("category", "technological")
+                description_real = control.get("description", "Lineamientos de control y gobernanza operativa.")
 
-                # Mapeo de categorías al formato oficial de dominios
-                domain_map = {
-                    "organizational": "A.5",
-                    "people": "A.6",
-                    "physical": "A.7",
-                    "technological": "A.8"
-                }
                 domain_id = domain_map.get(category, "A.8")
+                iso_label = f"A.{raw_id}" if not str(raw_id).startswith("A.") else raw_id
+                lesson_id = str(uuid.uuid4())
 
-                # Alimentamos la academia con los controles estructurales críticos (Criptografía y Redes)
-                if raw_id in ["8.24", "8.20"]:
-                    lesson_id = str(uuid.uuid4())
-                    iso_label = f"A.{raw_id}"
-                    
-                    print(f"   ↳ Inyectando Lección fidedigna para {iso_label}: {title_real}")
-                    
-                    content_markdown = (
-                        f"# Control {iso_label} - {title_real}\n\n"
-                        f"## Descripción Oficial de la Norma\n"
-                        f"Lineamientos e indicaciones para el control técnico de **{title_real}** establecido en el estándar internacional de seguridad.\n\n"
-                        f"## Evaluación de Cumplimiento en Hyperion\n"
-                        f"Asegura la recolección automática de evidencias asociadas a este control utilizando los módulos de auditoría interna de la plataforma."
-                    )
+                # Generar contenido Markdown dinámico y enriquecido según el control real
+                content_markdown = (
+                    f"# Control {iso_label} - {title_real}\n\n"
+                    f"## 📋 Descripción Oficial de la Norma\n"
+                    f"{description_real}\n\n"
+                    f"## 🛡️ Propósito del Control\n"
+                    f"Establecer salvaguardas operativas en el dominio **{domain_id}** para mitigar los riesgos asociados a este activo o proceso.\n\n"
+                    f"## ⚙️ Evaluación y Evidencia en Hyperion\n"
+                    f"La plataforma valida este control mediante la recolección automática de evidencias y logs auditables. Asegúrate de mapear las políticas internas del SGSI con este identificador normativo."
+                )
 
-                    await session.execute(sql_lessons, {
-                        "id": lesson_id,
-                        "domain_id": domain_id,
-                        "title": f"Control {iso_label}: {title_real}",
-                        "duration_minutes": 15 if raw_id == "8.24" else 20,
-                        "mapped_controls": [iso_label],
-                        "content_markdown": content_markdown,
-                        "sort_order": sort_order
-                    })
+                await session.execute(sql_lessons, {
+                    "id": lesson_id,
+                    "domain_id": domain_id,
+                    "title": f"Control {iso_label}: {title_real}",
+                    "duration_minutes": 15,
+                    "mapped_controls": [iso_label],
+                    "content_markdown": content_markdown,
+                    "sort_order": sort_order
+                })
 
-                    # Insertar Checkpoint de evaluación correspondiente
-                    if raw_id == "8.24":
-                        question = f"¿Cuál es el enfoque principal del control {iso_label} ({title_real})?"
-                        options = [
-                            {"id": "A", "text": "Evitar el uso de cualquier algoritmo criptográfico para simplificar el código del sistema."},
-                            {"id": "B", "text": f"Garantizar el uso adecuado y eficaz de la criptografía para proteger la información según los requisitos del negocio."},
-                            {"id": "C", "text": "Habilitar el acceso sin autenticación a las tablas de Supabase."}
-                        ]
-                    else:  # 8.20
-                        question = f"Según las directrices de la norma para el control {iso_label} ({title_real}), ¿cómo debe protegerse la información?"
-                        options = [
-                            {"id": "A", "text": "Manteniendo una red abierta sin segmentación ni firewalls."},
-                            {"id": "B", "text": f"Mediante la gestión, control y segregación adecuada de las redes y los recursos de procesamiento conectados."},
-                            {"id": "C", "text": "Inhabilitando por completo los protocolos TLS y SSH."}
-                        ]
+                # Generar preguntas de Quiz dinámicas e inteligentes basadas en la categoría
+                if category == "organizational":
+                    question = f"Para cumplir con el control organizacional {iso_label} ({title_real}), ¿cuál es la acción primordial de la alta dirección?"
+                    options = [
+                        {"id": "A", "text": "Delegar la seguridad exclusivamente al equipo de desarrollo sin supervisión."},
+                        {"id": "B", "text": "Aprobar, publicar y revisar periódicamente las políticas de seguridad alineadas al negocio."},
+                        {"id": "C", "text": "Evitar documentar los procesos para acelerar la operación de la empresa."}
+                    ]
+                elif category == "people":
+                    question = f"Bajo los lineamientos del control de personas {iso_label}, ¿cuándo debe impartirse la concientización en seguridad?"
+                    options = [
+                        {"id": "A", "text": "Únicamente después de que ocurra un incidente crítico de filtración."},
+                        {"id": "B", "text": "De forma regular y sistemática a todos los empleados desde su contratación."},
+                        {"id": "C", "text": "Solo al personal del área de tecnología e infraestructura informática."}
+                    ]
+                elif category == "physical":
+                    question = f"¿Cuál es un requerimiento clave para mitigar riesgos en el control físico {iso_label} ({title_real})?"
+                    options = [
+                        {"id": "A", "text": "Permitir el acceso libre a las instalaciones para agilizar visitas."},
+                        {"id": "B", "text": "Definir y proteger perímetros físicos, controlando los accesos a áreas críticas mediante autenticación."},
+                        {"id": "C", "text": "Confiar plenamente en la seguridad pública externa sin controles propios."}
+                    ]
+                else: # technological
+                    question = f"En el ámbito del control tecnológico {iso_label} ({title_real}), ¿qué práctica asegura la resiliencia técnica?"
+                    options = [
+                        {"id": "A", "text": "Desactivar los sistemas de monitoreo para ahorrar espacio de almacenamiento."},
+                        {"id": "B", "text": "Implementar configuraciones seguras, cifrado y control de accesos basados en privilegios mínimos."},
+                        {"id": "C", "text": "Utilizar la misma contraseña maestra en todos los servicios de red."}
+                    ]
 
-                    await session.execute(sql_checkpoints, {
-                        "id": str(uuid.uuid4()),
-                        "lesson_id": lesson_id,
-                        "question": question,
-                        "options": json.dumps(options, ensure_ascii=False),
-                        "correct_option_id": "B"
-                    })
-                    
-                    sort_order += 1
+                await session.execute(sql_checkpoints, {
+                    "id": str(uuid.uuid4()),
+                    "lesson_id": lesson_id,
+                    "question": question,
+                    "options": json.dumps(options, ensure_ascii=False),
+                    "correct_option_id": "B"
+                })
+
+                sort_order += 1
 
             await session.commit()
-            print("✅ [HYPERION] ¡Base de datos académica inyectada con éxito de forma asíncrona autónoma!")
+            print(f"✅ [HYPERION] ¡Base de datos académica inyectada con éxito! {len(all_controls)} controles distribuidos en todos los dominios.")
 
         except Exception as e:
             await session.rollback()
-            print(f"❌ Error durante el proceso de siembra en PostgreSQL: {str(e)}")
+            print(f"❌ Error durante la siembra masiva: {str(e)}")
         finally:
             await async_engine.dispose()
 
