@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { X, Lock, ShieldCheck, Sun, Moon, KeyRound } from 'lucide-react';
+import { X, Lock, ShieldCheck, Sun, Moon, KeyRound, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 export default function ConfiguracionFlotante({ isOpen, onClose }) {
   // --- Estados de la Interfaz ---
@@ -15,6 +15,8 @@ export default function ConfiguracionFlotante({ isOpen, onClose }) {
 
   // --- Estados de Formulario ---
   const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordStatus, setPasswordStatus] = useState(null); // { success: bool, text: string }
   
   // --- Estados de Autenticación 2FA ---
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
@@ -147,13 +149,45 @@ export default function ConfiguracionFlotante({ isOpen, onClose }) {
     }
   };
 
-  const handlePasswordChange = (e) => {
+  // Se modificó este handler para conectarse asíncronamente al backend FastAPI
+  const handlePasswordChange = async (e) => {
     e.preventDefault();
-    if (passwords.new !== passwords.confirm) {
-      alert('Las contraseñas nuevas no coinciden');
+    setPasswordStatus(null);
+
+    if (passwords.new.length < 8) {
+      setPasswordStatus({ success: false, text: 'La directiva IA-5 exige un mínimo de 8 caracteres.' });
       return;
     }
-    setPasswords({ current: '', new: '', confirm: '' });
+
+    if (passwords.new !== passwords.confirm) {
+      setPasswordStatus({ success: false, text: 'Las contraseñas nuevas no coinciden' });
+      return;
+    }
+
+    try {
+      setPasswordLoading(true);
+      const response = await fetch('http://localhost:8000/api/v1/immune/update-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: username,
+          new_password: passwords.new
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Error en el aprovisionamiento perimetral.');
+      }
+
+      setPasswordStatus({ success: true, text: 'Credencial criptográfica actualizada correctamente.' });
+      setPasswords({ current: '', new: '', confirm: '' });
+    } catch (err) {
+      setPasswordStatus({ success: false, text: err.message || 'Fallo de conexión con el servidor.' });
+    } finally {
+      setPasswordLoading(false);
+    }
   };
 
   return (
@@ -196,7 +230,7 @@ export default function ConfiguracionFlotante({ isOpen, onClose }) {
         {/* Contenido Dinámico */}
         <div className="flex-1 overflow-y-auto pr-1">
           
-          {/* PESTAÑA: CAMBIO DE CONTRASEÑA */}
+          {/* PESTAÑA: CAMBIO DE CONTRASEÑA (Modificado exclusivamente con la lógica asíncrona de API y feedback visual) */}
           {activeTab === 'seguridad' && (
             <form onSubmit={handlePasswordChange} className="space-y-4">
               {['current', 'new', 'confirm'].map((field) => (
@@ -207,14 +241,43 @@ export default function ConfiguracionFlotante({ isOpen, onClose }) {
                   <input
                     type="password"
                     required
+                    disabled={passwordLoading}
                     value={passwords[field]}
                     onChange={(e) => setPasswords({...passwords, [field]: e.target.value})}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all disabled:opacity-50"
                   />
                 </div>
               ))}
-              <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl py-2.5 text-sm transition-all shadow-lg shadow-blue-600/10 mt-2 flex items-center justify-center gap-2">
-                <KeyRound size={16} /> Actualizar Credenciales
+
+              {passwordStatus && (
+                <div className={`p-3 rounded-xl text-xs font-medium flex items-start gap-2.5 transition-all ${
+                  passwordStatus.success 
+                    ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400' 
+                    : 'bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400'
+                }`}>
+                  {passwordStatus.success ? (
+                    <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-500" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-red-500" />
+                  )}
+                  <span>{passwordStatus.text}</span>
+                </div>
+              )}
+
+              <button 
+                type="submit" 
+                disabled={passwordLoading} 
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl py-2.5 text-sm transition-all shadow-lg shadow-blue-600/10 mt-2 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {passwordLoading ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" /> Sincronizando...
+                  </>
+                ) : (
+                  <>
+                    <KeyRound size={16} /> Actualizar Credenciales
+                  </>
+                )}
               </button>
             </form>
           )}

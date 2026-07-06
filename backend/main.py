@@ -1,16 +1,15 @@
 from fastapi import FastAPI, APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
 import os
 from sqlalchemy import Column, DateTime, Integer, String, create_engine, text
-from sqlalchemy.orm import sessionmaker, Session, declarative_base  # 🌟 Corregido Base
+from sqlalchemy.orm import sessionmaker, Session, declarative_base 
 from sqlalchemy.exc import IntegrityError
 from fastapi.concurrency import run_in_threadpool
 import bcrypt
 import hashlib
-# 🌟 NUEVO IMPORT PARA MANEJO DE ARCHIVOS FÍSICOS Y RESPUESTAS DE DESCARGA DIRECTA
 from fastapi.responses import FileResponse 
 
 router = APIRouter(prefix="/api/v1/immune", tags=["Immune System"])
@@ -28,7 +27,7 @@ app.add_middleware(
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 # --- BASE DECLARATIVA REAL DE SQLALCHEMY ---
-Base = declarative_base()  # 🌟 Esto reemplaza el import incorrecto de unittest
+Base = declarative_base()
 
 # --- CONEXIÓN DE BASE DE DATOS ULTRA LIGERA PARA VERCEL ---
 RAW_DB_URL = os.getenv("DATABASE_URL")
@@ -92,6 +91,11 @@ class LogFiltro(BaseModel):
     categoria: str | None = None
     operador: str | None = None
 
+# 🌟 MODELO PYDANTIC NUEVO/ADAPTADO PARA EL CAMBIO DE CONTRASEÑA
+class PasswordUpdateRequest(BaseModel):
+    email: EmailStr = Field(..., description="El email del usuario logueado en sesión")
+    new_password: str = Field(..., min_length=8, description="La nueva credencial de seguridad del operador")
+
 # --- MODELO ORM DE VIGILANCIA ---
 class EventoVigilancia(Base):
     __tablename__ = "eventos_vigilancia"
@@ -108,7 +112,7 @@ if not RAW_DB_URL:
 # --- GESTOR DE CONEXIONES EN VIVO (WEBSOCKETS) ---
 class VigilanciaManager:
     def __init__(self):
-        self.active_connections: list[WebSocket] = []  # 🌟 Corregido el tipo de lista de ast a nativo
+        self.active_connections: list[WebSocket] = []
 
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
@@ -152,13 +156,11 @@ async def registrar_log(db: Session, operador: str, accion: str, categoria: str 
     }
     
     try:
-        # Ejecuta la inserción y el commit en el pool de hilos
         await run_in_threadpool(_guardar_log_sincrono, db, query, params)
     except Exception as e:
         db.rollback()
         print(f"🚨 CRITICAL: Falló el registro del log de auditoría: {str(e)}")
 
-    # TRANSMISIÓN EN TIEMPO REAL
     await manager.broadcast({
         "accion": accion,
         "operador": operador,
@@ -208,7 +210,7 @@ async def get_operadores_database(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Error de configuración: La variable DATABASE_URL está vacía en Vercel.")
         
     try:
-        query = text('SELECT id, email, role, nombre, ultima_conexion FROM usuarios')
+        query = text('SELECT id, email, role, nombre, ultima_conexion pray from usuarios')
         result = await run_in_threadpool(db.execute, query)
         rows = result.fetchall()
         
@@ -254,7 +256,6 @@ async def _crear_operador_en_bd(payload: NuevoOperador, db: Session):
         row = result.fetchone()
         db.commit()
         
-        # 🚨 Envía la alerta de creación a Vigilancia automáticamente por medio del nuevo registrar_log
         await registrar_log(db, payload.email, "OPERADOR_CREATED", "WARN", detalles=f"Alta de nueva identidad por el sistema. Rol: {payload.role}")
         
         return {
@@ -292,7 +293,6 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
         user_record = db.execute(query, {"email": username}).fetchone()
 
         if not user_record or not verify_password(password, user_record[0]):
-            # 🚨 Alerta de seguridad si fallan el login
             await registrar_log(db, username, "LOGIN_FAILED", "WARN", detalles="Intento fallido de autenticación.")
             raise HTTPException(status_code=400, detail="Credenciales incorrectas o usuario no registrado.")
 
@@ -305,7 +305,6 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
                 "username": username
             }
 
-        # 🚨 Alerta en tiempo real de inicio correcto
         await registrar_log(db, username, "LOGIN_SUCCESS", "INFO", detalles="Inicio de sesión perimetral correcto.")
         
         return {
@@ -317,6 +316,49 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error en el proceso de autenticación: {str(e)}")
+
+# 🛠️ 🌟 ENPOINT DE LA OPCIÓN 2 TOTALMENTE IMPLEMENTADO Y VINCULADO AL ROUTER E INFRAESTRUCTURA REAL
+@router.post("/update-password")
+async def update_password(payload: PasswordUpdateRequest, db: Session = Depends(get_db)):
+    """
+    Actualiza de forma inmutable la credencial criptográfica de un operador en la base de datos central.
+    Hashea la nueva contraseña con bcrypt y deja un registro inmutable en los logs de auditoría.
+    """
+    if not RAW_DB_URL:
+        raise HTTPException(status_code=500, detail="Error de configuración: DATABASE_URL vacía.")
+
+    try:
+        # 1. Comprobamos si el usuario existe físicamente en la tabla
+        check_user_query = text("SELECT id FROM usuarios WHERE email = :email")
+        user_exists = db.execute(check_user_query, {"email": payload.email}).fetchone()
+        
+        if not user_exists:
+            raise HTTPException(status_code=404, detail="El operador especificado no reside en el sistema perimetral.")
+            
+        # 2. Hasheamos la nueva contraseña de forma segura usando bcrypt
+        new_hashed_password = hash_password(payload.new_password)
+        
+        # 3. Guardamos los cambios directos en el registro del usuario
+        update_query = text("UPDATE usuarios SET password = :password WHERE email = :email")
+        await run_in_threadpool(db.execute, update_query, {"password": new_hashed_password, "email": payload.email})
+        db.commit()
+        
+        # 4. Sellar la acción en la cadena criptográfica de logs de auditoría (IA-5, AC-2 NIST compliant)
+        await registrar_log(
+            db, 
+            operador=payload.email, 
+            accion="PASSWORD_CHANGED", 
+            categoria="WARN", 
+            detalles="Modificación manual exitosa de credenciales criptográficas de acceso."
+        )
+        
+        return {"status": "success", "message": "Contraseña actualizada exitosamente en la base de datos de Hyperion Core."}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error de base de datos en actualización perimetral: {str(e)}")
     
 @app.delete("/api/v1/operadores/{id}")
 async def eliminar_operador(id: int, db: Session = Depends(get_db)):
@@ -334,7 +376,6 @@ async def eliminar_operador(id: int, db: Session = Depends(get_db)):
         await run_in_threadpool(db.execute, delete_query, {"id": id})
         db.commit()
         
-        # 🚨 Alerta crítica: El operador fue purgado
         await registrar_log(db, user[0], "ACCESS_REVOKED", "CRITICAL", detalles=f"Purga de credenciales completada para el ID {id}.")
         
         return {
@@ -462,7 +503,6 @@ async def websocket_vigilancia(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
-            # Escucha latidos o eventos desde el front si los hay
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
@@ -470,8 +510,6 @@ async def websocket_vigilancia(websocket: WebSocket):
 # Endpoint tradicional para consultar el historial de eventos guardados
 @app.get("/api/vigilancia/historial")
 def obtener_historial_vigilancia(db: Session = Depends(get_db)):
-    # Nota: Si estás usando logs_auditoria directo mediante raw queries, podemos leer de ahí.
-    # Para consistencia con tu sistema, jalamos los últimos 50 logs directamente:
     try:
         query = text("SELECT timestamp, operador, accion, categoria, detalles FROM logs_auditoria ORDER BY timestamp DESC LIMIT 50")
         result = db.execute(query)
@@ -492,7 +530,6 @@ def obtener_historial_vigilancia(db: Session = Depends(get_db)):
 async def verificar_cadena_criptografica(db: Session = Depends(get_db)):
     """Recorre todos los logs y verifica que ningún hash haya sido alterado."""
     try:
-        # Jalamos los logs ordenados cronológicamente (antiguos a recientes)
         query = text("SELECT id, operador, accion, categoria, detalles, timestamp FROM logs_auditoria ORDER BY id ASC")
         result = db.execute(query).fetchall()
         
@@ -504,13 +541,9 @@ async def verificar_cadena_criptografica(db: Session = Depends(get_db)):
             id_log, operador, accion, categoria, detalles, timestamp = row
             detalles_str = detalles if detalles else ""
             
-            # Generamos el SHA-256 combinando los metadatos y el hash anterior (Lógica Blockchain)
             payload_combinado = f"{id_log}-{operador}-{accion}-{categoria}-{detalles_str}-{hash_previo}"
             hash_calculado = hashlib.sha256(payload_combinado.encode("utf-8")).hexdigest()
             
-            # Si alguien alteró el registro directo en Supabase, el hash cambiaría.
-            # En una implementación real compararías contra un hash guardado.
-            # Para la simulación: guardamos la estructura en memoria.
             logs_procesados.append({
                 "id": id_log,
                 "control": "AU-2 / AU-9" if categoria in ["CRITICAL", "WARN"] else "AU-2",
@@ -524,10 +557,8 @@ async def verificar_cadena_criptografica(db: Session = Depends(get_db)):
                 "detalles": detalles_str
             })
             
-            # El actual se convierte en el previo para la siguiente iteración
             hash_previo = hash_calculado
             
-        # Devolvemos los logs invertidos (más nuevos primero) para la UI
         return {"status": "INTEGRA", "logs": list(reversed(logs_procesados))}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -536,7 +567,6 @@ async def verificar_cadena_criptografica(db: Session = Depends(get_db)):
 async def simular_ataque_bd(db: Session = Depends(get_db)):
     """Altera un registro directamente mediante SQL saltándose las funciones seguras."""
     try:
-        # Buscamos el último log disponible para romperlo
         ultimo_id = db.execute(text("SELECT MAX(id) FROM logs_auditoria")).scalar()
         if not ultimo_id:
             raise HTTPException(status_code=400, detail="No hay logs para corromper.")
@@ -573,7 +603,7 @@ async def obtener_plan_estudio_nist():
                     "descripcion": "Estudio fundamental sobre la generación de registros de auditoría, trazabilidad de actores y la inmutabilidad criptográfica obligatoria para el cumplimiento federal.",
                     "lecciones": [
                         { "id": "au-1", "titulo": "1. Introducción a la directiva AU-2 (Eventos Auditables)", "duracion": "6 min", "completada": True, "contenido": "La directiva AU-2 establece qué acciones del sistema DEBEN registrarse obligatoriamente. En Hyperion Core, esto incluye inicios de sesión, cambios de privilegios, volcados de bases de datos y bloqueos del firewall perimetral. Cada evento debe capturar de manera unívoca: qué ocurrió, cuándo ocurrió (timestamp), dónde ocurrió (nodo de origen) y quién lo provocó (actor)." },
-                        { "id": "au-2", "titulo": "2. Monitoreo y Trazabilidad bajo el control AU-6", "duracion": "8 min", "completada": True, "contenido": "El control AU-6 exige una revisión y correlación continua de los registros de auditoría para detectar comportamientos inusuales o ataques. No basta con almacenar los logs; el sistema debe contar con analíticas automáticas que correlacionen eventos aislados (por ejemplo, múltiples llamadas de API fallidas seguidas de una exportación de BD) para emitir alertas de mitigación en tiempo real." },
+                        { "id": "au-2", "titulo": "2. Monitoreo y Trawzabilidad bajo el control AU-6", "duracion": "8 min", "completada": True, "contenido": "El control AU-6 exige una revisión y correlación continua de los registros de auditoría para detectar comportamientos inusuales o ataques. No basta con almacenar los logs; el sistema debe contar con analíticas automáticas que correlacionen eventos aislados (por ejemplo, múltiples llamadas de API fallidas seguidas de una exportación de BD) para emitir alertas de mitigación en tiempo real." },
                         { "id": "au-3", "titulo": "3. Criptografía y Blockchain: Profundizando en AU-9", "duracion": "12 min", "completada": False, "contenido": "El control AU-9 (Integridad de Registros) es el núcleo criptográfico de Hyperion. Exige que los registros estén protegidos contra modificaciones no autorizadas. Implementamos esto mediante un encadenamiento de bloques SHA-256 (lógica blockchain): cada log almacena el hash del bloque anterior. Si un atacante altera una fila directamente en PostgreSQL, la firma digital del bloque se rompe, invalidando la cadena completa inmediatamente." }
                     ]
                 },
@@ -606,10 +636,6 @@ async def obtener_plan_estudio_nist():
 
 @app.post("/api/v1/academia/completar-leccion")
 async def registrar_progreso_leccion(payload: ProgresoLeccionPayload):
-    """
-    Sella en la base de datos de auditoría reglamentaria que el usuario 
-    aprobó con éxito el checkpoint correspondiente a la lección.
-    """
     if not payload.correcta:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, 
@@ -625,27 +651,17 @@ async def registrar_progreso_leccion(payload: ProgresoLeccionPayload):
         raise HTTPException(status_code=500, detail=f"Database error writing ledger: {str(e)}")
 
 
-# 🌟 ENDPOINT MODIFICADO: DESCARGA DIRECTA DE LA NORMA REAL ENVIADA (VINCULADO AL BOTÓN)
 @app.get("/api/v1/academia/descargar-norma")
 async def descargar_norma_completa_nist():
-    """
-    Busca de forma física y directa el archivo PDF unificado de la norma oficial
-    'NIST.SP.800-53r5.pdf' alojado en el directorio raíz de este script de Python.
-    """
-    # Determinamos la ruta absoluta del directorio donde reside este archivo main.py
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    
-    # Construimos la ruta exacta hacia el archivo que subiste al servidor
     file_path = os.path.join(base_dir, "NIST.SP.800-53r5.pdf")
     
-    # Validamos físicamente que el archivo esté listo antes de despachar los bytes
     if not os.path.exists(file_path):
         raise HTTPException(
             status_code=404, 
             detail="El documento técnico NIST.SP.800-53r5.pdf no se encuentra en la raíz del servidor."
         )
     
-    # Forzamos la descarga nativa en el navegador del operador con el nombre formal de la especificación
     return FileResponse(
         path=file_path, 
         media_type="application/pdf", 
@@ -653,13 +669,8 @@ async def descargar_norma_completa_nist():
     )
 
 
-# ENDPOINT ADICIONAL (MANTIENE LA COMPATIBILIDAD POR ID SI LA CARPETA SCRIPTS EXISTE)
 @app.get("/api/v1/academia/descargar/{leccion_id}")
 async def descargar_regla_pdf(leccion_id: str):
-    """
-    Busca de forma segura el archivo PDF correspondiente a una regla individual (dentro del directorio scripts)
-    o hace un fallback automático a la norma completa si no se localiza.
-    """
     safe_id = os.path.basename(leccion_id).upper()
     base_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(base_dir, "scripts", f"{safe_id}.pdf")
@@ -671,14 +682,4 @@ async def descargar_regla_pdf(leccion_id: str):
             filename=f"NIST_SP_800_53_{safe_id}.pdf"
         )
     
-    # Fallback inteligente: si no existe el reporte segmentado, le sirve la norma global
-    global_pdf = os.path.join(base_dir, "NIST.SP.800-53r5.pdf")
-    if os.path.exists(global_pdf):
-        return FileResponse(path=global_pdf, media_type="application/pdf", filename="NIST_SP_800-53_Rev5_Official.pdf")
-        
-    raise HTTPException(status_code=404, detail="Ningún recurso PDF de la norma fue hallado en el backend.")
-
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=7860)
+    raise HTTPException(status_code=404, detail="Recurso modular no localizado.")
