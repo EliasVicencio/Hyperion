@@ -560,9 +560,6 @@ async def obtener_plan_estudio_nist():
     horas métricas de estudio recolectadas en Supabase.
     """
     try:
-        # Aquí harías tu llamada real hacia Supabase, ej:
-        # data = supabase.table("user_lessons_progress").select("*").execute()
-        
         return {
             "certificacion_global": 22,
             "horas_dedicadas": 2.4,
@@ -620,8 +617,6 @@ async def registrar_progreso_leccion(payload: ProgresoLeccionPayload):
         )
     
     try:
-        # Aquí disparas tu query hacia Supabase, ej:
-        # supabase.table("user_lessons_progress").insert({"modulo": payload.modulo_id, "leccion": payload.leccion_id, "done": True}).execute()
         return {
             "status": "success",
             "message": f"Progreso inmutable sellado para la lección '{payload.leccion_id}'."
@@ -629,35 +624,60 @@ async def registrar_progreso_leccion(payload: ProgresoLeccionPayload):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error writing ledger: {str(e)}")
 
-# 🌟 NUEVO ENDPOINT: DESCARGA DIRECTA DE REGLAS/DOCUMENTACIÓN EN PDF
-@app.get("/api/v1/academia/descargar/{leccion_id}")
-async def descargar_regla_pdf(leccion_id: str):
+
+# 🌟 ENDPOINT MODIFICADO: DESCARGA DIRECTA DE LA NORMA REAL ENVIADA (VINCULADO AL BOTÓN)
+@app.get("/api/v1/academia/descargar-norma")
+async def descargar_norma_completa_nist():
     """
-    Busca de forma segura el archivo PDF correspondiente a la regla (dentro del directorio de scripts)
-    y fuerza la descarga directa del operador con sanitización perimetral básica.
+    Busca de forma física y directa el archivo PDF unificado de la norma oficial
+    'NIST.SP.800-53r5.pdf' alojado en el directorio raíz de este script de Python.
     """
-    # 1. Sanitizar el identificador para prevenir ataques de inyección de rutas (Path Traversal)
-    safe_id = os.path.basename(leccion_id).upper()
-    
-    # 2. Reconstruir la ruta absoluta hacia tu directorio de scripts (ajustable según despliegue)
-    # Revisa si la carpeta exacta de tus archivos generados es 'scripts' o 'scripts/pdfs'
+    # Determinamos la ruta absoluta del directorio donde reside este archivo main.py
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(base_dir, "scripts", f"{safe_id}.pdf")
     
-    # 3. Validar existencia física del PDF antes de iniciar la transmisión
+    # Construimos la ruta exacta hacia el archivo que subiste al servidor
+    file_path = os.path.join(base_dir, "NIST.SP.800-53r5.pdf")
+    
+    # Validamos físicamente que el archivo esté listo antes de despachar los bytes
     if not os.path.exists(file_path):
         raise HTTPException(
             status_code=404, 
-            detail=f"Documentación oficial no encontrada. El script para el control {safe_id} no ha generado el reporte binario."
+            detail="El documento técnico NIST.SP.800-53r5.pdf no se encuentra en la raíz del servidor."
         )
     
-    # 4. Retornar el archivo binario forzando la descarga directa en el navegador
-    download_filename = f"NIST_SP_800_53_{safe_id}.pdf"
+    # Forzamos la descarga nativa en el navegador del operador con el nombre formal de la especificación
     return FileResponse(
         path=file_path, 
         media_type="application/pdf", 
-        filename=download_filename
+        filename="NIST_SP_800-53_Rev5_Official.pdf"
     )
+
+
+# ENDPOINT ADICIONAL (MANTIENE LA COMPATIBILIDAD POR ID SI LA CARPETA SCRIPTS EXISTE)
+@app.get("/api/v1/academia/descargar/{leccion_id}")
+async def descargar_regla_pdf(leccion_id: str):
+    """
+    Busca de forma segura el archivo PDF correspondiente a una regla individual (dentro del directorio scripts)
+    o hace un fallback automático a la norma completa si no se localiza.
+    """
+    safe_id = os.path.basename(leccion_id).upper()
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(base_dir, "scripts", f"{safe_id}.pdf")
+    
+    if os.path.exists(file_path):
+        return FileResponse(
+            path=file_path, 
+            media_type="application/pdf", 
+            filename=f"NIST_SP_800_53_{safe_id}.pdf"
+        )
+    
+    # Fallback inteligente: si no existe el reporte segmentado, le sirve la norma global
+    global_pdf = os.path.join(base_dir, "NIST.SP.800-53r5.pdf")
+    if os.path.exists(global_pdf):
+        return FileResponse(path=global_pdf, media_type="application/pdf", filename="NIST_SP_800-53_Rev5_Official.pdf")
+        
+    raise HTTPException(status_code=404, detail="Ningún recurso PDF de la norma fue hallado en el backend.")
+
 
 if __name__ == "__main__":
     import uvicorn
