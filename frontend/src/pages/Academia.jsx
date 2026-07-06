@@ -19,7 +19,7 @@ export default function Academia({ user }) {
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [quizFeedback, setQuizFeedback] = useState(null); 
 
-  // Estado de progreso local del usuario
+  // Estado de progreso local del usuario (Sincronizado opcionalmente como espejo)
   const [userProgress, setUserProgress] = useState(() => {
     const saved = localStorage.getItem('hyperion_academy_progress');
     if (saved && saved !== "undefined" && saved !== "null") {
@@ -137,7 +137,7 @@ export default function Academia({ user }) {
     setSelectedAnswer(null);
   };
 
-  const handleVerifyAnswer = () => {
+  const handleVerifyAnswer = async () => {
     if (!selectedAnswer || !currentCheckpoint) return;
 
     if (selectedAnswer === currentCheckpoint.correct_option_id) {
@@ -145,10 +145,34 @@ export default function Academia({ user }) {
         success: true,
         message: "¡Excelente! Respuesta correcta. El control normativo ha sido asimilado correctamente."
       });
+      
+      // Actualizar estado local espejo
       setUserProgress(prev => ({
         ...prev,
         [selectedLesson.id]: true
       }));
+
+      // 🌟 PERSISTENCIA EN EL BACKEND SEGÚN MÓDULO O CURSO ASOCIADO
+      try {
+        const emailOperador = user?.email || "operador-root";
+        // Asignamos ID de curso por defecto 1 si viene mapeado como ISO o el id numérico disponible
+        const cursoId = selectedLesson.course_id || 1; 
+
+        await fetch(`/api/v1/academia/progreso?operador_email=${encodeURIComponent(emailOperador)}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            modulo_id: String(cursoId),
+            leccion_id: String(selectedLesson.id),
+            correcta: true
+          }),
+        });
+      } catch (backendErr) {
+        console.warn("No se pudo reportar el progreso al core central de gobernanza:", backendErr);
+      }
+
     } else {
       setQuizFeedback({
         success: false,
@@ -339,7 +363,7 @@ export default function Academia({ user }) {
                 <div className="p-6 border border-purple-200 dark:border-purple-500/20 bg-purple-50/30 dark:bg-purple-500/5 rounded-3xl space-y-5">
                   <div className="flex items-center space-x-2 text-purple-600 dark:text-purple-400">
                     <HelpCircle className="w-5 h-5" />
-                    <h4 className="text-sm font-bold uppercase tracking-wider">⚡ Checkpoint de Validación</h4>
+                    <h4 className="text-sm font-bold uppercase tracking-wider">⚡ Checkpoint de Validation</h4>
                   </div>
 
                   <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-snug">

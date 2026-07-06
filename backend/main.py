@@ -828,4 +828,137 @@ async def obtener_dashboard_activos_y_riesgos(db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-    raise HTTPException(status_code=404, detail="Recurso modular no localizado.")
+# ----------------------------------------------------------------
+# ENDPOINTS DE LA ACADEMIA DUAL (ISO 27001 & NIST 800-53)
+# ----------------------------------------------------------------
+
+@app.get("/api/v1/academia/cursos")
+async def listar_cursos_academia(operador_email: str = "operador-root", db: Session = Depends(get_db)):
+    """
+    Retorna los cursos consolidados de la base de datos de Supabase cruzando el 
+    progreso del operador en tiempo real y segmentándolos por su marco normativo.
+    """
+    if not RAW_DB_URL:
+        # Fallback seguro en caso de entorno SQLite local sin tablas de academia creadas
+        return {
+            "iso_27001": [
+                {
+                    "id": 1, "titulo": "Estructura del SGSI y Ciclo PHVA", 
+                    "descripcion": "Domina las cláusulas obligatorias (4 a 10) para el diseño de un SGSI corporativo.", 
+                    "marco": "ISO27001", "nivel": "PRINCIPIANTE", "horas": 3, "total_lecciones": 4,
+                    "lecciones_completadas": 1, "certificado": False
+                }
+            ],
+            "nist_80053": [
+                {
+                    "id": 3, "titulo": "Hardening e Integridad de Registros (Familia AU)", 
+                    "descripcion": "Implementación técnica avanzada de auditoría inmutable (AU-2, AU-9, AU-12) usando criptografía.", 
+                    "marco": "NIST80053", "nivel": "AVANZADO", "horas": 5, "total_lecciones": 4,
+                    "lecciones_completadas": 2, "certificado": False
+                }
+            ]
+        }
+
+    try:
+        # Consulta SQL cruda nativa compatible con la arquitectura de Hyperion Core
+        query = text("""
+            SELECT c.id, c.titulo, c.descripcion, c.marco_normativo, c.nivel, 
+                   c.horas_estimadas, c.total_lecciones,
+                   COALESCE(p.lecciones_completadas, 0) as completadas,
+                   COALESCE(p.certificado_emitido, false) as certificado
+            FROM academia_cursos c
+            LEFT JOIN academia_progreso p ON c.id = p.curso_id AND p.operador_email = :email
+            ORDER BY c.id ASC
+        """)
+        
+        result = await run_in_threadpool(db.execute, query, {"email": operador_email})
+        rows = result.fetchall()
+        
+        cursos = []
+        for r in rows:
+            cursos.append({
+                "id": r[0],
+                "titulo": r[1],
+                "descripcion": r[2],
+                "marco": r[3],
+                "nivel": r[4],
+                "horas": r[5],
+                "total_lecciones": r[6],
+                "lecciones_completadas": r[7],
+                "certificado": bool(r[8])
+            })
+        
+        # Segmentación limpia de los trayectos directo en el Backend
+        return {
+            "iso_27001": [c for c in cursos if c["marco"] == "ISO27001"],
+            "nist_80053": [c for c in cursos if c["marco"] == "NIST80053"]
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Fallo en la pasarela de extracción de la Academia: {str(e)}"
+        )
+
+
+@app.post("/api/v1/academia/progreso")
+async def actualizar_progreso_academia(payload: ProgresoLeccionPayload, operador_email: str = "operador-root", db: Session = Depends(get_db)):
+    """
+    Registra e incrementa el progreso de lecciones del operador actual, 
+    emitiendo el certificado inmutable si se completan todos los módulos.
+    """
+    if not RAW_DB_URL:
+        return {"status": "success", "message": "Simulación local completada."}
+        
+    try:
+        # Buscamos las métricas totales del curso afectado
+        query_curso = text("SELECT id, total_lecciones FROM academia_cursos WHERE id = :id")
+        curso = db.execute(query_curso, {"id": int(payload.modulo_id)}).fetchone()
+        
+        if not curso:
+            raise HTTPException(status_code=404, detail="El curso regulatorio especificado no existe.")
+            
+        curso_id, total_lecciones = curso
+        
+        # Upsert del progreso del operador en Supabase
+        query_upsert = text("""
+            INSERT INTO academia_progreso (curso_id, operador_email, lecciones_completadas)
+            VALUES (:curso_id, :email, 1)
+            ON CONFLICT (curso_id, operador_email) 
+            DO UPDATE SET lecciones_completadas = LEAST(academia_progreso.lecciones_completadas + 1, :total)
+            RETURNING lecciones_completadas;
+        """)
+        
+        result = db.execute(query_upsert, {"curso_id": curso_id, "email": operador_email, "total": total_lecciones})
+        nuevas_completadas = result.scalar()
+        
+        # Verificamos si amerita la emisión inmediata del certificado (PHVA / NIST AT-1)
+        certificado_emitido = False
+        if nuevas_completadas >= total_lecciones:
+            certificado_emitido = True
+            query_cert = text("""
+                UPDATE academia_progreso 
+                SET certificado_emitido = TRUE 
+                WHERE curso_id = :curso_id AND operador_email = :email
+            """)
+            db.execute(query_cert, {"curso_id": curso_id, "email": operador_email})
+            
+            await registrar_log(
+                db, 
+                operador=operador_email, 
+                accion="COMPLIANCE_CERTIFIED", 
+                categoria="INFO", 
+                detalles=f"Operador completó satisfactoriamente el trayecto de certificación ID {curso_id}."
+            )
+            
+        db.commit()
+        return {
+            "status": "success", 
+            "lecciones_completadas": nuevas_completadas, 
+            "certificado_emitido": certificado_emitido
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    
+raise HTTPException(status_code=404, detail="Recurso modular no localizado.")
