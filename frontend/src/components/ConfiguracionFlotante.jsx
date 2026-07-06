@@ -166,11 +166,12 @@ export default function ConfiguracionFlotante({ isOpen, onClose }) {
 
     try {
       setPasswordLoading(true);
-      const response = await fetch('http://localhost:8000/api/v1/immune/update-password', {
+      // 🌟 CORRECCIÓN AQUÍ: Cambiado a ruta relativa /auth/... para usar el proxy correctamente
+      const response = await fetch('/auth/update-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: username,
+          username: username, // Se mapea con la variable 'username' que ya usa tu componente
           new_password: passwords.new
         })
       });

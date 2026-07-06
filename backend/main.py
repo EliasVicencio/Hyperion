@@ -93,8 +93,8 @@ class LogFiltro(BaseModel):
 
 # 🌟 MODELO PYDANTIC NUEVO/ADAPTADO PARA EL CAMBIO DE CONTRASEÑA
 class PasswordUpdateRequest(BaseModel):
-    email: EmailStr = Field(..., description="El email del usuario logueado en sesión")
-    new_password: str = Field(..., min_length=8, description="La nueva credencial de seguridad del operador")
+    username: str = Field(..., description="El email/usuario logueado en sesión")
+    new_password: str = Field(..., min_length=8, description="La nueva credencial")
 
 # --- MODELO ORM DE VIGILANCIA ---
 class EventoVigilancia(Base):
@@ -317,48 +317,42 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error en el proceso de autenticación: {str(e)}")
 
-# 🛠️ 🌟 ENPOINT DE LA OPCIÓN 2 TOTALMENTE IMPLEMENTADO Y VINCULADO AL ROUTER E INFRAESTRUCTURA REAL
-@router.post("/update-password")
+@app.post("/auth/update-password") # 🌟 Cambiado de @router a @app para usar /auth/
 async def update_password(payload: PasswordUpdateRequest, db: Session = Depends(get_db)):
-    """
-    Actualiza de forma inmutable la credencial criptográfica de un operador en la base de datos central.
-    Hashea la nueva contraseña con bcrypt y deja un registro inmutable en los logs de auditoría.
-    """
     if not RAW_DB_URL:
         raise HTTPException(status_code=500, detail="Error de configuración: DATABASE_URL vacía.")
 
     try:
-        # 1. Comprobamos si el usuario existe físicamente en la tabla
+        # 1. Comprobamos si el usuario existe usando payload.username
         check_user_query = text("SELECT id FROM usuarios WHERE email = :email")
-        user_exists = db.execute(check_user_query, {"email": payload.email}).fetchone()
-        
+        user_exists = db.execute(check_user_query, {"email": payload.username}).fetchone()
+
         if not user_exists:
-            raise HTTPException(status_code=404, detail="El operador especificado no reside en el sistema perimetral.")
-            
-        # 2. Hasheamos la nueva contraseña de forma segura usando bcrypt
+            raise HTTPException(status_code=404, detail="El operador especificado no reside en el sistema.")
+
+        # 2. Hasheamos
         new_hashed_password = hash_password(payload.new_password)
-        
-        # 3. Guardamos los cambios directos en el registro del usuario
+
+        # 3. Guardamos
         update_query = text("UPDATE usuarios SET password = :password WHERE email = :email")
-        await run_in_threadpool(db.execute, update_query, {"password": new_hashed_password, "email": payload.email})
+        await run_in_threadpool(db.execute, update_query, {"password": new_hashed_password, "email": payload.username})
         db.commit()
-        
-        # 4. Sellar la acción en la cadena criptográfica de logs de auditoría (IA-5, AC-2 NIST compliant)
+
+        # 4. Logs
         await registrar_log(
             db, 
-            operador=payload.email, 
+            operador=payload.username, 
             accion="PASSWORD_CHANGED", 
             categoria="WARN", 
             detalles="Modificación manual exitosa de credenciales criptográficas de acceso."
         )
-        
-        return {"status": "success", "message": "Contraseña actualizada exitosamente en la base de datos de Hyperion Core."}
-        
+
+        return {"status": "success", "message": "Contraseña actualizada exitosamente."}
     except HTTPException:
         raise
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error de base de datos en actualización perimetral: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
     
 @app.delete("/api/v1/operadores/{id}")
 async def eliminar_operador(id: int, db: Session = Depends(get_db)):
