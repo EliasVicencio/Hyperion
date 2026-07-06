@@ -625,7 +625,8 @@ async def verificar_cadena_criptografica(db: Session = Depends(get_db)):
             
             logs_procesados.append({
                 "id": id_log,
-                "control": "AU-2 / AU-9" if categoria in ["CRITICAL", "WARN"] else "AU-2",
+                # 🛡️ CAMBIO AQUÍ: Mapeo nativo de controles ISO/IEC 27001:2022
+                "control": "A.8.15 / A.8.24" if categoria in ["CRITICAL", "WARN"] else "A.8.15",
                 "event_type": accion,
                 "actor": operador,
                 "service": "hyperion-core",
