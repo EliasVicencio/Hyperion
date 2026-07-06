@@ -147,7 +147,7 @@ export default function Academia({ user }) {
     }
   };
 
-  // 🛠️ IMPLEMENTACIÓN DEL NUEVO ENDPOINT UNIFICADO SOBRE LA ESTRUCTURA ORIGINAL
+  // 🛠️ FUNCIÓN CON EL CAMBIO IMPLEMENTADO (URL ABSOLUTA PARA EVITAR 404)
   const handleDownloadDocument = async () => {
     if (!selectedLesson) return;
     try {
@@ -156,8 +156,9 @@ export default function Academia({ user }) {
       // Creamos un anclaje nativo invisible temporal para forzar la descarga binaria desde FastAPI
       const link = document.createElement('a');
       
-      // Apuntamos al endpoint unificado que expone tu backend de Python
-      link.href = '/api/v1/academia/descargar-norma'; 
+      // Apuntamos directamente a la URL absoluta del backend de FastAPI
+      // (Cambia el puerto a 7860 si tu FastAPI levanta en ese puerto en vez de 8000)
+      link.href = 'http://localhost:8000/api/v1/academia/descargar-norma'; 
       link.setAttribute('target', '_blank');
       link.setAttribute('download', 'NIST_SP_800-53_Rev5_Official.pdf');
       
@@ -302,7 +303,7 @@ export default function Academia({ user }) {
                   >
                     <div className="space-y-1 pr-4">
                       <h4 className={`text-sm font-semibold tracking-tight leading-snug ${isActive ? 'text-white' : 'text-slate-800 dark:text-slate-200 group-hover:text-blue-500 dark:group-hover:text-blue-400'}`}>
-                        ={lesson.title}
+                        {lesson.title}
                       </h4>
                       <div className="flex items-center space-x-2 text-[11px]">
                         <span className={isActive ? 'text-blue-200' : 'text-slate-400 dark:text-slate-500'}>{lesson.duration_minutes} min de lectura</span>
