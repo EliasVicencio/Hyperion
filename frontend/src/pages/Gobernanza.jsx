@@ -8,7 +8,7 @@ export default function Gobernanza() {
   
   // Estados para el Test de Integridad Masivo
   const [isAuditing, setIsAuditing] = useState(false);
-  const [isDefending, setIsDefending] = useState(false); // 🛡️ Nuevo estado de defensa
+  const [isDefending, setIsDefending] = useState(false); // 🛡️ Estado de mitigación activa
   const [auditStatus, setAuditStatus] = useState("CORRECTO"); // CORRECTO, AUDITING, COMPROMISED
   const [progresoAudit, setProgresoAudit] = useState(0);
 
@@ -100,7 +100,6 @@ export default function Gobernanza() {
     try {
       const response = await fetch('/api/v1/gobernanza/restaurar-cadena', { method: 'POST' });
       if (!response.ok) throw new Error("Error al mitigar el ataque");
-      const data = await response.json();
       
       alert(`🛡️ CONTRAMEDIDA COMPLETADA: Algoritmo de autocuración ISO ejecutado. Se han recalculado y purgado los hashes mutados.`);
       setAuditStatus("CORRECTO");
@@ -148,7 +147,7 @@ export default function Gobernanza() {
           </button>
           
           <button
-            onClick={ejecutorAuditoriaISO || ejecutarAuditoriaISO}
+            onClick={ejecutarAuditoriaISO}
             disabled={isAuditing}
             className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 border font-mono transition-all ${
               auditStatus === "COMPROMISED" 
