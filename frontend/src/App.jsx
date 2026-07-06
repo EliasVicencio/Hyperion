@@ -32,6 +32,7 @@ export default function App() {
     }
   });
 
+  // 🌟 CAMBIO AQUÍ: Simplificada la lectura explícita al montar para evitar parpadeos no controlados
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
@@ -125,7 +126,7 @@ export default function App() {
         <div className="p-8 max-w-7xl mx-auto">
           <AnimatePresence mode="wait">
             <motion.div
-              key={normalizedPageKey} // 🌟 AHROA SÍ: Sincronizado al 100% con la vista interna
+              key={normalizedPageKey} // Sincronizado al 100% con la vista interna
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}

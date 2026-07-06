@@ -5,7 +5,11 @@ import { X, Lock, ShieldCheck, Sun, Moon, KeyRound } from 'lucide-react';
 export default function ConfiguracionFlotante({ isOpen, onClose }) {
   // --- Estados de la Interfaz ---
   const [activeTab, setActiveTab] = useState('seguridad'); 
+  
+  // 🌟 CAMBIO AQUÍ: Inicializar leyendo primero localStorage para evitar que se resetee al recargar la página
   const [isDarkMode, setIsDarkMode] = useState(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) return savedTheme === 'dark';
     return document.documentElement.classList.contains('dark');
   });
 
@@ -73,7 +77,7 @@ export default function ConfiguracionFlotante({ isOpen, onClose }) {
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.detail || 'No se pudo configurar el perímetro 2FA.');
+          throw new Error(data.detail || 'No se pudo configure el perímetro 2FA.');
         }
 
         setTotpSecret(data.secret);
