@@ -147,28 +147,27 @@ export default function Academia({ user }) {
     }
   };
 
-  // Manejador de descargas seguro con Supabase Storage + Fallback
+  // 🛠️ IMPLEMENTACIÓN DEL NUEVO ENDPOINT UNIFICADO SOBRE LA ESTRUCTURA ORIGINAL
   const handleDownloadDocument = async () => {
     if (!selectedLesson) return;
     try {
       setDownloading(true);
       
-      // Intentamos obtener una URL firmada de 60 segundos desde el bucket 'academia-pdfs'
-      // El nombre del archivo esperado en tu bucket debe ser el ID de la lección (ej: "1.pdf")
-      const { data, error } = await supabase
-        .storage
-        .from('academia-pdfs') 
-        .createSignedUrl(`${selectedLesson.id}.pdf`, 60);
-
-      if (error) throw error;
-
-      if (data?.signedUrl) {
-        window.open(data.signedUrl, '_blank');
-      }
-    } catch (err) {
-      console.warn("No se localizó el PDF en Storage. Generando copia local de respaldo...", err.message);
+      // Creamos un anclaje nativo invisible temporal para forzar la descarga binaria desde FastAPI
+      const link = document.createElement('a');
       
-      // Fallback: Si falla el almacenamiento, descarga dinámicamente un archivo .txt/.md con el contenido
+      // Apuntamos al endpoint unificado que expone tu backend de Python
+      link.href = '/api/v1/academia/descargar-norma'; 
+      link.setAttribute('target', '_blank');
+      link.setAttribute('download', 'NIST_SP_800-53_Rev5_Official.pdf');
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.warn("Falla en el API unificado. Ejecutando fallback local de emergencia...", err.message);
+      
+      // Fallback inmutable original por si el backend local pierde enlace
       const element = document.createElement("a");
       const file = new Blob([selectedLesson.content_markdown], { type: 'text/plain;charset=utf-8' });
       element.href = URL.createObjectURL(file);
@@ -177,7 +176,8 @@ export default function Academia({ user }) {
       element.click();
       document.body.removeChild(element);
     } finally {
-      setDownloading(false);
+      // Retardo estético para la animación del botón
+      setTimeout(() => setDownloading(false), 800);
     }
   };
 
@@ -302,7 +302,7 @@ export default function Academia({ user }) {
                   >
                     <div className="space-y-1 pr-4">
                       <h4 className={`text-sm font-semibold tracking-tight leading-snug ${isActive ? 'text-white' : 'text-slate-800 dark:text-slate-200 group-hover:text-blue-500 dark:group-hover:text-blue-400'}`}>
-                        {lesson.title}
+                        ={lesson.title}
                       </h4>
                       <div className="flex items-center space-x-2 text-[11px]">
                         <span className={isActive ? 'text-blue-200' : 'text-slate-400 dark:text-slate-500'}>{lesson.duration_minutes} min de lectura</span>
