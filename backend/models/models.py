@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
-from database import Base
+from backend.app.dependencies.database import Base
 import datetime
 
 class EventoVigilancia(Base):

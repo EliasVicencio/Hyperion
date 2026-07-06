@@ -8,18 +8,18 @@ export default function Academia({ user }) {
   const [error, setError] = useState(null);
   const [downloading, setDownloading] = useState(false);
 
-  // Estados de datos provenientes de la BD
-  const [families, setFamilies] = useState([]);
+  // Estados de datos provenientes de la BD (Migrados a ISO)
+  const [domains, setDomains] = useState([]);
   const [lessons, setLessons] = useState([]);
   const [checkpoints, setCheckpoints] = useState([]);
 
   // Estados de navegación e interacción del usuario
-  const [selectedFamily, setSelectedFamily] = useState(null);
+  const [selectedDomain, setSelectedDomain] = useState(null);
   const [selectedLesson, setSelectedLesson] = useState(null);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
-  const [quizFeedback, setQuizFeedback] = useState(null); // { success: boolean, message: string }
+  const [quizFeedback, setQuizFeedback] = useState(null); 
 
-  // Estado de progreso local del usuario (Salvaguardado contra fallas de JSON)
+  // Estado de progreso local del usuario
   const [userProgress, setUserProgress] = useState(() => {
     const saved = localStorage.getItem('hyperion_academy_progress');
     if (saved && saved !== "undefined" && saved !== "null") {
@@ -33,54 +33,45 @@ export default function Academia({ user }) {
     return {};
   });
 
-  // 1. CARGA INICIAL DE DATOS DESDE SUPABASE
+  // 1. CARGA INICIAL DE DATOS DESDE SUPABASE (ISO 27001:2022)
   useEffect(() => {
     async function fetchAcademyData() {
       try {
         setLoading(true);
         setError(null);
 
-        // Traer de forma paralela familias, lecciones y checkpoints
-        const [resFamilies, resLessons, resCheckpoints] = await Promise.all([
-          supabase.from('nist_families').select('*').order('id', { ascending: true }),
+        // Traer de forma paralela los dominios, lecciones y checkpoints reales de la ISO
+        const [resDomains, resLessons, resCheckpoints] = await Promise.all([
+          supabase.from('iso_domains').select('*').order('id', { ascending: true }),
           supabase.from('academy_lessons').select('*').order('sort_order', { ascending: true }),
           supabase.from('academy_checkpoints').select('*')
         ]);
 
-        // 🔍 DIAGNÓSTICO EN CONSOLA DE EMERGENCIA (Abre F12 en tu navegador para auditar esto)
-        console.log("🔍 [DEBUG ACADEMIA] Respuesta Cruda de Supabase:");
-        console.log("Familias encontradas:", resFamilies.data?.length, resFamilies.data);
+        // 🔍 DIAGNÓSTICO EN CONSOLA
+        console.log("🔍 [DEBUG ACADEMIA ISO] Respuesta Cruda de Supabase:");
+        console.log("Dominios encontrados:", resDomains.data?.length, resDomains.data);
         console.log("Lecciones encontradas:", resLessons.data?.length, resLessons.data);
         console.log("Checkpoints encontrados:", resCheckpoints.data?.length, resCheckpoints.data);
 
-        if (resFamilies.error) {
-          console.error("❌ Error en nist_families:", resFamilies.error);
-          throw resFamilies.error;
-        }
-        if (resLessons.error) {
-          console.error("❌ Error en academy_lessons:", resLessons.error);
-          throw resLessons.error;
-        }
-        if (resCheckpoints.error) {
-          console.error("❌ Error en academy_checkpoints:", resCheckpoints.error);
-          throw resCheckpoints.error;
-        }
+        if (resDomains.error) throw resDomains.error;
+        if (resLessons.error) throw resLessons.error;
+        if (resCheckpoints.error) throw resCheckpoints.error;
 
-        const dataFamilies = resFamilies.data || [];
+        const dataDomains = resDomains.data || [];
         const dataLessons = resLessons.data || [];
         const dataCheckpoints = resCheckpoints.data || [];
 
-        setFamilies(dataFamilies);
+        setDomains(dataDomains);
         setLessons(dataLessons);
         setCheckpoints(dataCheckpoints);
 
-        // Preseleccionar de forma segura e idéntica
-        if (dataFamilies.length > 0) {
-          const firstFam = dataFamilies[0].id;
-          setSelectedFamily(firstFam);
-          
-          const firstLess = dataLessons.find(l => 
-            l.family_id?.trim().toUpperCase() === firstFam.trim().toUpperCase()
+        // Preseleccionar el primer dominio de la ISO (A.5) y su primera lección
+        if (dataDomains.length > 0) {
+          const firstDom = dataDomains[0].id; // "A.5"
+          setSelectedDomain(firstDom);
+
+          const firstLess = dataLessons.find(l =>
+            l.domain_id?.trim().toUpperCase() === firstDom.trim().toUpperCase()
           );
           if (firstLess) {
             setSelectedLesson(firstLess);
@@ -88,7 +79,7 @@ export default function Academia({ user }) {
         }
 
       } catch (err) {
-        console.error("🚨 Error inicializando el Compliance Hub:", err.message);
+        console.error("🚨 Error inicializando el Compliance Hub ISO:", err.message);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -98,52 +89,46 @@ export default function Academia({ user }) {
     fetchAcademyData();
   }, []);
 
-  // Guardar progreso en LocalStorage cada vez que cambie
+  // Guardar progreso en LocalStorage
   useEffect(() => {
     localStorage.setItem('hyperion_academy_progress', JSON.stringify(userProgress));
   }, [userProgress]);
 
-  // 2. FILTRADO DE LECCIONES SEGÚN LA FAMILIA SELECCIONADA
+  // 2. FILTRADO DE LECCIONES SEGÚN EL DOMINIO SELECCIONADO (A.5, A.6, etc.)
   const currentLessons = lessons.filter(
-    lesson => lesson.family_id?.trim().toUpperCase() === selectedFamily?.trim().toUpperCase()
+    lesson => lesson.domain_id?.trim().toUpperCase() === selectedDomain?.trim().toUpperCase()
   );
 
-  // Buscar el checkpoint (quiz) correspondiente a la lección activa
+  // Buscar el quiz del control actual
   const currentCheckpoint = checkpoints.find(
     cp => cp.lesson_id === selectedLesson?.id
   );
 
   // 3. PROCESAMIENTO SEGURO DE LAS OPCIONES DEL QUIZ
-  const renderOptions = () => {
+  const quizOptions = (() => {
     if (!currentCheckpoint) return [];
-    
-    if (Array.isArray(currentCheckpoint.options)) {
-      return currentCheckpoint.options;
-    }
-    
+    if (Array.isArray(currentCheckpoint.options)) return currentCheckpoint.options;
     if (typeof currentCheckpoint.options === 'string') {
       try {
         return JSON.parse(currentCheckpoint.options);
       } catch (e) {
-        console.error("Error parseando opciones en formato string:", e);
+        console.error("Error parseando opciones:", e);
         return [];
       }
     }
     return [];
-  };
-
-  const quizOptions = renderOptions();
+  })();
 
   // 4. MANEJADORES DE ACCIONES
-  const handleFamilyChange = (familyId) => {
-    setSelectedFamily(familyId);
+  const handleDomainChange = (domainId) => {
+    setSelectedDomain(domainId);
     setQuizFeedback(null);
     setSelectedAnswer(null);
-    
-    const firstLessonOfFamily = lessons.find(l => 
-      l.family_id?.trim().toUpperCase() === familyId.trim().toUpperCase()
+
+    const firstLessonOfDomain = lessons.find(l =>
+      l.domain_id?.trim().toUpperCase() === domainId.trim().toUpperCase()
     );
-    setSelectedLesson(firstLessonOfFamily || null);
+    setSelectedLesson(firstLessonOfDomain || null);
   };
 
   const handleLessonChange = (lesson) => {
@@ -158,7 +143,7 @@ export default function Academia({ user }) {
     if (selectedAnswer === currentCheckpoint.correct_option_id) {
       setQuizFeedback({
         success: true,
-        message: "¡Excelente! Respuesta correcta. El control ha sido validado en tu perfil operativo."
+        message: "¡Excelente! Respuesta correcta. El control normativo ha sido asimilado correctamente."
       });
       setUserProgress(prev => ({
         ...prev,
@@ -167,26 +152,19 @@ export default function Academia({ user }) {
     } else {
       setQuizFeedback({
         success: false,
-        message: "Respuesta incorrecta. Repasa las directrices del control NIST e inténtalo de nuevo."
+        message: "Respuesta incorrecta. Repasa las directrices del control técnico de la ISO 27001 e inténtalo de nuevo."
       });
     }
   };
 
-  // FUNCIÓN MODIFICADA: REDIRECCIÓN DIRECTA AL DOCUMENTO OFICIAL DE NIST
+  // REDIRECCIÓN DIRECTA AL DOCUMENTO OFICIAL TRADUCIDO DE LA ISO 27001:2022
   const handleDownloadDocument = async () => {
     if (!selectedLesson) return;
     try {
       setDownloading(true);
-      window.open('https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-53r5.pdf', '_blank');
+      window.open('https://www.iso.org/standard/27001', '_blank');
     } catch (err) {
-      console.warn("Falla al abrir el sitio oficial. Ejecutando fallback local de emergencia...", err.message);
-      const element = document.createElement("a");
-      const file = new Blob([selectedLesson.content_markdown], { type: 'text/plain;charset=utf-8' });
-      element.href = URL.createObjectURL(file);
-      element.download = `NIST_${selectedLesson.family_id || 'INFO'}_${selectedLesson.title.replace(/\s+/g, '_')}.txt`;
-      document.body.appendChild(element);
-      element.click();
-      document.body.removeChild(element);
+      console.warn("Falla al abrir el sitio oficial.", err.message);
     } finally {
       setTimeout(() => setDownloading(false), 600);
     }
@@ -196,13 +174,13 @@ export default function Academia({ user }) {
   const totalLessonsCount = lessons.length || 1;
   const completedCount = Object.keys(userProgress).filter(id => userProgress[id]).length;
   const globalCompletionPercentage = Math.round((completedCount / totalLessonsCount) * 100);
-  const totalHoursDedicated = (completedCount * 15) / 60; // Asumiendo ~15 minutos por bloque técnico
+  const totalHoursDedicated = (completedCount * 15) / 60;
 
   if (loading) {
     return (
       <div className="h-[70vh] flex flex-col items-center justify-center space-y-4">
         <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-slate-500 dark:text-slate-400 font-medium animate-pulse">Sincronizando Base de Conocimientos NIST...</p>
+        <p className="text-slate-500 dark:text-slate-400 font-medium animate-pulse">Sincronizando Controles ISO 27001:2022...</p>
       </div>
     );
   }
@@ -213,8 +191,8 @@ export default function Academia({ user }) {
         <AlertTriangle className="w-12 h-12 text-red-500 mb-3" />
         <h3 className="text-lg font-bold text-red-400 mb-1">Falla de Enlace con Supabase</h3>
         <p className="text-slate-400 text-sm mb-4">{error}</p>
-        <button 
-          onClick={() => window.location.reload()} 
+        <button
+          onClick={() => window.location.reload()}
           className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-medium rounded-xl text-xs transition-all"
         >
           Reintentar Conexión
@@ -226,24 +204,22 @@ export default function Academia({ user }) {
   return (
     <div className="space-y-8 text-slate-800 dark:text-slate-300">
       {/* CABECERA Y TITULARES */}
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="flex items-center space-x-3 mb-2">
-            <div className="p-2.5 bg-blue-500/10 text-blue-600 dark:text-blue-500 rounded-2xl border border-blue-500/20">
-              <BookOpen className="w-6 h-6" />
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Compliance Hub & Academia NIST</h1>
+      <div>
+        <div className="flex items-center space-x-3 mb-2">
+          <div className="p-2.5 bg-blue-500/10 text-blue-600 dark:text-blue-500 rounded-2xl border border-blue-500/20">
+            <BookOpen className="w-6 h-6" />
           </div>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">
-            Centro de capacitación técnica y legal de la organización bajo directivas del estándar <span className="text-blue-600 dark:text-blue-400 font-semibold">NIST SP 800-53 Rev. 5</span>.
-          </p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Compliance Hub & Academia ISO 27001</h1>
         </div>
+        <p className="text-slate-500 dark:text-slate-400 text-sm">
+          Centro de capacitación técnica bajo directivas del estándar internacional <span className="text-blue-600 dark:text-blue-400 font-semibold">ISO/IEC 27001:2022</span>.
+        </p>
       </div>
 
       {/* DASHBOARD DE ESTADÍSTICAS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="p-6 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/80 rounded-2xl relative overflow-hidden shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Certificación Global</p>
+        <div className="p-6 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Progreso en Auditoría</p>
           <p className="text-3xl font-bold text-slate-800 dark:text-slate-100">{globalCompletionPercentage}%</p>
           <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full mt-4 overflow-hidden">
             <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${globalCompletionPercentage}%` }}></div>
@@ -251,14 +227,14 @@ export default function Academia({ user }) {
         </div>
 
         <div className="p-6 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Tiempo Dedicado</p>
-          <p className="text-3xl font-bold text-slate-800 dark:text-slate-100">{totalHoursDedicated.toFixed(1)} <span className="text-sm text-slate-400 dark:text-slate-500 font-normal">/ 15 HORAS</span></p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Tiempo de Estudio</p>
+          <p className="text-3xl font-bold text-slate-800 dark:text-slate-100">{totalHoursDedicated.toFixed(1)} <span className="text-sm text-slate-400 dark:text-slate-500 font-normal">/ 15 HRS</span></p>
           <p className="text-xs text-slate-400 dark:text-slate-500 mt-3 flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> Calculado dinámicamente por módulos superados.</p>
         </div>
 
         <div className="p-6 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/80 rounded-2xl flex items-center justify-between shadow-sm">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Controles Entendidos</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Controles Validados</p>
             <p className="text-3xl font-bold text-slate-800 dark:text-slate-100">{completedCount} <span className="text-sm text-slate-400 dark:text-slate-500 font-normal">CONTROLES</span></p>
           </div>
           <div className={`p-3.5 rounded-2xl ${completedCount > 0 ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600'}`}>
@@ -269,24 +245,23 @@ export default function Academia({ user }) {
 
       {/* ÁREA DE TRABAJO PRINCIPAL */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        
-        {/* COLUMNA IZQUIERDA: INDEXACIÓN DE FAMILIAS Y LECCIONES */}
+
+        {/* COLUMNA IZQUIERDA: INDEXACIÓN DE PILARES Y LECCIONES */}
         <div className="lg:col-span-4 space-y-4">
           <div className="p-4 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-sm">
-            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 px-1">Familias de Control</h3>
+            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 px-1">Secciones Anexo A</h3>
             <div className="flex flex-wrap gap-2">
-              {families.map((fam) => (
+              {domains.map((dom) => (
                 <button
-                  key={fam.id}
-                  onClick={() => handleFamilyChange(fam.id)}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all ${
-                    selectedFamily === fam.id
-                      ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-500/40'
-                      : 'bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800/80 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400'
-                  }`}
-                  title={fam.description}
+                  key={dom.id}
+                  onClick={() => handleDomainChange(dom.id)}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all ${selectedDomain === dom.id
+                    ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-500/40'
+                    : 'bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800/80 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400'
+                    }`}
+                  title={dom.description}
                 >
-                  {fam.id}
+                  {dom.id}
                 </button>
               ))}
             </div>
@@ -294,9 +269,9 @@ export default function Academia({ user }) {
 
           {/* LISTADO DE LECCIONES */}
           <div className="space-y-2">
-            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 px-1">Módulos Disponibles ({currentLessons.length})</h3>
+            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 px-1">Módulos de Control ({currentLessons.length})</h3>
             {currentLessons.length === 0 ? (
-              <p className="text-xs italic text-slate-400 dark:text-slate-500 px-1">No hay lecciones registradas para esta familia.</p>
+              <p className="text-xs italic text-slate-400 dark:text-slate-500 px-1">No hay lecciones registradas para este pilar.</p>
             ) : (
               currentLessons.map((lesson) => {
                 const isCompleted = !!userProgress[lesson.id];
@@ -305,11 +280,10 @@ export default function Academia({ user }) {
                   <button
                     key={lesson.id}
                     onClick={() => handleLessonChange(lesson)}
-                    className={`w-full p-4 rounded-2xl text-left border flex items-center justify-between transition-all group ${
-                      isActive
-                        ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-600/10'
-                        : 'bg-white dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-900 border-slate-200 dark:border-slate-800/80'
-                    }`}
+                    className={`w-full p-4 rounded-2xl text-left border flex items-center justify-between transition-all group ${isActive
+                      ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-600/10'
+                      : 'bg-white dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-900 border-slate-200 dark:border-slate-800/80'
+                      }`}
                   >
                     <div className="space-y-1 pr-4">
                       <h4 className={`text-sm font-semibold tracking-tight leading-snug ${isActive ? 'text-white' : 'text-slate-800 dark:text-slate-200 group-hover:text-blue-500 dark:group-hover:text-blue-400'}`}>
@@ -338,41 +312,36 @@ export default function Academia({ user }) {
         <div className="lg:col-span-8 space-y-6">
           {selectedLesson ? (
             <>
-              {/* PANEL DE CONTENIDO MARKDOWN */}
               <div className="p-8 bg-white dark:bg-slate-900/30 border border-slate-200 dark:border-slate-800/80 rounded-3xl shadow-sm space-y-6">
-                
-                {/* Cabecera con Botón de Descarga Vinculado */}
                 <div className="border-b border-slate-100 dark:border-slate-800 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <span className="text-[10px] font-bold tracking-widest text-blue-600 dark:text-blue-500 uppercase">Documentación Técnica</span>
+                    <span className="text-[10px] font-bold tracking-widest text-blue-600 dark:text-blue-500 uppercase">Marco de Referencia Oficial</span>
                     <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1">{selectedLesson.title}</h2>
                   </div>
-                  
+
                   <button
                     onClick={handleDownloadDocument}
                     disabled={downloading}
                     className={`shrink-0 px-3 py-2 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/20 font-mono font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-sm ${downloading ? 'opacity-60 cursor-not-allowed' : ''}`}
-                    title="Descargar Norma Oficial"
                   >
                     <Download size={13} className={downloading ? "animate-bounce" : ""} />
-                    <span>{downloading ? "ABRIENDO..." : "REGULA_PDF_DOC"}</span>
+                    <span>{downloading ? "ABRIENDO..." : "ISO_PORTAL_DOC"}</span>
                   </button>
                 </div>
 
-                {/* VISOR TEXTUAL */}
                 <div className="prose prose-slate dark:prose-invert max-w-none text-sm leading-relaxed text-slate-600 dark:text-slate-300 whitespace-pre-wrap">
                   {selectedLesson.content_markdown}
                 </div>
               </div>
 
-              {/* SECCIÓN DEL CHECKPOINT (QUIZ) */}
+              {/* SECCIÓN DEL QUIZ */}
               {currentCheckpoint ? (
                 <div className="p-6 border border-purple-200 dark:border-purple-500/20 bg-purple-50/30 dark:bg-purple-500/5 rounded-3xl space-y-5">
                   <div className="flex items-center space-x-2 text-purple-600 dark:text-purple-400">
                     <HelpCircle className="w-5 h-5" />
                     <h4 className="text-sm font-bold uppercase tracking-wider">⚡ Checkpoint de Validación</h4>
                   </div>
-                  
+
                   <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-snug">
                     {currentCheckpoint.question}
                   </p>
@@ -382,11 +351,10 @@ export default function Academia({ user }) {
                       <button
                         key={opt.id}
                         onClick={() => { setSelectedAnswer(opt.id); setQuizFeedback(null); }}
-                        className={`w-full p-4 rounded-xl text-left border text-xs font-medium transition-all flex items-start space-x-3 ${
-                          selectedAnswer === opt.id
-                            ? 'bg-purple-100/60 dark:bg-purple-500/10 border-purple-400 dark:border-purple-500 text-purple-700 dark:text-purple-300'
-                            : 'bg-white dark:bg-slate-900/50 hover:bg-slate-50 dark:hover:bg-slate-900 border-slate-200 dark:border-slate-800/60 text-slate-600 dark:text-slate-400'
-                        }`}
+                        className={`w-full p-4 rounded-xl text-left border text-xs font-medium transition-all flex items-start space-x-3 ${selectedAnswer === opt.id
+                          ? 'bg-purple-100/60 dark:bg-purple-500/10 border-purple-400 dark:border-purple-500 text-purple-700 dark:text-purple-300'
+                          : 'bg-white dark:bg-slate-900/50 hover:bg-slate-50 dark:hover:bg-slate-900 border-slate-200 dark:border-slate-800/60 text-slate-600 dark:text-slate-400'
+                          }`}
                       >
                         <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${selectedAnswer === opt.id ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
                           {opt.id}
@@ -396,13 +364,11 @@ export default function Academia({ user }) {
                     ))}
                   </div>
 
-                  {/* FEEDBACK DEL RESULTADO */}
                   {quizFeedback && (
-                    <div className={`p-4 rounded-xl border text-xs font-semibold ${
-                      quizFeedback.success 
-                        ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400' 
-                        : 'bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-400'
-                    }`}>
+                    <div className={`p-4 rounded-xl border text-xs font-semibold ${quizFeedback.success
+                      ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400'
+                      : 'bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-400'
+                      }`}>
                       {quizFeedback.message}
                     </div>
                   )}
