@@ -1,299 +1,420 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  BookOpen, 
-  CheckCircle2, 
-  Download, 
-  Clock, 
-  Award, 
-  ShieldAlert,
-  ChevronRight, 
-  PlayCircle, 
-  FileText,
-  Loader2,
-  RefreshCw
-} from 'lucide-react';
+import { supabase } from '../supabase'; // Ajusta la ruta según la estructura de tu proyecto
+import { BookOpen, Clock, CheckCircle2, AlertTriangle, HelpCircle, ChevronRight, Download } from 'lucide-react';
 
-export default function Academia() {
-  const [modulos, setModulos] = useState([]);
+export default function Academia({ user }) {
+  // Estados de carga e interfaz
   const [loading, setLoading] = useState(true);
-  const [downloading, setDownloading] = useState(false);
-  const [moduloSeleccionado, setModuloSeleccionado] = useState(null);
-  const [leccionSeleccionada, setLeccionSeleccionada] = useState(null);
-  const [certificacionGlobal, setCertificacionGlobal] = useState(0);
-  const [horasDedicadas, setHorasDedicadas] = useState(0);
-  const [controlesValidados, setControlesValidados] = useState(0);
   const [error, setError] = useState(null);
+  const [downloading, setDownloading] = useState(false);
 
-  // Cargar el plan de estudios desde el backend
-  const cargarPlanEstudio = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      // Apunta a tu ruta en FastAPI (se asume proxy configurado o misma IP/puerto)
-      const response = await fetch('/api/v1/academia/modulos');
-      if (!response.ok) throw new Error('No se pudo sincronizar la malla perimetral de la academia.');
-      
-      const data = await response.json();
-      setModulos(data.modulos || []);
-      setCertificacionGlobal(data.certificacion_global || 0);
-      setHorasDedicadas(data.horas_dedicadas || 0);
-      setControlesValidados(data.controles_validados || 0);
-      
-      // Auto-seleccionar primer módulo si no hay ninguno seleccionado
-      if (data.modulos && data.modulos.length > 0 && !moduloSeleccionado) {
-        setModuloSeleccionado(data.modulos[0]);
-        if (data.modulos[0].lecciones && data.modulos[0].lecciones.length > 0) {
-          setLeccionSeleccionada(data.modulos[0].lecciones[0]);
-        }
+  // Estados de datos provenientes de la BD
+  const [families, setFamilies] = useState([]);
+  const [lessons, setLessons] = useState([]);
+  const [checkpoints, setCheckpoints] = useState([]);
+
+  // Estados de navegación e interacción del usuario
+  const [selectedFamily, setSelectedFamily] = useState(null);
+  const [selectedLesson, setSelectedLesson] = useState(null);
+  const [selectedAnswer, setSelectedAnswer] = useState(null);
+  const [quizFeedback, setQuizFeedback] = useState(null); // { success: boolean, message: string }
+
+  // Estado de progreso local del usuario (Salvaguardado contra fallas de JSON)
+  const [userProgress, setUserProgress] = useState(() => {
+    const saved = localStorage.getItem('hyperion_academy_progress');
+    if (saved && saved !== "undefined" && saved !== "null") {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error("Error parseando progreso inicial:", e);
+        return {};
       }
-    } catch (err) {
-      console.error(err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
+    }
+    return {};
+  });
+
+  // 1. CARGA INICIAL DE DATOS DESDE SUPABASE
+  useEffect(() => {
+    async function fetchAcademyData() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Traer de forma paralela familias, lecciones y checkpoints
+        const [resFamilies, resLessons, resCheckpoints] = await Promise.all([
+          supabase.from('nist_families').select('*').order('id', { ascending: true }),
+          supabase.from('academy_lessons').select('*').order('sort_order', { ascending: true }),
+          supabase.from('academy_checkpoints').select('*')
+        ]);
+
+        if (resFamilies.error) throw resFamilies.error;
+        if (resLessons.error) throw resLessons.error;
+        if (resCheckpoints.error) throw resCheckpoints.error;
+
+        setFamilies(resFamilies.data || []);
+        setLessons(resLessons.data || []);
+        setCheckpoints(resCheckpoints.data || []);
+
+        // Preseleccionar la primera familia y lección si existen
+        if (resFamilies.data && resFamilies.data.length > 0) {
+          const firstFam = resFamilies.data[0].id;
+          setSelectedFamily(firstFam);
+          
+          const firstLess = resLessons.data.find(l => l.family_id === firstFam);
+          if (firstLess) setSelectedLesson(firstLess);
+        }
+
+      } catch (err) {
+        console.error("Error inicializando el Compliance Hub:", err.message);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchAcademyData();
+  }, []);
+
+  // Guardar progreso en LocalStorage cada vez que cambie
+  useEffect(() => {
+    localStorage.setItem('hyperion_academy_progress', JSON.stringify(userProgress));
+  }, [userProgress]);
+
+  // 2. FILTRADO DE LECCIONES SEGÚN LA FAMILIA SELECCIONADA
+  const currentLessons = lessons.filter(
+    lesson => lesson.family_id?.toUpperCase() === selectedFamily?.toUpperCase()
+  );
+
+  // Buscar el checkpoint (quiz) correspondiente a la lección activa
+  const currentCheckpoint = checkpoints.find(
+    cp => cp.lesson_id === selectedLesson?.id
+  );
+
+  // 3. PROCESAMIENTO SEGURO DE LAS OPCIONES DEL QUIZ
+  const renderOptions = () => {
+    if (!currentCheckpoint) return [];
+    
+    if (Array.isArray(currentCheckpoint.options)) {
+      return currentCheckpoint.options;
+    }
+    
+    if (typeof currentCheckpoint.options === 'string') {
+      try {
+        return JSON.parse(currentCheckpoint.options);
+      } catch (e) {
+        console.error("Error parseando opciones en formato string:", e);
+        return [];
+      }
+    }
+    return [];
+  };
+
+  const quizOptions = renderOptions();
+
+  // 4. MANEJADORES DE ACCIONES
+  const handleFamilyChange = (familyId) => {
+    setSelectedFamily(familyId);
+    setQuizFeedback(null);
+    setSelectedAnswer(null);
+    
+    const firstLessonOfFamily = lessons.find(l => l.family_id?.toUpperCase() === familyId.toUpperCase());
+    setSelectedLesson(firstLessonOfFamily || null);
+  };
+
+  const handleLessonChange = (lesson) => {
+    setSelectedLesson(lesson);
+    setQuizFeedback(null);
+    setSelectedAnswer(null);
+  };
+
+  const handleVerifyAnswer = () => {
+    if (!selectedAnswer || !currentCheckpoint) return;
+
+    if (selectedAnswer === currentCheckpoint.correct_option_id) {
+      setQuizFeedback({
+        success: true,
+        message: "¡Excelente! Respuesta correcta. El control ha sido validado en tu perfil operativo."
+      });
+      setUserProgress(prev => ({
+        ...prev,
+        [selectedLesson.id]: true
+      }));
+    } else {
+      setQuizFeedback({
+        success: false,
+        message: "Respuesta incorrecta. Repasa las directrices del control NIST e inténtalo de nuevo."
+      });
     }
   };
 
-  useEffect(() => {
-    cargarPlanEstudio();
-  }, []);
-
-  // 🌟 CONTROLADOR DE DESCARGA VINCULADO AL ENDPOINT EN Python (main.py)
-  const handleDownloadDocument = () => {
+  // Manejador de descargas seguro con Supabase Storage + Fallback
+  const handleDownloadDocument = async () => {
+    if (!selectedLesson) return;
     try {
       setDownloading(true);
       
-      // Construimos el anclaje nativo en memoria para forzar la descarga binaria
-      const link = document.createElement('a');
-      
-      // URL relativa que procesará el decorador @app.get de FastAPI
-      // NOTA: Si usas puertos cruzados sin proxy, usa 'http://localhost:7860/api/v1/academia/descargar-norma'
-      link.href = '/api/v1/academia/descargar-norma'; 
-      
-      link.setAttribute('target', '_blank');
-      link.setAttribute('download', 'NIST_SP_800-53_Rev5_Official.pdf');
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (err) {
-      console.error("🚨 Error llamando al endpoint de descarga en Python:", err.message);
-      alert("Error de comunicación perimetral: No se pudo obtener la norma del backend.");
-    } finally {
-      // Retardo para normalizar visualmente el botón
-      setTimeout(() => setDownloading(false), 1000);
-    }
-  };
+      // Intentamos obtener una URL firmada de 60 segundos desde el bucket 'academia-pdfs'
+      // El nombre del archivo esperado en tu bucket debe ser el ID de la lección (ej: "1.pdf")
+      const { data, error } = await supabase
+        .storage
+        .from('academia-pdfs') 
+        .createSignedUrl(`${selectedLesson.id}.pdf`, 60);
 
-  // Marcar checkpoint / lección como aprobada
-  const marcarLeccionCompletada = async (moduloId, leccionId) => {
-    try {
-      const response = await fetch('/api/v1/academia/completar-leccion', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          modulo_id: moduloId,
-          leccion_id: leccionId,
-          correcta: true
-        })
-      });
+      if (error) throw error;
 
-      if (response.ok) {
-        // Refrescamos la UI localmente para sincronizar el ledger inmutable
-        cargarPlanEstudio();
-      } else {
-        alert("Fallo en la validación del checkpoint reglamentario.");
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, '_blank');
       }
     } catch (err) {
-      console.error("Error al registrar checkpoint:", err);
+      console.warn("No se localizó el PDF en Storage. Generando copia local de respaldo...", err.message);
+      
+      // Fallback: Si falla el almacenamiento, descarga dinámicamente un archivo .txt/.md con el contenido
+      const element = document.createElement("a");
+      const file = new Blob([selectedLesson.content_markdown], { type: 'text/plain;charset=utf-8' });
+      element.href = URL.createObjectURL(file);
+      element.download = `NIST_${selectedLesson.family_id || 'INFO'}_${selectedLesson.title.replace(/\s+/g, '_')}.txt`;
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+    } finally {
+      setDownloading(false);
     }
   };
+
+  // 5. CÁLCULO DE MÉTRICAS OPERATIVAS
+  const totalLessonsCount = lessons.length || 1;
+  const completedCount = Object.keys(userProgress).filter(id => userProgress[id]).length;
+  const globalCompletionPercentage = Math.round((completedCount / totalLessonsCount) * 100);
+  const totalHoursDedicated = (completedCount * 15) / 60; // Asumiendo ~15 minutos por bloque técnico
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[500px] text-slate-400">
-        <Loader2 className="w-10 h-10 animate-spin text-emerald-500 mb-4" />
-        <p className="text-sm tracking-wider font-mono">SINCRONIZANDO CONTROLES FEDERALES NIST...</p>
+      <div className="h-[70vh] flex flex-col items-center justify-center space-y-4">
+        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-slate-500 dark:text-slate-400 font-medium animate-pulse">Sincronizando Base de Conocimientos NIST...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-[60vh] flex flex-col items-center justify-center p-6 border border-red-500/20 bg-red-500/5 rounded-3xl max-w-xl mx-auto text-center">
+        <AlertTriangle className="w-12 h-12 text-red-500 mb-3" />
+        <h3 className="text-lg font-bold text-red-400 mb-1">Falla de Enlace con Supabase</h3>
+        <p className="text-slate-400 text-sm mb-4">{error}</p>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-medium rounded-xl text-xs transition-all"
+        >
+          Reintentar Conexión
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="p-6 bg-slate-950 text-slate-100 min-h-screen font-sans">
-      {/* HEADER DE LA ACADEMIA */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800 pb-6 mb-6 gap-4">
+    <div className="space-y-8 text-slate-800 dark:text-slate-300">
+      {/* CABECERA Y TITULARES */}
+      <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent flex items-center gap-2">
-            <BookOpen className="w-6 h-6 text-emerald-400" /> Hyperion NIST Academy
-          </h1>
-          <p className="text-slate-400 text-sm mt-1">Módulo de capacitación reglamentaria y cumplimiento federal institucional.</p>
+          <div className="flex items-center space-x-3 mb-2">
+            <div className="p-2.5 bg-blue-500/10 text-blue-600 dark:text-blue-500 rounded-2xl border border-blue-500/20">
+              <BookOpen className="w-6 h-6" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Compliance Hub & Academia NIST</h1>
+          </div>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">
+            Centro de capacitación técnica y legal de la organización bajo directivas del estándar <span className="text-blue-600 dark:text-blue-400 font-semibold">NIST SP 800-53 Rev. 5</span>.
+          </p>
         </div>
-
-        {/* BOTÓN UNIFICADO DE DESCARGA DIRECTA */}
-        <button
-          onClick={handleDownloadDocument}
-          disabled={downloading}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-900 border border-slate-700 hover:border-emerald-500 text-slate-200 hover:text-emerald-400 rounded-lg text-sm transition-all shadow-md font-medium disabled:opacity-50 disabled:pointer-events-none"
-        >
-          {downloading ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
-              <span>Transmitiendo PDF...</span>
-            </>
-          ) : (
-            <>
-              <Download className="w-4 h-4" />
-              <span>REGULA_PDF_DOC (Norma Oficial)</span>
-            </>
-          )}
-        </button>
       </div>
 
-      {error && (
-        <div className="mb-6 p-4 bg-red-950/40 border border-red-800 rounded-lg flex items-center gap-3 text-red-400 text-sm">
-          <ShieldAlert className="w-5 h-5 flex-shrink-0" />
-          <div className="flex-1">{error}</div>
-          <button onClick={cargarPlanEstudio} className="p-1 hover:bg-red-900/30 rounded">
-            <RefreshCw className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {/* MÉTRICAS DE CUMPLIMIENTO */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl flex items-center gap-4">
-          <div className="p-3 bg-emerald-500/10 rounded-lg text-emerald-400">
-            <Award className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold font-mono">{certificacionGlobal}%</div>
-            <div className="text-xs text-slate-400 uppercase tracking-wider font-medium">Progreso Global</div>
+      {/* DASHBOARD DE ESTADÍSTICAS */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="p-6 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/80 rounded-2xl relative overflow-hidden shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Certificación Global</p>
+          <p className="text-3xl font-bold text-slate-800 dark:text-slate-100">{globalCompletionPercentage}%</p>
+          <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full mt-4 overflow-hidden">
+            <div className="bg-blue-500 h-full transition-all duration-500" style={{ width: `${globalCompletionPercentage}%` }}></div>
           </div>
         </div>
 
-        <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl flex items-center gap-4">
-          <div className="p-3 bg-cyan-500/10 rounded-lg text-cyan-400">
-            <Clock className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold font-mono">{horasDedicadas} hrs</div>
-            <div className="text-xs text-slate-400 uppercase tracking-wider font-medium">Tiempo de Instrucción</div>
-          </div>
+        <div className="p-6 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Tiempo Dedicado</p>
+          <p className="text-3xl font-bold text-slate-800 dark:text-slate-100">{totalHoursDedicated.toFixed(1)} <span className="text-sm text-slate-400 dark:text-slate-500 font-normal">/ 15 HORAS</span></p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-3 flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> Calculado dinámicamente por módulos superados.</p>
         </div>
 
-        <div className="bg-slate-900/60 border border-slate-800 p-4 rounded-xl flex items-center gap-4">
-          <div className="p-3 bg-purple-500/10 rounded-lg text-purple-400">
-            <CheckCircle2 className="w-6 h-6" />
-          </div>
+        <div className="p-6 bg-white dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800/80 rounded-2xl flex items-center justify-between shadow-sm">
           <div>
-            <div className="text-2xl font-bold font-mono">{controlesValidados} / 5</div>
-            <div className="text-xs text-slate-400 uppercase tracking-wider font-medium">Controles Validados</div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-1">Controles Entendidos</p>
+            <p className="text-3xl font-bold text-slate-800 dark:text-slate-100">{completedCount} <span className="text-sm text-slate-400 dark:text-slate-500 font-normal">CONTROLES</span></p>
+          </div>
+          <div className={`p-3.5 rounded-2xl ${completedCount > 0 ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600'}`}>
+            <CheckCircle2 className="w-7 h-7" />
           </div>
         </div>
       </div>
 
-      {/* DISEÑO EN DOS COLUMNAS: MALLA E INSTRUCTOR */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* ÁREA DE TRABAJO PRINCIPAL */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
-        {/* COLUMNA IZQUIERDA: LISTADO DE MÓDULOS Y LECCIONES */}
-        <div className="lg:col-span-1 space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-2">Plan de Instrucción</h2>
-          
-          {modulos.map((mod) => (
-            <div 
-              key={mod.id} 
-              className={`bg-slate-900/40 border rounded-xl overflow-hidden transition-all ${moduloSeleccionado?.id === mod.id ? 'border-emerald-500/50 shadow-md shadow-emerald-950/20' : 'border-slate-800'}`}
-            >
-              <div 
-                onClick={() => setModuloSeleccionado(mod)}
-                className="p-4 cursor-pointer hover:bg-slate-900/80 transition-colors"
-              >
-                <div className="flex justify-between items-start gap-2">
-                  <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
-                    {mod.norma.split(' ')[0]}
-                  </span>
-                  <span className="text-xs font-mono text-slate-400">{mod.progreso}% completado</span>
+        {/* COLUMNA IZQUIERDA: INDEXACIÓN DE FAMILIAS Y LECCIONES */}
+        <div className="lg:col-span-4 space-y-4">
+          <div className="p-4 bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-sm">
+            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 px-1">Familias de Control</h3>
+            <div className="flex flex-wrap gap-2">
+              {families.map((fam) => (
+                <button
+                  key={fam.id}
+                  onClick={() => handleFamilyChange(fam.id)}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl border transition-all ${
+                    selectedFamily === fam.id
+                      ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-500/40'
+                      : 'bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800/80 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400'
+                  }`}
+                  title={fam.description}
+                >
+                  {fam.id}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* LISTADO DE LECCIONES */}
+          <div className="space-y-2">
+            <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 px-1">Módulos Disponibles ({currentLessons.length})</h3>
+            {currentLessons.length === 0 ? (
+              <p className="text-xs italic text-slate-400 dark:text-slate-500 px-1">No hay lecciones registradas para esta familia.</p>
+            ) : (
+              currentLessons.map((lesson) => {
+                const isCompleted = !!userProgress[lesson.id];
+                const isActive = selectedLesson?.id === lesson.id;
+                return (
+                  <button
+                    key={lesson.id}
+                    onClick={() => handleLessonChange(lesson)}
+                    className={`w-full p-4 rounded-2xl text-left border flex items-center justify-between transition-all group ${
+                      isActive
+                        ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-600/10'
+                        : 'bg-white dark:bg-slate-900/40 hover:bg-slate-50 dark:hover:bg-slate-900 border-slate-200 dark:border-slate-800/80'
+                    }`}
+                  >
+                    <div className="space-y-1 pr-4">
+                      <h4 className={`text-sm font-semibold tracking-tight leading-snug ${isActive ? 'text-white' : 'text-slate-800 dark:text-slate-200 group-hover:text-blue-500 dark:group-hover:text-blue-400'}`}>
+                        {lesson.title}
+                      </h4>
+                      <div className="flex items-center space-x-2 text-[11px]">
+                        <span className={isActive ? 'text-blue-200' : 'text-slate-400 dark:text-slate-500'}>{lesson.duration_minutes} min de lectura</span>
+                        <span className={isActive ? 'text-blue-100 font-medium' : 'text-slate-500 dark:text-slate-400 font-medium'}>
+                          {lesson.mapped_controls?.join(', ')}
+                        </span>
+                      </div>
+                    </div>
+                    {isCompleted ? (
+                      <CheckCircle2 className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-emerald-500'}`} />
+                    ) : (
+                      <ChevronRight className={`w-4 h-4 flex-shrink-0 opacity-40 group-hover:opacity-100 transition-opacity ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                    )}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* COLUMNA DERECHA: TERMINAL DE LECTURA Y QUIZ */}
+        <div className="lg:col-span-8 space-y-6">
+          {selectedLesson ? (
+            <>
+              {/* PANEL DE CONTENIDO MARKDOWN */}
+              <div className="p-8 bg-white dark:bg-slate-900/30 border border-slate-200 dark:border-slate-800/80 rounded-3xl shadow-sm space-y-6">
+                
+                {/* Cabecera con Botón de Descarga Vinculado */}
+                <div className="border-b border-slate-100 dark:border-slate-800 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <span className="text-[10px] font-bold tracking-widest text-blue-600 dark:text-blue-500 uppercase">Documentación Técnica</span>
+                    <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mt-1">{selectedLesson.title}</h2>
+                  </div>
+                  
+                  <button
+                    onClick={handleDownloadDocument}
+                    disabled={downloading}
+                    className={`shrink-0 px-3 py-2 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/20 font-mono font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-sm ${downloading ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    title="Descargar Norma Oficial"
+                  >
+                    <Download size={13} className={downloading ? "animate-bounce" : ""} />
+                    <span>{downloading ? "DESCARGANDO..." : "REGULA_PDF_DOC"}</span>
+                  </button>
                 </div>
-                <h3 className="text-sm font-bold text-slate-200 mt-2 line-clamp-1">{mod.titulo}</h3>
-                <p className="text-xs text-slate-400 mt-1 line-clamp-2">{mod.descripcion}</p>
+
+                {/* VISOR TEXTUAL */}
+                <div className="prose prose-slate dark:prose-invert max-w-none text-sm leading-relaxed text-slate-600 dark:text-slate-300 whitespace-pre-wrap">
+                  {selectedLesson.content_markdown}
+                </div>
               </div>
 
-              {/* Lecciones desplegadas si el módulo está seleccionado */}
-              {moduloSeleccionado?.id === mod.id && (
-                <div className="bg-slate-950/60 border-t border-slate-900 p-2 space-y-1">
-                  {mod.lecciones?.map((lec) => (
-                    <div
-                      key={lec.id}
-                      onClick={() => setLeccionSeleccionada(lec)}
-                      className={`w-full text-left p-2 rounded-lg flex items-center justify-between gap-3 text-xs cursor-pointer transition-colors ${leccionSeleccionada?.id === lec.id ? 'bg-slate-900 text-emerald-400 font-medium' : 'hover:bg-slate-900/50 text-slate-300'}`}
-                    >
-                      <div className="flex items-center gap-2 overflow-hidden">
-                        {lec.completada ? (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                        ) : (
-                          <PlayCircle className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
-                        )}
-                        <span className="truncate">{lec.titulo}</span>
-                      </div>
-                      <span className="font-mono text-[10px] text-slate-500 flex-shrink-0">{lec.duracion}</span>
+              {/* SECCIÓN DEL CHECKPOINT (QUIZ) */}
+              {currentCheckpoint ? (
+                <div className="p-6 border border-purple-200 dark:border-purple-500/20 bg-purple-50/30 dark:bg-purple-500/5 rounded-3xl space-y-5">
+                  <div className="flex items-center space-x-2 text-purple-600 dark:text-purple-400">
+                    <HelpCircle className="w-5 h-5" />
+                    <h4 className="text-sm font-bold uppercase tracking-wider">⚡ Checkpoint de Validación</h4>
+                  </div>
+                  
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-snug">
+                    {currentCheckpoint.question}
+                  </p>
+
+                  <div className="space-y-2">
+                    {quizOptions.map((opt) => (
+                      <button
+                        key={opt.id}
+                        onClick={() => { setSelectedAnswer(opt.id); setQuizFeedback(null); }}
+                        className={`w-full p-4 rounded-xl text-left border text-xs font-medium transition-all flex items-start space-x-3 ${
+                          selectedAnswer === opt.id
+                            ? 'bg-purple-100/60 dark:bg-purple-500/10 border-purple-400 dark:border-purple-500 text-purple-700 dark:text-purple-300'
+                            : 'bg-white dark:bg-slate-900/50 hover:bg-slate-50 dark:hover:bg-slate-900 border-slate-200 dark:border-slate-800/60 text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${selectedAnswer === opt.id ? 'bg-purple-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
+                          {opt.id}
+                        </span>
+                        <span className="leading-normal text-slate-700 dark:text-slate-300">{opt.text}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* FEEDBACK DEL RESULTADO */}
+                  {quizFeedback && (
+                    <div className={`p-4 rounded-xl border text-xs font-semibold ${
+                      quizFeedback.success 
+                        ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400' 
+                        : 'bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-400'
+                    }`}>
+                      {quizFeedback.message}
                     </div>
-                  ))}
+                  )}
+
+                  <div className="flex justify-end pt-2">
+                    <button
+                      onClick={handleVerifyAnswer}
+                      disabled={!selectedAnswer}
+                      className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:hover:bg-purple-600 text-white font-bold rounded-xl text-xs tracking-wide transition-all shadow-md shadow-purple-600/10"
+                    >
+                      Verificar Respuestas
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-6 border border-dashed border-slate-300 dark:border-slate-800 rounded-3xl text-center">
+                  <p className="text-xs text-slate-400 dark:text-slate-500 italic">No se ha cargado una evaluación para este módulo específico.</p>
                 </div>
               )}
-            </div>
-          ))}
-        </div>
-
-        {/* COLUMNA DERECHA: REPRODUCTOR DE CONTENIDO DE LA LECCIÓN */}
-        <div className="lg:col-span-2">
-          {leccionSeleccionada ? (
-            <div className="bg-slate-900/30 border border-slate-800 rounded-xl p-6 h-full flex flex-col justify-between">
-              <div>
-                <div className="flex justify-between items-center border-b border-slate-800 pb-4 mb-4">
-                  <div>
-                    <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400">Contenido Técnico Obligatorio</span>
-                    <h2 className="text-lg font-bold text-slate-200 mt-0.5">{leccionSeleccionada.titulo}</h2>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs font-mono text-slate-400 bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
-                    <Clock className="w-3.5 h-3.5 text-slate-500" />
-                    {leccionSeleccionada.duracion}
-                  </div>
-                </div>
-
-                {/* CUERPO DEL TEXTO CIENTÍFICO */}
-                <div className="prose prose-invert max-w-none text-sm text-slate-300 leading-relaxed space-y-4 whitespace-pre-line bg-slate-950/40 p-4 rounded-xl border border-slate-900 font-mono text-justify">
-                  {leccionSeleccionada.contenido}
-                </div>
-              </div>
-
-              {/* BOTONES DE ACCIÓN DE LA LECCIÓN */}
-              <div className="mt-6 pt-4 border-t border-slate-800 flex flex-col sm:flex-row sm:justify-between items-center gap-4">
-                <div className="flex items-center gap-2 text-xs text-slate-400">
-                  <FileText className="w-4 h-4 text-slate-500" />
-                  <span>Control de referencia: <strong className="text-slate-300 font-mono">{moduloSeleccionado?.norma}</strong></span>
-                </div>
-
-                {!leccionSeleccionada.completada && (
-                  <button
-                    onClick={() => marcarLeccionCompletada(moduloSeleccionado.id, leccionSeleccionada.id)}
-                    className="w-full sm:w-auto px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg text-xs tracking-wider uppercase transition-colors shadow-lg shadow-emerald-950/20 flex items-center justify-center gap-1.5"
-                  >
-                    <span>Sellar Checkpoint</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                )}
-                {leccionSeleccionada.completada && (
-                  <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-medium bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Lección Auditada y Completada</span>
-                  </div>
-                )}
-              </div>
-            </div>
+            </>
           ) : (
-            <div className="bg-slate-900/20 border border-slate-800 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center h-full min-h-[300px]">
-              <BookOpen className="w-8 h-8 text-slate-600 mb-2" />
-              <p className="text-sm text-slate-400 font-medium">Selecciona una directiva o lección en la malla para desplegar los controles técnicos.</p>
+            <div className="h-[40vh] flex items-center justify-center border border-dashed border-slate-300 dark:border-slate-800 rounded-3xl">
+              <p className="text-slate-400 dark:text-slate-500 text-xs italic">Selecciona una lección para iniciar tu proceso de capacitación...</p>
             </div>
           )}
         </div>
