@@ -21,7 +21,29 @@ export default function Dashboard() {
 
   const sincronizarDashboard = async () => {
     setLoading(true);
+    // Declaramos variables de control de estado de la infraestructura por separado
+    let currentGateway = "ONLINE";
+    let currentDatabase = "CONNECTED";
+
     try {
+      // 🌟 NUEVO: Consulta en paralelo a la verificación de salud profunda de la base de datos
+      try {
+        const healthResponse = await fetch('/health/deep');
+        if (healthResponse.ok) {
+          const healthData = await healthResponse.json();
+          // Mapeamos las respuestas del endpoint del backend (/health/deep)
+          currentGateway = healthData.status === "healthy" ? "ONLINE" : "OFFLINE";
+          currentDatabase = healthData.database === "connected" ? "CONNECTED" : "DISCONNECTED";
+        } else {
+          currentGateway = "OFFLINE";
+          currentDatabase = "DISCONNECTED";
+        }
+      } catch (hError) {
+        console.error("🚨 Falló la verificación perimetral /health/deep:", hError);
+        currentGateway = "OFFLINE";
+        currentDatabase = "DISCONNECTED";
+      }
+
       const response = await fetch('/api/v1/logs');
       if (!response.ok) throw new Error('Error al conectar con la pasarela.');
       const logs = await response.json();
@@ -35,7 +57,8 @@ export default function Dashboard() {
         totalLogs: logs.length,
         criticos: criticos,
         advertencias: advertencias,
-        estadoInfra: { api_gateway: "ONLINE", database: "CONNECTED" }
+        // 🌟 NUEVO: Asignamos dinámicamente el resultado real del estado de salud de la BD
+        estadoInfra: { api_gateway: currentGateway, database: currentDatabase }
       }));
 
       // Distribución real por rangos de horas basada en los timestamps del backend
@@ -69,6 +92,7 @@ export default function Dashboard() {
       console.error("🚨 Dashboard Sync Error:", error);
       setMetricas(prev => ({
         ...prev,
+        // 🌟 NUEVO: Si falla la petición principal de logs por caída de red, forzamos estados a caídos
         estadoInfra: { api_gateway: "OFFLINE", database: "DISCONNECTED" }
       }));
     } finally {
@@ -105,7 +129,14 @@ export default function Dashboard() {
 
       {/* Grid de KPIs Reactivos */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Estado del Sistema" value={metricas.estadoInfra.api_gateway} icon={<Server className="text-emerald-500" />} change={`Uptime ${metricas.uptime}`} color="emerald" />
+        {/* 🌟 NUEVO: La tarjeta de Estado del Sistema muta de color (red/emerald), texto (OFFLINE/ONLINE) y animación basándose en la salud real de la Base de Datos */}
+        <StatCard 
+          title="Estado del Sistema" 
+          value={metricas.estadoInfra.database === "CONNECTED" ? "ONLINE" : "OFFLINE"} 
+          icon={<Server className={metricas.estadoInfra.database === "CONNECTED" ? "text-emerald-500" : "text-red-500 animate-pulse"} />} 
+          change={metricas.estadoInfra.database === "CONNECTED" ? `Uptime ${metricas.uptime}` : "Error de Conexión BD"} 
+          color={metricas.estadoInfra.database === "CONNECTED" ? "emerald" : "red"} 
+        />
         <StatCard title="Eventos Auditados" value={metricas.totalLogs.toLocaleString()} icon={<Activity className="text-blue-500" />} change="Sincronizado con PostgreSQL" color="blue" />
         <StatCard title="Anomalías Críticas" value={metricas.criticos} icon={<ShieldCheck className="text-purple-500" />} change={metricas.criticos === 0 ? "Perímetro limpio" : "Mitigación inmediata requerida"} color="purple" />
         <StatCard title="Alertas de Riesgo" value={metricas.advertencias} icon={<AlertTriangle className="text-amber-500" />} change="Eventos de advertencia en BD" color="amber" />
@@ -171,7 +202,9 @@ function StatCard({ title, value, icon, change, color }) {
     emerald: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
     blue: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
     purple: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
-    amber: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+    amber: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
+    // 🌟 NUEVO: Mapeo de color dinámico rojo de contingencia para alertas OFFLINE
+    red: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20 animate-pulse'
   };
 
   return (

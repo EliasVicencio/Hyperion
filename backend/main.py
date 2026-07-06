@@ -176,8 +176,29 @@ async def registrar_log(db: Session, operador: str, accion: str, categoria: str 
 
 # --- ENDPOINTS ---
 @app.get("/health/deep")
-def deep_health():
-    return {"status": "healthy", "has_db_url": bool(RAW_DB_URL), "timestamp": datetime.now().isoformat()}
+async def deep_health(db: Session = Depends(get_db)):
+    """
+    Health check avanzado que valida la disponibilidad real de la pasarela
+    de la API y la conexión activa con la base de datos persistente (PostgreSQL/SQLite).
+    """
+    database_status = "connected"
+    system_status = "healthy"
+    
+    try:
+        # Ejecuta un ping ultraligero que fuerza la verificación del socket de la BD
+        db.execute(text("SELECT 1"))
+    except Exception as e:
+        # Si la base de datos no responde, interceptamos el fallo sin tumbar el backend completo
+        database_status = "disconnected"
+        system_status = "unhealthy"
+        print(f"🚨 ALERT: El chequeo de salud de la base de datos falló: {str(e)}")
+
+    return {
+        "status": system_status,
+        "database": database_status,
+        "has_db_url": bool(RAW_DB_URL),
+        "timestamp": datetime.now().isoformat()
+    }
 
 @app.get("/api/v1/logs")
 async def get_logs_auditoria(categoria: str | None = None, db: Session = Depends(get_db)):
