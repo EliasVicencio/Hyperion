@@ -6,6 +6,7 @@ export default function Academia({ user }) {
   // Estados de carga e interfaz
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [downloading, setDownloading] = useState(false);
 
   // Estados de datos provenientes de la BD
   const [families, setFamilies] = useState([]);
@@ -143,6 +144,40 @@ export default function Academia({ user }) {
         success: false,
         message: "Respuesta incorrecta. Repasa las directrices del control NIST e inténtalo de nuevo."
       });
+    }
+  };
+
+  // Manejador de descargas seguro con Supabase Storage + Fallback
+  const handleDownloadDocument = async () => {
+    if (!selectedLesson) return;
+    try {
+      setDownloading(true);
+      
+      // Intentamos obtener una URL firmada de 60 segundos desde el bucket 'academia-pdfs'
+      // El nombre del archivo esperado en tu bucket debe ser el ID de la lección (ej: "1.pdf")
+      const { data, error } = await supabase
+        .storage
+        .from('academia-pdfs') 
+        .createSignedUrl(`${selectedLesson.id}.pdf`, 60);
+
+      if (error) throw error;
+
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, '_blank');
+      }
+    } catch (err) {
+      console.warn("No se localizó el PDF en Storage. Generando copia local de respaldo...", err.message);
+      
+      // Fallback: Si falla el almacenamiento, descarga dinámicamente un archivo .txt/.md con el contenido
+      const element = document.createElement("a");
+      const file = new Blob([selectedLesson.content_markdown], { type: 'text/plain;charset=utf-8' });
+      element.href = URL.createObjectURL(file);
+      element.download = `NIST_${selectedLesson.family_id || 'INFO'}_${selectedLesson.title.replace(/\s+/g, '_')}.txt`;
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+    } finally {
+      setDownloading(false);
     }
   };
 
@@ -295,7 +330,7 @@ export default function Academia({ user }) {
               {/* PANEL DE CONTENIDO MARKDOWN */}
               <div className="p-8 bg-white dark:bg-slate-900/30 border border-slate-200 dark:border-slate-800/80 rounded-3xl shadow-sm space-y-6">
                 
-                {/* 🌟 NUEVO: Cabecera con Botón de Descarga Contextual Adaptativo */}
+                {/* Cabecera con Botón de Descarga Vinculado */}
                 <div className="border-b border-slate-100 dark:border-slate-800 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     <span className="text-[10px] font-bold tracking-widest text-blue-600 dark:text-blue-500 uppercase">Documentación Técnica</span>
@@ -303,15 +338,13 @@ export default function Academia({ user }) {
                   </div>
                   
                   <button
-                    onClick={() => {
-                      // Simulación de descarga del PDF técnico apuntando al ID o código del control
-                      window.open(`/api/v1/academia/descargar/${selectedLesson.id}.pdf`, '_blank');
-                    }}
-                    className="shrink-0 px-3 py-2 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/20 font-mono font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-sm"
-                    title="Descargar Norma Oficial en PDF"
+                    onClick={handleDownloadDocument}
+                    disabled={downloading}
+                    className={`shrink-0 px-3 py-2 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-500/20 font-mono font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-sm ${downloading ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    title="Descargar Norma Oficial"
                   >
-                    <Download size={13} />
-                    <span>REGULA_PDF_DOC</span>
+                    <Download size={13} className={downloading ? "animate-bounce" : ""} />
+                    <span>{downloading ? "DESCARGANDO..." : "REGULA_PDF_DOC"}</span>
                   </button>
                 </div>
 

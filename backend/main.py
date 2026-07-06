@@ -10,6 +10,8 @@ from sqlalchemy.exc import IntegrityError
 from fastapi.concurrency import run_in_threadpool
 import bcrypt
 import hashlib
+# 🌟 NUEVO IMPORT PARA MANEJO DE ARCHIVOS FÍSICOS Y RESPUESTAS DE DESCARGA DIRECTA
+from fastapi.responses import FileResponse 
 
 router = APIRouter(prefix="/api/v1/immune", tags=["Immune System"])
 app = FastAPI(title="Hyperion Core Backend", version="2.0.0")
@@ -626,6 +628,36 @@ async def registrar_progreso_leccion(payload: ProgresoLeccionPayload):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error writing ledger: {str(e)}")
+
+# 🌟 NUEVO ENDPOINT: DESCARGA DIRECTA DE REGLAS/DOCUMENTACIÓN EN PDF
+@app.get("/api/v1/academia/descargar/{leccion_id}")
+async def descargar_regla_pdf(leccion_id: str):
+    """
+    Busca de forma segura el archivo PDF correspondiente a la regla (dentro del directorio de scripts)
+    y fuerza la descarga directa del operador con sanitización perimetral básica.
+    """
+    # 1. Sanitizar el identificador para prevenir ataques de inyección de rutas (Path Traversal)
+    safe_id = os.path.basename(leccion_id).upper()
+    
+    # 2. Reconstruir la ruta absoluta hacia tu directorio de scripts (ajustable según despliegue)
+    # Revisa si la carpeta exacta de tus archivos generados es 'scripts' o 'scripts/pdfs'
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    file_path = os.path.join(base_dir, "scripts", f"{safe_id}.pdf")
+    
+    # 3. Validar existencia física del PDF antes de iniciar la transmisión
+    if not os.path.exists(file_path):
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Documentación oficial no encontrada. El script para el control {safe_id} no ha generado el reporte binario."
+        )
+    
+    # 4. Retornar el archivo binario forzando la descarga directa en el navegador
+    download_filename = f"NIST_SP_800_53_{safe_id}.pdf"
+    return FileResponse(
+        path=file_path, 
+        media_type="application/pdf", 
+        filename=download_filename
+    )
 
 if __name__ == "__main__":
     import uvicorn
