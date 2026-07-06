@@ -47,28 +47,48 @@ export default function Academia({ user }) {
           supabase.from('academy_checkpoints').select('*')
         ]);
 
-        if (resFamilies.error) throw resFamilies.error;
-        if (resLessons.error) throw resLessons.error;
-        if (resCheckpoints.error) throw resCheckpoints.error;
+        // 🔍 DIAGNÓSTICO EN CONSOLA DE EMERGENCIA (Abre F12 en tu navegador para auditar esto)
+        console.log("🔍 [DEBUG ACADEMIA] Respuesta Cruda de Supabase:");
+        console.log("Familias encontradas:", resFamilies.data?.length, resFamilies.data);
+        console.log("Lecciones encontradas:", resLessons.data?.length, resLessons.data);
+        console.log("Checkpoints encontrados:", resCheckpoints.data?.length, resCheckpoints.data);
 
-        setFamilies(resFamilies.data || []);
-        setLessons(resLessons.data || []);
-        setCheckpoints(resCheckpoints.data || []);
+        if (resFamilies.error) {
+          console.error("❌ Error en nist_families:", resFamilies.error);
+          throw resFamilies.error;
+        }
+        if (resLessons.error) {
+          console.error("❌ Error en academy_lessons:", resLessons.error);
+          throw resLessons.error;
+        }
+        if (resCheckpoints.error) {
+          console.error("❌ Error en academy_checkpoints:", resCheckpoints.error);
+          throw resCheckpoints.error;
+        }
 
-        // 🌟 CORRECCIÓN: Aseguramos la preselección uniforme forzando la consistencia de tipos
-        if (resFamilies.data && resFamilies.data.length > 0) {
-          const firstFam = resFamilies.data[0].id;
+        const dataFamilies = resFamilies.data || [];
+        const dataLessons = resLessons.data || [];
+        const dataCheckpoints = resCheckpoints.data || [];
+
+        setFamilies(dataFamilies);
+        setLessons(dataLessons);
+        setCheckpoints(dataCheckpoints);
+
+        // Preseleccionar de forma segura e idéntica
+        if (dataFamilies.length > 0) {
+          const firstFam = dataFamilies[0].id;
           setSelectedFamily(firstFam);
           
-          // Buscamos la lección ignorando diferencias de mayúsculas/minúsculas y espacios en blanco
-          const firstLess = resLessons.data.find(l => 
+          const firstLess = dataLessons.find(l => 
             l.family_id?.trim().toUpperCase() === firstFam.trim().toUpperCase()
           );
-          if (firstLess) setSelectedLesson(firstLess);
+          if (firstLess) {
+            setSelectedLesson(firstLess);
+          }
         }
 
       } catch (err) {
-        console.error("Error inicializando el Compliance Hub:", err.message);
+        console.error("🚨 Error inicializando el Compliance Hub:", err.message);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -83,7 +103,7 @@ export default function Academia({ user }) {
     localStorage.setItem('hyperion_academy_progress', JSON.stringify(userProgress));
   }, [userProgress]);
 
-  // 2. 🌟 CORRECCIÓN: Sanitización de los strings al hacer el filtrado (.trim() evita fallos por espacios invisibles en la BD)
+  // 2. FILTRADO DE LECCIONES SEGÚN LA FAMILIA SELECCIONADA
   const currentLessons = lessons.filter(
     lesson => lesson.family_id?.trim().toUpperCase() === selectedFamily?.trim().toUpperCase()
   );
@@ -120,7 +140,6 @@ export default function Academia({ user }) {
     setQuizFeedback(null);
     setSelectedAnswer(null);
     
-    // 🌟 CORRECCIÓN: Sanitización también aplicada durante el cambio manual de familia
     const firstLessonOfFamily = lessons.find(l => 
       l.family_id?.trim().toUpperCase() === familyId.trim().toUpperCase()
     );
@@ -153,19 +172,14 @@ export default function Academia({ user }) {
     }
   };
 
-  // 🛠️ FUNCIÓN MODIFICADA: REDIRECCIÓN DIRECTA AL DOCUMENTO OFICIAL DE NIST
+  // FUNCIÓN MODIFICADA: REDIRECCIÓN DIRECTA AL DOCUMENTO OFICIAL DE NIST
   const handleDownloadDocument = async () => {
     if (!selectedLesson) return;
     try {
       setDownloading(true);
-      
-      // Abre directamente la URL oficial de la publicación NIST SP 800-53 Rev. 5 en una pestaña nueva
       window.open('https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-53r5.pdf', '_blank');
-      
     } catch (err) {
       console.warn("Falla al abrir el sitio oficial. Ejecutando fallback local de emergencia...", err.message);
-      
-      // Fallback original por si ocurre un bloqueo inesperado en el navegador
       const element = document.createElement("a");
       const file = new Blob([selectedLesson.content_markdown], { type: 'text/plain;charset=utf-8' });
       element.href = URL.createObjectURL(file);
@@ -174,7 +188,6 @@ export default function Academia({ user }) {
       element.click();
       document.body.removeChild(element);
     } finally {
-      // Retardo para mantener el estado visual correcto del botón
       setTimeout(() => setDownloading(false), 600);
     }
   };
