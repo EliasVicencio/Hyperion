@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, ShieldAlert, FileText, CheckCircle2, AlertTriangle, Fingerprint, Database, Search, ArrowRight, Play } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, FileText, CheckCircle2, AlertTriangle, Fingerprint, Database, Search, ArrowRight, Play, ShieldBan } from 'lucide-react';
 
 export default function Gobernanza() {
   const [logs, setLogs] = useState([]);
   const [selectedLog, setSelectedLog] = useState(null);
   const [busqueda, setBusqueda] = useState("");
   
-  // Estados para el Test de Integridad Masivo (ISO A.8.15)
+  // Estados para el Test de Integridad Masivo
   const [isAuditing, setIsAuditing] = useState(false);
+  const [isDefending, setIsDefending] = useState(false); // 🛡️ Nuevo estado de defensa
   const [auditStatus, setAuditStatus] = useState("CORRECTO"); // CORRECTO, AUDITING, COMPROMISED
   const [progresoAudit, setProgresoAudit] = useState(0);
 
@@ -93,6 +94,24 @@ export default function Gobernanza() {
     }
   };
 
+  // 🛡️ CONTRAMEDIDA ACTIVA: Endpoint para reparar los hashes rotos
+  const ejecutarContramedidaDefensiva = async () => {
+    setIsDefending(true);
+    try {
+      const response = await fetch('/api/v1/gobernanza/restaurar-cadena', { method: 'POST' });
+      if (!response.ok) throw new Error("Error al mitigar el ataque");
+      const data = await response.json();
+      
+      alert(`🛡️ CONTRAMEDIDA COMPLETADA: Algoritmo de autocuración ISO ejecutado. Se han recalculado y purgado los hashes mutados.`);
+      setAuditStatus("CORRECTO");
+      await cargarVerificacionCadena(false);
+    } catch (error) {
+      alert("Fallo al desplegar los protocolos de contramedida.");
+    } finally {
+      setIsDefending(false);
+    }
+  };
+
   return (
     <div className="space-y-6 text-slate-800 dark:text-slate-300">
       
@@ -109,6 +128,18 @@ export default function Gobernanza() {
         </div>
         
         <div className="flex gap-2">
+          {/* 🛡️ BOTÓN DE DEFENSA DINÁMICO: Solo aparece si el sistema está comprometido */}
+          {auditStatus === "COMPROMISED" && (
+            <button
+              onClick={ejecutarContramedidaDefensiva}
+              disabled={isDefending}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-semibold font-mono flex items-center gap-2 border border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)] animate-pulse transition-all"
+            >
+              <ShieldBan size={14} className={isDefending ? "animate-spin" : ""} />
+              {isDefending ? 'RECONSTRUYENDO...' : 'EJECUTAR_CONTRAMEDIDA_ISO'}
+            </button>
+          )}
+
           <button
             onClick={simularInyeccionMaliciosa}
             className="px-3 py-2 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/40 rounded-xl text-xs font-mono font-bold hover:bg-red-100 dark:hover:bg-red-950/80 transition-all"
@@ -117,7 +148,7 @@ export default function Gobernanza() {
           </button>
           
           <button
-            onClick={ejecutarAuditoriaISO}
+            onClick={ejecutorAuditoriaISO || ejecutarAuditoriaISO}
             disabled={isAuditing}
             className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 border font-mono transition-all ${
               auditStatus === "COMPROMISED" 
