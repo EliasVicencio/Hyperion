@@ -960,5 +960,3 @@ async def actualizar_progreso_academia(payload: ProgresoLeccionPayload, operador
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
-    
-raise HTTPException(status_code=404, detail="Recurso modular no localizado.")
