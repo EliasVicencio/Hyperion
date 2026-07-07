@@ -839,7 +839,7 @@ async def listar_cursos_academia(operador_email: str = "operador-root", db: Sess
     progreso del operador en tiempo real y segmentándolos por su marco normativo.
     """
     if not RAW_DB_URL:
-        # Fallback seguro en caso de entorno SQLite local sin tablas de academia creadas
+        # Fallback seguro en caso de entorno SQLite local
         return {
             "iso_27001": [
                 {
@@ -860,6 +860,11 @@ async def listar_cursos_academia(operador_email: str = "operador-root", db: Sess
         }
 
     try:
+        # 🌟 PASARELA CRIPTOGRÁFICA DE RLS SEGURA:
+        # Definimos la variable de sesión dentro de la transacción actual de Postgres.
+        # Esto le comunica al RLS quién es el actor sin saltarnos las reglas de seguridad.
+        db.execute(text(f"SET LOCAL app.current_operator_email = :email;"), {"email": operador_email})
+        
         # Consulta SQL cruda nativa compatible con la arquitectura de Hyperion Core
         query = text("""
             SELECT c.id, c.titulo, c.descripcion, c.marco_normativo, c.nivel, 
@@ -867,11 +872,11 @@ async def listar_cursos_academia(operador_email: str = "operador-root", db: Sess
                    COALESCE(p.lecciones_completadas, 0) as completadas,
                    COALESCE(p.certificado_emitido, false) as certificado
             FROM academia_cursos c
-            LEFT JOIN academia_progreso p ON c.id = p.curso_id AND p.operador_email = :email
+            LEFT JOIN academia_progreso p ON c.id = p.curso_id AND p.operador_email = current_setting('app.current_operator_email')
             ORDER BY c.id ASC
         """)
         
-        result = await run_in_threadpool(db.execute, query, {"email": operador_email})
+        result = await run_in_threadpool(db.execute, query)
         rows = result.fetchall()
         
         cursos = []
