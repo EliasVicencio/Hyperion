@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ShieldCheck, ShieldAlert, FileText, CheckCircle2, AlertTriangle, Fingerprint, Database, Search, ArrowRight, Play, ShieldBan } from 'lucide-react';
+import { apiGet, apiPost } from '../api';
 
 export default function Gobernanza() {
   const [logs, setLogs] = useState([]);
@@ -21,8 +22,7 @@ export default function Gobernanza() {
     }
 
     try {
-      const response = await fetch('/api/v1/gobernanza/verificar-cadena');
-      if (!response.ok) throw new Error("Error en la respuesta del servidor");
+      const response = await apiGet('/api/v1/gobernanza/verificar-cadena');
       const data = await response.json();
       
       const logsSeguros = data.logs || [];
@@ -81,7 +81,7 @@ export default function Gobernanza() {
 
   const simularInyeccionMaliciosa = async () => {
     try {
-      const response = await fetch('/api/v1/gobernanza/simular-ataque', { method: 'POST' });
+      const response = await apiPost('/api/v1/gobernanza/simular-ataque', {});
       if (!response.ok) throw new Error("Error al lanzar ataque");
       const data = await response.json();
       
@@ -98,7 +98,7 @@ export default function Gobernanza() {
   const ejecutarContramedidaDefensiva = async () => {
     setIsDefending(true);
     try {
-      const response = await fetch('/api/v1/gobernanza/restaurar-cadena', { method: 'POST' });
+      const response = await apiPost('/api/v1/gobernanza/restaurar-cadena', {});
       if (!response.ok) throw new Error("Error al mitigar el ataque");
       
       alert(`🛡️ CONTRAMEDIDA COMPLETADA: Algoritmo de autocuración ISO ejecutado. Se han recalculado y purgado los hashes mutados.`);

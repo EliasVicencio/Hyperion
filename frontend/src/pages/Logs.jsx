@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Terminal, AlertTriangle, Info, ShieldAlert, Download, Loader2 } from 'lucide-react';
+import { apiGet } from '../api';
 
 export default function Logs() {
   const [logs, setLogs] = useState([]);
@@ -13,8 +14,7 @@ export default function Logs() {
     try {
       // Si el filtro es ALL, llamamos a la raíz. Si no, le pasamos el query parameter a FastAPI.
       const url = filtro === 'ALL' ? '/api/v1/logs' : `/api/v1/logs?categoria=${filtro}`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Error al sincronizar con el nodo de auditoría.');
+      const response = await apiGet(url);
       const data = await response.json();
       setLogs(data);
     } catch (error) {

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Shield, Mail, Lock, User, ArrowRight, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
+import { setToken } from '../api';
 
 export default function Login({ onLoginSuccess }) {
   const [view, setView] = useState('login'); // 'login', 'register', 'recovery', '2fa'
@@ -32,8 +33,9 @@ export default function Login({ onLoginSuccess }) {
           throw new Error(data.detail || 'Código de seguridad incorrecto.');
         }
 
+        setToken(data.access_token);
         localStorage.setItem('user_email', email);
-        localStorage.setItem('two_factor_enabled', 'true'); 
+        localStorage.setItem('two_factor_enabled', 'true');
         onLoginSuccess();
         return;
       }
@@ -111,8 +113,9 @@ export default function Login({ onLoginSuccess }) {
         if (data.status === 'requires_2fa') {
           setView('2fa');
         } else {
+          setToken(data.access_token);
           localStorage.setItem('user_email', data.username);
-          localStorage.setItem('two_factor_enabled', 'false'); 
+          localStorage.setItem('two_factor_enabled', 'false');
           onLoginSuccess();
         }
       }

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, UserPlus, Shield, Loader2 } from 'lucide-react';
+import { apiPost } from '../api';
 
 export default function ModalCrearOperador({ isOpen, onClose, onUserCreated }) {
   // --- Estados del Formulario ---
@@ -28,18 +29,11 @@ export default function ModalCrearOperador({ isOpen, onClose, onUserCreated }) {
     setLoading(true);
 
     try {
-      // Usamos tu endpoint real de registro existente
-      const response = await fetch('/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username: formData.email, // Mapeado a lo que espere tu backend
-          password: formData.password,
-          full_name: formData.fullName,
-          role: formData.role
-        }),
+      const response = await apiPost('/api/v1/register', {
+        email: formData.email,
+        password: formData.password,
+        nombre: formData.fullName,
+        role: formData.role
       });
 
       const data = await response.json();

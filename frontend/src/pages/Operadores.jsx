@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, ShieldAlert, UserPlus, RefreshCw, CheckCircle, Clock, Trash2, Loader2 } from 'lucide-react';
 import ModalCrearOperador from './ModalCrearOperador';
+import { apiGet, apiDelete } from '../api';
 
 export default function Operadores() {
     const [usuarios, setUsuarios] = useState([]);
@@ -15,10 +16,8 @@ export default function Operadores() {
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch('/api/v1/operadores');
-            if (!response.ok) {
-                throw new Error('Error al conectar con la base de datos de operadores');
-            }
+            const response = await apiGet('/api/v1/operadores');
+            if (!response.ok) throw new Error('Error al conectar con la base de datos de operadores');
             const data = await response.json();
             setUsuarios(data);
         } catch (err) {
@@ -50,12 +49,7 @@ export default function Operadores() {
         setEliminandoId(userId);
 
         try {
-            const response = await fetch(`/api/v1/operadores/${userId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            });
+            const response = await apiDelete(`/api/v1/operadores/${userId}`);
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));

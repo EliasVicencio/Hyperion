@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ShieldAlert, Radio, Terminal, AlertOctagon, RefreshCw, Eye, ShieldX, KeyRound, Layers } from 'lucide-react';
+import { apiGet } from '../api';
 
 const alertasIniciales = [
   { id: "EV-091", ip: "192.168.1.142", tipo: "Intento de Fuerza Bruta SSH", severidad: "CRÍTICA", timestamp: "Hace 2 min" },
@@ -18,12 +19,73 @@ export default function Vigilancia() {
   const [logsReales, setLogsReales] = useState([]);
   const [selectedElement, setSelectedElement] = useState(null); 
   const [loadingAPI, setLoadingAPI] = useState(false);
+  const [wsConnected, setWsConnected] = useState(false);
+
+  const wsRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
+  const reconnectAttemptRef = useRef(0);
+
+  const conectarWebSocket = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/api/vigilancia/ws/live`;
+    
+    wsRef.current = new WebSocket(wsUrl);
+
+    wsRef.current.onopen = () => {
+      setWsConnected(true);
+      reconnectAttemptRef.current = 0;
+      setSyslog(prev => [`[OK] WebSocket conectado a ${wsUrl}`, ...prev.slice(0, 9)]);
+    };
+
+    wsRef.current.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data && data.accion) {
+          setLogsReales(prev => [data, ...prev].slice(0, 100));
+          setSyslog(prev => [`[WS] ${data.categoria}: ${data.accion} — ${data.operador}`, ...prev.slice(0, 9)]);
+          if ((data.categoria === 'CRITICAL' || data.severidad === 'CRITICAL') && 'Notification' in window && Notification.permission === 'granted') {
+            new Notification('🔴 Alerta Crítica Hyperion', {
+              body: `${data.accion} — ${data.operador}`,
+              icon: '/favicon.ico'
+            });
+          }
+        }
+      } catch {
+        // ignore non-JSON messages (keepalive pings)
+      }
+    };
+
+    wsRef.current.onclose = () => {
+      setWsConnected(false);
+      const delay = Math.min(1000 * 2 ** reconnectAttemptRef.current, 30000);
+      reconnectAttemptRef.current += 1;
+      setSyslog(prev => [`[WARN] WebSocket desconectado. Reintentando en ${delay / 1000}s...`, ...prev.slice(0, 9)]);
+      reconnectTimeoutRef.current = setTimeout(conectarWebSocket, delay);
+    };
+
+    wsRef.current.onerror = () => {
+      wsRef.current?.close();
+    };
+  }, []);
+
+  useEffect(() => {
+    conectarWebSocket();
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+    return () => {
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      wsRef.current?.close();
+    };
+  }, [conectarWebSocket]);
 
   // Sincronización real con tu API (PostgreSQL)
   const consultarStreamingLogs = async () => {
     setLoadingAPI(true);
     try {
-      const response = await fetch('/api/v1/logs');
+      const response = await apiGet('/api/v1/logs');
       if (!response.ok) throw new Error('Error en el canal de vigilancia.');
       const data = await response.json();
       const ordenados = data.sort((a, b) => b.id - a.id);
@@ -129,6 +191,12 @@ export default function Vigilancia() {
             Centro de Vigilancia
           </h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Inspección de paquetes profunda e hilos de ejecución perimetrales en tiempo real</p>
+          <div className="flex items-center gap-1.5 mt-1">
+            <span className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+            <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">
+              {wsConnected ? 'WS_CONNECTED' : 'WS_DISCONNECTED'}
+            </span>
+          </div>
         </div>
         <div className="flex gap-2">
           {/* 🌟 CAMBIO: Botón REFRESH adaptativo (Bordes, Fondos y Textos balanceados) */}

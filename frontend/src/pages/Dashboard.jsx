@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { Activity, Shield, AlertTriangle, Server, ShieldCheck, RefreshCw } from 'lucide-react';
+import { apiGet } from '../api';
 
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
@@ -26,9 +27,8 @@ export default function Dashboard() {
     let currentDatabase = "CONNECTED";
 
     try {
-      // 🌟 NUEVO: Consulta en paralelo a la verificación de salud profunda de la base de datos
       try {
-        const healthResponse = await fetch('/health/deep');
+        const healthResponse = await apiGet('/health/deep');
         if (healthResponse.ok) {
           const healthData = await healthResponse.json();
           // Mapeamos las respuestas del endpoint del backend (/health/deep)
@@ -44,7 +44,7 @@ export default function Dashboard() {
         currentDatabase = "DISCONNECTED";
       }
 
-      const response = await fetch('/api/v1/logs');
+      const response = await apiGet('/api/v1/logs');
       if (!response.ok) throw new Error('Error al conectar con la pasarela.');
       const logs = await response.json();
 

@@ -4,17 +4,18 @@ import Dashboard from './pages/Dashboard';
 import Operadores from './pages/Operadores';
 import Vigilancia from './pages/Vigilancia';
 import Gobernanza from './pages/Gobernanza';
-import ActivosRiesgos from './pages/ActivosRiesgos'; // ⬅️ IMPORTADO CON ÉXITO
+import ActivosRiesgos from './pages/ActivosRiesgos';
 import Logs from './pages/Logs';
 import Login from './pages/Login';
 import ConfiguracionFlotante from './components/ConfiguracionFlotante';
 import { AnimatePresence, motion } from 'framer-motion';
+import { getToken } from './api';
 
 const Academia = lazy(() => import('./pages/Academia'));
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem('hyperion_auth') === 'true';
+    return !!getToken();
   });
 
   const [page, setPage] = useState('Analiticas');
@@ -40,13 +41,13 @@ export default function App() {
   }, []);
 
   const handleLoginSuccess = (userData) => {
-    localStorage.setItem('hyperion_auth', 'true');
     localStorage.setItem('hyperion_user', JSON.stringify(userData));
     setCurrentUser(userData);
     setIsAuthenticated(true);
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('hyperion_token');
     localStorage.removeItem('hyperion_auth');
     localStorage.removeItem('hyperion_user');
     setCurrentUser(null);
