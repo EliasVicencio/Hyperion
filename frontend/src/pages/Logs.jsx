@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Search, Terminal, AlertTriangle, Info, ShieldAlert, Download, Loader2 } from 'lucide-react';
 import { apiGet } from '../api';
 
@@ -9,10 +9,9 @@ export default function Logs() {
   const [busqueda, setBusqueda] = useState('');
 
   // --- OBTENER LOGS DE LA API EN TIEMPO REAL ---
-  const cargarLogs = async () => {
+  const cargarLogs = useCallback(async () => {
     setLoading(true);
     try {
-      // Si el filtro es ALL, llamamos a la raíz. Si no, le pasamos el query parameter a FastAPI.
       const url = filtro === 'ALL' ? '/api/v1/logs' : `/api/v1/logs?categoria=${filtro}`;
       const response = await apiGet(url);
       const data = await response.json();
@@ -22,12 +21,12 @@ export default function Logs() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filtro]);
 
   // Recargar los logs cada vez que cambie el botón de filtro de severidad
   useEffect(() => {
     cargarLogs();
-  }, [filtro]);
+  }, [cargarLogs]);
 
   // --- FILTRADO CONTEXTUAL EN EL FRONTEND (BUSCADOR) ---
   const logsFiltrados = logs.filter(log => {

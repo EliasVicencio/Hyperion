@@ -63,7 +63,23 @@ export default function Gobernanza() {
   };
 
   useEffect(() => {
-    cargarVerificacionCadena(false);
+    const init = async () => {
+      try {
+        const response = await apiGet('/api/v1/gobernanza/verificar-cadena');
+        const data = await response.json();
+        const logsSeguros = data.logs || [];
+        setLogs(logsSeguros);
+        const detectadoAtaque = logsSeguros.some(l => l.detalles && l.detalles.includes("ATAQUE"));
+        setAuditStatus(detectadoAtaque ? "COMPROMISED" : "CORRECTO");
+        if (logsSeguros.length > 0 && !selectedLog) {
+          setSelectedLog(logsSeguros[0]);
+        }
+      } catch (error) {
+        console.error("🚨 Error cargando datos de gobernanza:", error);
+        setAuditStatus("COMPROMISED");
+      }
+    };
+    init();
   }, []);
 
   const logsFiltrados = logs.filter(log => {

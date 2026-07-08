@@ -9,3 +9,4 @@ bcrypt
 pyotp
 qrcode
 kafka-python
+python-jose[cryptography]

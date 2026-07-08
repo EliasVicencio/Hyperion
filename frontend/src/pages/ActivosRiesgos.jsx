@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Database, ShieldAlert, Users, Server, Layers, AlertTriangle, TrendingUp, CheckCircle, WifiOff } from 'lucide-react';
+import { Database, Users, Server, Layers, AlertTriangle, TrendingUp, CheckCircle, WifiOff } from 'lucide-react';
 import { apiGet } from '../api';
 
 export default function ActivosRiesgos() {
@@ -24,7 +24,7 @@ export default function ActivosRiesgos() {
       localStorage.setItem('hyperion_backup_activos', JSON.stringify(listaActivos));
       localStorage.setItem('hyperion_backup_riesgos', JSON.stringify(listaRiesgos));
 
-    } catch (e) {
+    } catch {
       console.warn("⚠️ Detectada caída del backend. Activando persistencia local...");
       setIsOffline(true);
 

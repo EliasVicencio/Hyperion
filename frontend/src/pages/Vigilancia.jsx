@@ -82,7 +82,7 @@ export default function Vigilancia() {
   }, [conectarWebSocket]);
 
   // Sincronización real con tu API (PostgreSQL)
-  const consultarStreamingLogs = async () => {
+  const consultarStreamingLogs = useCallback(async () => {
     setLoadingAPI(true);
     try {
       const response = await apiGet('/api/v1/logs');
@@ -91,19 +91,17 @@ export default function Vigilancia() {
       const ordenados = data.sort((a, b) => b.id - a.id);
       setLogsReales(ordenados);
       
-      if (!selectedElement) {
-        setSelectedElement({ tipo_origen: 'ALERTA', ...alertasIniciales[0] });
-      }
+      setSelectedElement(prev => prev || { tipo_origen: 'ALERTA', ...alertasIniciales[0] });
     } catch (error) {
       console.error("🚨 Surveillance API Error:", error);
     } finally {
       setLoadingAPI(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     consultarStreamingLogs();
-  }, []);
+  }, [consultarStreamingLogs]);
 
   // --- ACCIÓN DE MITIGACIÓN REAL (BLOCK_NODE) ---
   const ejecutarBloqueoNodo = (elemento) => {
