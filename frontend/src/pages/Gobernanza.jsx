@@ -71,11 +71,11 @@ export default function Gobernanza() {
         setLogs(logsSeguros);
         const detectadoAtaque = logsSeguros.some(l => l.detalles && l.detalles.includes("ATAQUE"));
         setAuditStatus(detectadoAtaque ? "COMPROMISED" : "CORRECTO");
-        if (logsSeguros.length > 0 && !selectedLog) {
-          setSelectedLog(logsSeguros[0]);
+        if (logsSeguros.length > 0) {
+          setSelectedLog(prev => prev || logsSeguros[0]);
         }
-      } catch (error) {
-        console.error("🚨 Error cargando datos de gobernanza:", error);
+      } catch {
+        console.error("🚨 Error cargando datos de gobernanza:");
         setAuditStatus("COMPROMISED");
       }
     };
