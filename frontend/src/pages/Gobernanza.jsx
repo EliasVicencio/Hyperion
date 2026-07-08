@@ -105,7 +105,7 @@ export default function Gobernanza() {
       alert(`🚨 Simulación ejecutada: Registro ID #${data.target_id} manipulado directamente en la base de datos. Ejecuta el test ISO para comprobar la ruptura de hashes.`);
       
       cargarVerificacionCadena(false);
-    } catch (error) {
+    } catch {
       alert("No se pudo conectar con el endpoint de simulación.");
     }
   };
@@ -120,7 +120,7 @@ export default function Gobernanza() {
       alert(`🛡️ CONTRAMEDIDA COMPLETADA: Algoritmo de autocuración ISO ejecutado. Se han recalculado y purgado los hashes mutados.`);
       setAuditStatus("CORRECTO");
       await cargarVerificacionCadena(false);
-    } catch (error) {
+    } catch {
       alert("Fallo al desplegar los protocolos de contramedida.");
     } finally {
       setIsDefending(false);
