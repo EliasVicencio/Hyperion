@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.routers import health, auth, operadores, logs, gobernanza, vigilancia, academia, riesgos
 
 app = FastAPI(title="Hyperion Core Backend", version="2.0.0")
 
@@ -10,8 +11,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-from app.routers import health, auth, operadores, logs, gobernanza, vigilancia, academia, riesgos
 
 app.include_router(health.router)
 app.include_router(auth.router)

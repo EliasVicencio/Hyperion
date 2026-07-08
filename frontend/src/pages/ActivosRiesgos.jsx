@@ -10,14 +10,8 @@ export default function ActivosRiesgos() {
 
   const cargarDatos = async () => {
     try {
-<<<<<<< HEAD
-      const res = await fetch('/api/v1/riesgos/dashboard');
-      if (!res.ok) throw new Error("Error de conexión con la API Gateway");
-      
-=======
       const res = await apiGet('/api/v1/riesgos/dashboard');
-      if (!res.ok) throw new Error("Error en la API");
->>>>>>> 4ab778d (Refactor backend en routers, JWT + RBAC, WebSocket auto-reconnect, CI/CD)
+      if (!res.ok) throw new Error("Error de conexión con la API Gateway");
       const data = await res.json();
       const listaActivos = data.activos || [];
       const listaRiesgos = data.matriz_riesgos || [];

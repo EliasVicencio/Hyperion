@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ShieldAlert, Radio, Terminal, AlertOctagon, RefreshCw, Eye, ShieldX, KeyRound, Layers } from 'lucide-react';
+import { ShieldAlert, Radio, Terminal, AlertOctagon, RefreshCw, ShieldX, Layers } from 'lucide-react';
 import { apiGet } from '../api';
 
 const alertasIniciales = [

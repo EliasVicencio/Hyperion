@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { X, Lock, ShieldCheck, Sun, Moon, KeyRound, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
-import { apiPost, apiGet, getToken } from '../api';
+import { X, ShieldCheck, Sun, Moon, KeyRound, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 export default function ConfiguracionFlotante({ isOpen, onClose }) {
   // --- Estados de la Interfaz ---

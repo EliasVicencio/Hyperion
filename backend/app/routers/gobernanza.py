@@ -12,7 +12,6 @@ async def verificar_cadena_criptografica(db: Session = Depends(get_db), current_
     try:
         query = text("SELECT id, operador, accion, categoria, detalles, timestamp FROM logs_auditoria ORDER BY id ASC")
         result = db.execute(query).fetchall()
-        cadena_valida = True
         hash_previo = "000000000000000..."
         logs_procesados = []
         for row in result:

@@ -74,7 +74,7 @@ async def registrar_progreso_leccion(payload: ProgresoLeccionPayload):
 @router.get("/descargar-norma")
 async def descargar_norma_completa_nist():
     file_path = BACKEND_DIR / "NIST.SP.800-53r5.pdf"
-    if not os.path.exists(file_path):
+    if not file_path.exists():
         raise HTTPException(
             status_code=404,
             detail="El documento técnico NIST.SP.800-53r5.pdf no se encuentra en la raíz del servidor."
@@ -89,7 +89,7 @@ async def descargar_norma_completa_nist():
 async def descargar_regla_pdf(leccion_id: str):
     safe_id = Path(leccion_id).name.upper()
     file_path = BACKEND_DIR / "scripts" / f"{safe_id}.pdf"
-    if os.path.exists(file_path):
+    if file_path.exists():
         return FileResponse(
             path=file_path,
             media_type="application/pdf",

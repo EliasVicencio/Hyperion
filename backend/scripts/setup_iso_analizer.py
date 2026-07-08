@@ -1,6 +1,5 @@
 # setup_iso_analyzer.py
 import json
-import os
 from pathlib import Path
 
 def create_iso_controls():
@@ -135,7 +134,7 @@ def create_iso_controls():
         json.dump(data, f, indent=2, ensure_ascii=False)
     
     print(f"✅ Archivo creado: {output_file}")
-    print(f"\n📊 Resumen ISO 27001:2022")
+    print("\n📊 Resumen ISO 27001:2022")
     print(f"   Total controles: {data['total_controls']}")
     print(f"   Organizacionales: {data['controls_by_category']['organizational']}")
     print(f"   Personas: {data['controls_by_category']['people']}")

@@ -1,7 +1,5 @@
 # app/services/iso_parser.py
-import re
-import json
-from typing import Dict, List, Any
+from typing import Dict, List
 from dataclasses import dataclass
 
 @dataclass

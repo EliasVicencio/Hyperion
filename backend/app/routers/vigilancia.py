@@ -30,5 +30,5 @@ def obtener_historial_vigilancia(db: Session = Depends(get_db)):
                 "detalles": r[4]
             } for r in rows
         ]
-    except Exception as e:
+    except Exception:
         return []
