@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ShieldAlert, Radio, Terminal, AlertOctagon, RefreshCw, ShieldX, Layers } from 'lucide-react';
+import { ShieldAlert, Radio, Terminal, AlertOctagon, RefreshCw, ShieldX, Layers, Search, Loader2, ShieldCheck } from 'lucide-react';
 import { apiGet } from '../api';
 
 const alertasIniciales = [
@@ -20,6 +20,37 @@ export default function Vigilancia() {
   const [selectedElement, setSelectedElement] = useState(null); 
   const [loadingAPI, setLoadingAPI] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
+
+  // Threat Intel (VirusTotal + AbuseIPDB)
+  const [tiQuery, setTiQuery] = useState('');
+  const [tiLoading, setTiLoading] = useState(false);
+  const [tiError, setTiError] = useState(null);
+  const [tiResult, setTiResult] = useState(null);
+
+  const consultarThreatIntel = async (e) => {
+    e.preventDefault();
+    if (!tiQuery.trim()) return;
+    setTiLoading(true);
+    setTiError(null);
+    setTiResult(null);
+    try {
+      const response = await apiGet(`/api/vigilancia/threat-intel/ip/${encodeURIComponent(tiQuery.trim())}`);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || 'No se pudo consultar la IP.');
+      }
+      setTiResult(data);
+    } catch (err) {
+      setTiError(err.message);
+    } finally {
+      setTiLoading(false);
+    }
+  };
+
+  const tiEsCritico = tiResult && (
+    (tiResult.virustotal && tiResult.virustotal.maliciosos > 0) ||
+    (tiResult.abuseipdb && tiResult.abuseipdb.score_abuso >= 50)
+  );
 
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
@@ -217,6 +248,87 @@ export default function Vigilancia() {
           </button>
         </div>
       </header>
+
+      {/* Threat Intel: consulta de reputación de IP (VirusTotal + AbuseIPDB) */}
+      <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-900 p-6 rounded-2xl shadow-sm dark:shadow-xl transition-colors">
+        <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-4 flex items-center gap-2 uppercase tracking-wider">
+          <Search className="text-blue-500 dark:text-blue-400" size={16} /> Consulta de Reputación de IP
+        </h3>
+
+        <form onSubmit={consultarThreatIntel} className="flex gap-3 mb-4">
+          <input
+            type="text"
+            value={tiQuery}
+            onChange={(e) => setTiQuery(e.target.value)}
+            placeholder="8.8.8.8"
+            className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm font-mono text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50"
+          />
+          <button
+            type="submit"
+            disabled={tiLoading}
+            className="bg-blue-600 hover:bg-blue-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold px-5 rounded-xl text-sm flex items-center gap-2 transition-all"
+          >
+            {tiLoading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+            Analizar
+          </button>
+        </form>
+
+        {tiError && (
+          <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-xl text-red-500 dark:text-red-400 text-xs mb-2">
+            {tiError}
+          </div>
+        )}
+
+        {tiResult && (
+          <div className="space-y-3">
+            <div className={`flex items-center justify-between rounded-xl p-3 border ${
+              tiEsCritico
+                ? 'bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400'
+                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+            }`}>
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                {tiEsCritico ? <AlertOctagon size={16} /> : <ShieldCheck size={16} />}
+                {tiEsCritico ? 'Riesgo crítico detectado' : 'Sin señales de riesgo relevantes'}
+              </div>
+              <span className="text-[10px] font-mono opacity-70">{tiResult.ip}</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+                <p className="text-[10px] font-mono text-slate-400 dark:text-slate-500 uppercase mb-2">VirusTotal</p>
+                {tiResult.virustotal?.error ? (
+                  <p className="text-xs text-slate-400 dark:text-slate-500">{tiResult.virustotal.error}</p>
+                ) : tiResult.virustotal ? (
+                  <div className="space-y-1 text-xs">
+                    <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">Maliciosos</span><span className="font-semibold text-slate-800 dark:text-slate-200">{tiResult.virustotal.maliciosos}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">Reputación</span><span className="font-semibold text-slate-800 dark:text-slate-200">{tiResult.virustotal.reputacion}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">País</span><span className="font-semibold text-slate-800 dark:text-slate-200">{tiResult.virustotal.pais || '—'}</span></div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 dark:text-slate-500">No configurado</p>
+                )}
+              </div>
+
+              <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-4">
+                <p className="text-[10px] font-mono text-slate-400 dark:text-slate-500 uppercase mb-2">AbuseIPDB</p>
+                {tiResult.abuseipdb?.error ? (
+                  <p className="text-xs text-slate-400 dark:text-slate-500">{tiResult.abuseipdb.error}</p>
+                ) : tiResult.abuseipdb ? (
+                  <div className="space-y-1 text-xs">
+                    <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">Score abuso</span><span className="font-semibold text-slate-800 dark:text-slate-200">{tiResult.abuseipdb.score_abuso}%</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">Reportes</span><span className="font-semibold text-slate-800 dark:text-slate-200">{tiResult.abuseipdb.total_reportes}</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500 dark:text-slate-400">Uso</span><span className="font-semibold text-slate-800 dark:text-slate-200">{tiResult.abuseipdb.uso || '—'}</span></div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 dark:text-slate-500">No configurado</p>
+                )}
+              </div>
+            </div>
+
+            <p className="text-[10px] text-slate-400 dark:text-slate-600 text-center">Toda consulta queda registrada en Logs de Auditoría</p>
+          </div>
+        )}
+      </div>
 
       {/* Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
