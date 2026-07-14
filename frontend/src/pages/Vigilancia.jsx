@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { ShieldAlert, Radio, Terminal, AlertOctagon, RefreshCw, ShieldX, Layers, Search, Loader2, ShieldCheck } from 'lucide-react';
+import { ShieldAlert, Radio, Terminal, AlertOctagon, RefreshCw, ShieldX, Layers, Search, Loader2, ShieldCheck, MapPin } from 'lucide-react';
 import { apiGet } from '../api';
+import WorldMap from '../components/WorldMap';
 
 const alertasIniciales = [
   { id: "EV-091", ip: "192.168.1.142", tipo: "Intento de Fuerza Bruta SSH", severidad: "CRÍTICA", timestamp: "Hace 2 min" },
@@ -51,6 +52,33 @@ export default function Vigilancia() {
     (tiResult.virustotal && tiResult.virustotal.maliciosos > 0) ||
     (tiResult.abuseipdb && tiResult.abuseipdb.score_abuso >= 50)
   );
+
+  // Mapa de amenazas: combina puntos de búsquedas de Threat Intel + alertas simuladas geolocalizadas
+  const [mapPoints, setMapPoints] = useState([]);
+
+  const agregarPuntoAlMapa = (id, lat, lon, severidad, label) => {
+    setMapPoints(prev => [{ id, lat, lon, severidad, label }, ...prev.filter(p => p.id !== id)].slice(0, 10));
+  };
+
+  const geolocalizarYAgregar = async (id, ip, severidad, label) => {
+    try {
+      const response = await apiGet(`/api/vigilancia/geolocate/${encodeURIComponent(ip)}`);
+      if (!response.ok) return;
+      const geo = await response.json();
+      agregarPuntoAlMapa(id, geo.lat, geo.lon, severidad, label || ip);
+    } catch {
+      // Geolocalización best-effort: si falla, simplemente no aparece ese punto en el mapa
+    }
+  };
+
+  // Cuando una búsqueda de Threat Intel trae geo, la sumamos al mapa
+  useEffect(() => {
+    if (tiResult?.geo && typeof tiResult.geo.lat === 'number') {
+      const severidad = tiEsCritico ? 'CRITICA' : 'INFO';
+      agregarPuntoAlMapa(`ti-${tiResult.ip}`, tiResult.geo.lat, tiResult.geo.lon, severidad, tiResult.ip);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tiResult]);
 
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
@@ -196,6 +224,7 @@ export default function Vigilancia() {
 
         setAlertas(prev => [nuevaAlerta, ...prev.slice(0, 3)]);
         setSyslog(prev => [`[ALERT] Amenaza interceptada en red: ${ataque.tipo} desde IP ${nuevaIp}`, ...prev.slice(0, 6)]);
+        geolocalizarYAgregar(nuevoId, nuevaIp, ataque.sev === 'CRÍTICA' ? 'CRITICA' : 'ALTA', nuevaIp);
       } else {
         const logAleatorio = logsNuevos[Math.floor(Math.random() * logsNuevos.length)];
         setSyslog(prev => [logAleatorio, ...prev.slice(0, 7)]);
@@ -328,6 +357,22 @@ export default function Vigilancia() {
             <p className="text-[10px] text-slate-400 dark:text-slate-600 text-center">Toda consulta queda registrada en Logs de Auditoría</p>
           </div>
         )}
+      </div>
+
+      {/* Mapa de Origen de Amenazas */}
+      <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-900 p-6 rounded-2xl shadow-sm dark:shadow-xl transition-colors">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-2 uppercase tracking-wider">
+            <MapPin className="text-blue-500 dark:text-blue-400" size={16} /> Mapa de Origen de Amenazas
+          </h3>
+          <span className="text-[10px] font-mono text-slate-400 dark:text-slate-600">
+            {mapPoints.length === 0 ? 'Sin puntos aún' : `${mapPoints.length} evento${mapPoints.length === 1 ? '' : 's'}`}
+          </span>
+        </div>
+        <WorldMap points={mapPoints} />
+        <p className="text-[10px] text-slate-400 dark:text-slate-600 text-center mt-3">
+          Combina búsquedas de Threat Intel y alertas de red geolocalizadas
+        </p>
       </div>
 
       {/* Grid */}
