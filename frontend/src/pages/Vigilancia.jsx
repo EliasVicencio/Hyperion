@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ShieldAlert, Radio, Terminal, AlertOctagon, RefreshCw, ShieldX, Layers, Search, Loader2, ShieldCheck, MapPin } from 'lucide-react';
 import { apiGet } from '../api';
-import WorldMap from '../components/WorldMap';
+import WorldMap from '../components/Worldmap';
 
 const alertasIniciales = [
   { id: "EV-091", ip: "192.168.1.142", tipo: "Intento de Fuerza Bruta SSH", severidad: "CRÍTICA", timestamp: "Hace 2 min" },
