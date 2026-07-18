@@ -11,6 +11,7 @@ const Vigilancia = lazy(() => import('./pages/Vigilancia'));
 const Gobernanza = lazy(() => import('./pages/Gobernanza'));
 const ActivosRiesgos = lazy(() => import('./pages/ActivosRiesgos'));
 const Logs = lazy(() => import('./pages/Logs'));
+const Tickets = lazy(() => import('./pages/Tickets'));
 const Academia = lazy(() => import('./pages/Academia'));
 
 export default function App() {
@@ -76,6 +77,8 @@ export default function App() {
       'activosriesgos': <ActivosRiesgos />,    // ⬅️ RESPALDO DE SEGURIDAD POR KEY
       'logs': <Logs />,
       'logs de auditoria': <Logs />,
+      'tickets': <Tickets />,
+      'tickets de soporte': <Tickets />,
       'academia': <Academia user={currentUser} />,
       'academia compliance': <Academia user={currentUser} />
     };

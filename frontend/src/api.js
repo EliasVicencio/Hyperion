@@ -47,6 +47,13 @@ export function apiPost(path, body) {
   });
 }
 
+export function apiPatch(path, body) {
+  return apiFetch(path, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
 export function apiDelete(path) {
   return apiFetch(path, { method: 'DELETE' });
 }

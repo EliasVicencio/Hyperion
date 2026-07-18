@@ -75,6 +75,48 @@ def _teams_payload(titulo, operador, accion, detalles, categoria):
     }
 
 
+_PRIORIDAD_ESTILO = {
+    "CRITICA": {"emoji": "🔴", "color": "#dc2626"},
+    "ALTA": {"emoji": "🟠", "color": "#ea580c"},
+    "MEDIA": {"emoji": "🟡", "color": "#d97706"},
+    "BAJA": {"emoji": "🟢", "color": "#16a34a"},
+}
+
+
+def _slack_ticket_payload(ticket: dict) -> dict:
+    estilo = _PRIORIDAD_ESTILO.get(ticket.get("prioridad"), _PRIORIDAD_ESTILO["MEDIA"])
+    return {
+        "attachments": [{
+            "color": estilo["color"],
+            "blocks": [
+                {"type": "header", "text": {"type": "plain_text", "text": f"🎫 Ticket #{ticket['id']} — {ticket['titulo']}", "emoji": True}},
+                {"type": "section", "fields": [
+                    {"type": "mrkdwn", "text": f"*Prioridad:*\n{estilo['emoji']} {ticket.get('prioridad', 'MEDIA')}"},
+                    {"type": "mrkdwn", "text": f"*Estado:*\n{ticket.get('estado', 'ABIERTO')}"},
+                    {"type": "mrkdwn", "text": f"*Creado por:*\n{ticket.get('creado_por', '—')}"},
+                    {"type": "mrkdwn", "text": f"*Origen:*\n{ticket.get('origen', 'INTERNO')}"},
+                ]},
+                {"type": "section", "text": {"type": "mrkdwn", "text": ticket.get("descripcion") or "_Sin descripción adicional._"}},
+                {"type": "context", "elements": [{"type": "mrkdwn", "text": f"🕐 {ticket.get('created_at', '')}"}]},
+            ],
+        }]
+    }
+
+
+async def notificar_ticket(ticket: dict):
+    """Notifica un ticket nuevo a Slack (Discord/Teams se pueden agregar después con el mismo patrón).
+    Best-effort: nunca lanza excepciones hacia arriba."""
+    if not SLACK_WEBHOOK_URL:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            r = await client.post(SLACK_WEBHOOK_URL, json=_slack_ticket_payload(ticket))
+            if r.status_code >= 300:
+                print(f"⚠️ Notificación de ticket falló ({r.status_code}): {r.text[:200]}")
+    except Exception as e:
+        print(f"⚠️ Error notificando ticket a Slack (no crítico): {e}")
+
+
 async def notificar_evento(operador: str, accion: str, categoria: str, detalles: str = None):
     """Envía el evento a Slack, Discord y Teams (los que estén configurados vía env vars).
     Best-effort: nunca lanza excepciones hacia arriba. Un webhook caído o mal configurado
