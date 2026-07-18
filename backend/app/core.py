@@ -8,6 +8,7 @@ from sqlalchemy import Column, DateTime, Integer, String, create_engine, text
 from sqlalchemy.orm import sessionmaker, Session, declarative_base
 from fastapi.concurrency import run_in_threadpool
 import bcrypt
+from .notifications import notificar_evento
 
 RAW_DB_URL = os.getenv("DATABASE_URL")
 
@@ -179,3 +180,5 @@ async def registrar_log(db: Session, operador: str, accion: str, categoria: str 
         "detalles": detalles if detalles else "",
         "fecha": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     })
+
+    await notificar_evento(operador, accion, categoria, detalles)
