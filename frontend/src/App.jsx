@@ -1,16 +1,16 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import Sidebar from './components/Sidebar';
-import Dashboard from './pages/Dashboard';
-import Operadores from './pages/Operadores';
-import Vigilancia from './pages/Vigilancia';
-import Gobernanza from './pages/Gobernanza';
-import ActivosRiesgos from './pages/ActivosRiesgos';
-import Logs from './pages/Logs';
 import Login from './pages/Login';
 import ConfiguracionFlotante from './components/ConfiguracionFlotante';
 import { AnimatePresence, motion } from 'framer-motion';
 import { getToken } from './api';
 
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Operadores = lazy(() => import('./pages/Operadores'));
+const Vigilancia = lazy(() => import('./pages/Vigilancia'));
+const Gobernanza = lazy(() => import('./pages/Gobernanza'));
+const ActivosRiesgos = lazy(() => import('./pages/ActivosRiesgos'));
+const Logs = lazy(() => import('./pages/Logs'));
 const Academia = lazy(() => import('./pages/Academia'));
 
 export default function App() {
@@ -76,24 +76,8 @@ export default function App() {
       'activosriesgos': <ActivosRiesgos />,    // ⬅️ RESPALDO DE SEGURIDAD POR KEY
       'logs': <Logs />,
       'logs de auditoria': <Logs />,
-      'academia': (
-        <Suspense fallback={
-          <div className="h-[60vh] flex items-center justify-center">
-            <p className="dark:text-slate-500 text-slate-400 italic">Cargando Academia...</p>
-          </div>
-        }>
-          <Academia user={currentUser} />
-        </Suspense>
-      ),
-      'academia compliance': (
-        <Suspense fallback={
-          <div className="h-[60vh] flex items-center justify-center">
-            <p className="dark:text-slate-500 text-slate-400 italic">Cargando Academia...</p>
-          </div>
-        }>
-          <Academia user={currentUser} />
-        </Suspense>
-      )
+      'academia': <Academia user={currentUser} />,
+      'academia compliance': <Academia user={currentUser} />
     };
 
     return views[key] || (
@@ -130,7 +114,13 @@ export default function App() {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.2 }}
             >
-              {renderPage(page)}
+              <Suspense fallback={
+                <div className="h-[60vh] flex items-center justify-center">
+                  <p className="dark:text-slate-500 text-slate-400 italic">Cargando módulo...</p>
+                </div>
+              }>
+                {renderPage(page)}
+              </Suspense>
             </motion.div>
           </AnimatePresence>
         </div>
