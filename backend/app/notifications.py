@@ -103,18 +103,46 @@ def _slack_ticket_payload(ticket: dict) -> dict:
     }
 
 
+def _discord_ticket_payload(ticket: dict) -> dict:
+    estilo = _PRIORIDAD_ESTILO.get(ticket.get("prioridad"), _PRIORIDAD_ESTILO["MEDIA"])
+    color_hex = int(estilo["color"].lstrip("#"), 16)
+    return {
+        "embeds": [{
+            "title": f"🎫 Ticket #{ticket['id']} — {ticket['titulo']}",
+            "description": ticket.get("descripcion") or "_Sin descripción adicional._",
+            "color": color_hex,
+            "fields": [
+                {"name": "Prioridad", "value": f"{estilo['emoji']} {ticket.get('prioridad', 'MEDIA')}", "inline": True},
+                {"name": "Estado", "value": ticket.get("estado", "ABIERTO"), "inline": True},
+                {"name": "Creado por", "value": ticket.get("creado_por", "—"), "inline": True},
+                {"name": "Origen", "value": ticket.get("origen", "INTERNO"), "inline": True},
+            ],
+            "footer": {"text": ticket.get("created_at", "")},
+        }]
+    }
+
+
 async def notificar_ticket(ticket: dict):
-    """Notifica un ticket nuevo a Slack (Discord/Teams se pueden agregar después con el mismo patrón).
+    """Notifica un ticket nuevo a Slack y Discord (los que estén configurados vía env vars).
     Best-effort: nunca lanza excepciones hacia arriba."""
-    if not SLACK_WEBHOOK_URL:
+    if not SLACK_WEBHOOK_URL and not DISCORD_WEBHOOK_URL:
         return
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
-            r = await client.post(SLACK_WEBHOOK_URL, json=_slack_ticket_payload(ticket))
-            if r.status_code >= 300:
-                print(f"⚠️ Notificación de ticket falló ({r.status_code}): {r.text[:200]}")
+            tareas = []
+            if SLACK_WEBHOOK_URL:
+                tareas.append(client.post(SLACK_WEBHOOK_URL, json=_slack_ticket_payload(ticket)))
+            if DISCORD_WEBHOOK_URL:
+                tareas.append(client.post(DISCORD_WEBHOOK_URL, json=_discord_ticket_payload(ticket)))
+
+            resultados = await asyncio.gather(*tareas, return_exceptions=True)
+            for r in resultados:
+                if isinstance(r, Exception):
+                    print(f"⚠️ Notificación de ticket fallida (no crítico): {r}")
+                elif hasattr(r, "status_code") and r.status_code >= 300:
+                    print(f"⚠️ Webhook de ticket respondió {r.status_code}: {r.text[:200]}")
     except Exception as e:
-        print(f"⚠️ Error notificando ticket a Slack (no crítico): {e}")
+        print(f"⚠️ Error notificando ticket (no crítico): {e}")
 
 
 async def notificar_evento(operador: str, accion: str, categoria: str, detalles: str = None):
