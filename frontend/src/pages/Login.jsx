@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Shield, Mail, Lock, User, ArrowRight, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
 import { setToken } from '../api';
 
@@ -13,8 +13,7 @@ export default function Login({ onLoginSuccess }) {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const ejecutarAccion = async () => {
     setError(null);
     setSuccessMessage(null);
     setLoading(true);
@@ -30,6 +29,7 @@ export default function Login({ onLoginSuccess }) {
         const data = await response.json();
 
         if (!response.ok) {
+          setToken2FA(''); // limpio el campo para que un reintento dispare el auto-envío de nuevo
           throw new Error(data.detail || 'Código de seguridad incorrecto.');
         }
 
@@ -125,6 +125,20 @@ export default function Login({ onLoginSuccess }) {
       setLoading(false);
     }
   };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    ejecutarAccion();
+  };
+
+  // Auto-envío: apenas se completan los 6 dígitos del token 2FA en el login,
+  // se valida solo, sin esperar a que el usuario toque "Verificar Token".
+  useEffect(() => {
+    if (view === '2fa' && token2FA.length === 6 && !loading) {
+      ejecutarAccion();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token2FA, view]);
 
   return (
     <div className="min-h-screen bg-hyperion-lightBg dark:bg-hyperion-dark flex items-center justify-center p-4 relative overflow-hidden font-sans selection:bg-blue-500/30 transition-colors duration-300">
@@ -262,11 +276,14 @@ export default function Login({ onLoginSuccess }) {
             <div className="space-y-2 animate-fade-in text-center">
               <input
                 type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
                 maxLength="6"
                 placeholder="000000"
                 required
+                autoFocus
                 value={token2FA}
-                onChange={(e) => setToken2FA(e.target.value)}
+                onChange={(e) => setToken2FA(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 className="w-full bg-slate-50 dark:bg-slate-950 border border-hyperion-lightBorder dark:border-slate-800 rounded-2xl py-3 text-center text-xl font-mono tracking-[0.5em] text-blue-600 dark:text-blue-400 focus:border-blue-500 outline-none transition-all"
               />
             </div>
