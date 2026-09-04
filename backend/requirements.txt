@@ -9,3 +9,4 @@ bcrypt
 pyotp
 qrcode
 python-jose[cryptography]
+slowapi

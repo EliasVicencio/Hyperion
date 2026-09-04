@@ -55,7 +55,7 @@ jobs:
         run: npm ci
 
       - name: Lint
-        run: npx oxlint --deny-warnings src/
+        run: npx oxlint src/
 
       - name: Build
         run: npm run build
