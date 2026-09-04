@@ -15,27 +15,40 @@ export default function Logs() {
       const url = filtro === 'ALL' ? '/api/v1/logs' : `/api/v1/logs?categoria=${filtro}`;
       const response = await apiGet(url);
       const data = await response.json();
-      setLogs(data);
+      
+      // Sanitización: Extracción segura independientemente de si la API devuelve [] u { items: [] }
+      const logsArray = Array.isArray(data) 
+        ? data 
+        : (data?.items || data?.data || []);
+        
+      setLogs(logsArray);
     } catch (error) {
       console.error("🚨 SIEM Error:", error);
+      setLogs([]);
     } finally {
       setLoading(false);
     }
   }, [filtro]);
 
-  // Recargar los logs cada vez que cambie el botón de filtro de severidad
   useEffect(() => {
     cargarLogs();
   }, [cargarLogs]);
 
-  // --- FILTRADO CONTEXTUAL EN EL FRONTEND (BUSCADOR) ---
-  const logsFiltrados = logs.filter(log => {
+  // --- FILTRADO CONTEXTUAL BLINDADO ---
+  const safeLogs = Array.isArray(logs) ? logs : [];
+  const logsFiltrados = safeLogs.filter(log => {
+    if (!log) return false;
     const texto = busqueda.toLowerCase();
+    const idStr = log.id ? log.id.toString() : '';
+    const operadorStr = log.operador ? log.operador.toLowerCase() : '';
+    const accionStr = log.accion ? log.accion.toLowerCase() : '';
+    const ipStr = log.origen_ip || '';
+
     return (
-      log.id.toString().includes(texto) ||
-      log.operador.toLowerCase().includes(texto) ||
-      log.accion.toLowerCase().includes(texto) ||
-      log.origen_ip.includes(texto)
+      idStr.includes(texto) ||
+      operadorStr.includes(texto) ||
+      accionStr.includes(texto) ||
+      ipStr.includes(texto)
     );
   });
 
@@ -45,13 +58,13 @@ export default function Logs() {
     
     const headers = ["ID Evento", "Nivel", "Operador", "Origen IP", "Accion", "Detalles", "Timestamp"];
     const rows = logsFiltrados.map(log => [
-      `LOG-${log.id}`,
-      log.categoria,
-      log.operador,
-      log.origen_ip,
-      `"${log.accion.replace(/"/g, '""')}"`,
-      `"${log.detalles.replace(/"/g, '""')}"`,
-      log.timestamp
+      `LOG-${log.id || 'N/A'}`,
+      log.categoria || 'INFO',
+      log.operador || 'Sistema',
+      log.origen_ip || '0.0.0.0',
+      `"${(log.accion || '').replace(/"/g, '""')}"`,
+      `"${(log.detalles || '').replace(/"/g, '""')}"`,
+      log.timestamp || ''
     ]);
 
     const csvContent = "data:text/csv;charset=utf-8," 
@@ -87,7 +100,6 @@ export default function Logs() {
 
       {/* Barra de Herramientas */}
       <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-white dark:bg-[#0b111e] border border-hyperion-lightBorder dark:border-slate-800/50 p-4 rounded-2xl shadow-sm dark:shadow-xl transition-colors">
-        {/* Filtros */}
         <div className="flex gap-2 w-full md:w-auto overflow-x-auto">
           {['ALL', 'INFO', 'WARN', 'CRITICAL'].map((lvl) => (
             <button
@@ -103,7 +115,6 @@ export default function Logs() {
           ))}
         </div>
 
-        {/* Buscador Contextual */}
         <div className="relative w-full md:w-72">
           <Search className="absolute left-3 top-2.5 text-slate-400 dark:text-slate-600" size={16} />
           <input
@@ -140,31 +151,31 @@ export default function Logs() {
                   </td>
                 </tr>
               ) : logsFiltrados.length > 0 ? (
-                logsFiltrados.map((log) => (
-                  <tr key={log.id} className="hover:bg-purple-500/[0.02] dark:hover:bg-purple-500/[0.01] transition-colors font-mono">
-                    <td className="px-6 py-4 text-slate-500 dark:text-slate-400 font-bold transition-colors">LOG-{log.id}</td>
+                logsFiltrados.map((log, idx) => (
+                  <tr key={log.id || idx} className="hover:bg-purple-500/[0.02] dark:hover:bg-purple-500/[0.01] transition-colors font-mono">
+                    <td className="px-6 py-4 text-slate-500 dark:text-slate-400 font-bold transition-colors">LOG-{log.id || idx}</td>
                     <td className="px-6 py-4">
                       <span className={`flex items-center gap-1.5 font-bold ${log.categoria === 'CRITICAL' ? 'text-red-500 dark:text-red-400' : log.categoria === 'WARN' ? 'text-amber-500 dark:text-amber-400' : 'text-blue-500 dark:text-blue-400'
                         }`}>
                         {log.categoria === 'CRITICAL' && <ShieldAlert size={14} />}
                         {log.categoria === 'WARN' && <AlertTriangle size={14} />}
-                        {log.categoria === 'INFO' && <Info size={14} />}
-                        {log.categoria}
+                        {(log.categoria === 'INFO' || !log.categoria) && <Info size={14} />}
+                        {log.categoria || 'INFO'}
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col font-sans">
-                        <span className="text-slate-900 dark:text-slate-200 font-medium transition-colors">{log.operador}</span>
-                        <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 transition-colors">{log.origen_ip}</span>
+                        <span className="text-slate-900 dark:text-slate-200 font-medium transition-colors">{log.operador || 'Sistema'}</span>
+                        <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 transition-colors">{log.origen_ip || '127.0.0.1'}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-slate-700 dark:text-slate-300 font-sans transition-colors">
                       <div className="flex flex-col">
-                        <span>{log.accion}</span>
+                        <span>{log.accion || 'Acción sin registrar'}</span>
                         {log.detalles && <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500 mt-0.5">{log.detalles}</span>}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-slate-400 dark:text-slate-500 text-xs transition-colors">{log.timestamp}</td>
+                    <td className="px-6 py-4 text-slate-400 dark:text-slate-500 text-xs transition-colors">{log.timestamp ? new Date(log.timestamp).toLocaleString() : '-'}</td>
                   </tr>
                 ))
               ) : (
