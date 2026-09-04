@@ -4,6 +4,7 @@ import Login from './pages/Login';
 import ConfiguracionFlotante from './components/ConfiguracionFlotante';
 import { AnimatePresence, motion } from 'framer-motion';
 import { getToken } from './api';
+import { WebSocketProvider } from './context/WebSocketContext'; // ⬅️ IMPORTAMOS EL CONTEXTO
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Operadores = lazy(() => import('./pages/Operadores'));
@@ -73,8 +74,8 @@ export default function App() {
       'operadores': <Operadores />,
       'gestion de usuarios': <Operadores />,
       'gobernanza': <Gobernanza />,
-      'activos y riesgos': <ActivosRiesgos />, // ⬅️ ENRUTADO PARA MENU 
-      'activosriesgos': <ActivosRiesgos />,    // ⬅️ RESPALDO DE SEGURIDAD POR KEY
+      'activos y riesgos': <ActivosRiesgos />, 
+      'activosriesgos': <ActivosRiesgos />,    
       'logs': <Logs />,
       'logs de auditoria': <Logs />,
       'tickets': <Tickets />,
@@ -96,43 +97,46 @@ export default function App() {
     .replace(/[\u0300-\u036f]/g, "")
     .trim();
 
+  // ⬅️ ENVOLVEMOS TODO EL RETURN DENTRO DE <WebSocketProvider>
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 flex font-sans selection:bg-blue-500/30 transition-colors duration-300">
-      
-      <Sidebar 
-        currentPage={page} 
-        setPage={setPage} 
-        onLogout={handleLogout} 
-        onOpenConfig={() => setIsConfigOpen(true)} 
-        isConfigOpen={isConfigOpen}
-      />
-      
-      <main className="flex-1 ml-64 min-h-screen relative">
-        <div className="p-8 max-w-7xl mx-auto">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={normalizedPageKey}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Suspense fallback={
-                <div className="h-[60vh] flex items-center justify-center">
-                  <p className="dark:text-slate-500 text-slate-400 italic">Cargando módulo...</p>
-                </div>
-              }>
-                {renderPage(page)}
-              </Suspense>
-            </motion.div>
-          </AnimatePresence>
-        </div>
-      </main>
+    <WebSocketProvider>
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 flex font-sans selection:bg-blue-500/30 transition-colors duration-300">
+        
+        <Sidebar 
+          currentPage={page} 
+          setPage={setPage} 
+          onLogout={handleLogout} 
+          onOpenConfig={() => setIsConfigOpen(true)} 
+          isConfigOpen={isConfigOpen}
+        />
+        
+        <main className="flex-1 ml-64 min-h-screen relative">
+          <div className="p-8 max-w-7xl mx-auto">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={normalizedPageKey}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Suspense fallback={
+                  <div className="h-[60vh] flex items-center justify-center">
+                    <p className="dark:text-slate-500 text-slate-400 italic">Cargando módulo...</p>
+                  </div>
+                }>
+                  {renderPage(page)}
+                </Suspense>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </main>
 
-      <ConfiguracionFlotante 
-        isOpen={isConfigOpen} 
-        onClose={() => setIsConfigOpen(false)} 
-      />
-    </div>
+        <ConfiguracionFlotante 
+          isOpen={isConfigOpen} 
+          onClose={() => setIsConfigOpen(false)} 
+        />
+      </div>
+    </WebSocketProvider>
   );
 }

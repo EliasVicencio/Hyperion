@@ -1,8 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from fastapi.concurrency import run_in_threadpool
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
 from ..core import (
     get_db, RAW_DB_URL, verify_password, hash_password,
     PasswordUpdateRequest, PasswordRecovery2FARequest,
@@ -12,26 +15,35 @@ from ..core import (
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
+# Inicializamos el limitador basado en la IP del cliente
+limiter = Limiter(key_func=get_remote_address)
+
 @router.post("/login")
-async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+@limiter.limit("5/minute") # Bloquea tras 5 intentos fallidos o exitosos en 1 minuto
+async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     username = form_data.username
     password = form_data.password
     try:
         query = text('SELECT password, role, two_factor_enabled FROM usuarios WHERE email = :email')
         user_record = db.execute(query, {"email": username}).fetchone()
+        
         if not user_record or not verify_password(password, user_record[0]):
             await registrar_log(db, username, "LOGIN_FAILED", "WARN", detalles="Intento fallido de autenticación.")
             raise HTTPException(status_code=400, detail="Credenciales incorrectas o usuario no registrado.")
+            
         two_factor_enabled = bool(user_record[2])
         role = (user_record[1].upper() + "_ROLE") if user_record[1] else "OPERADOR_ROLE"
+        
         if two_factor_enabled:
             return {
                 "status": "requires_2fa",
                 "message": "Segundo factor de autenticación requerido para este operador.",
                 "username": username
             }
+            
         access_token = create_access_token(data={"sub": username, "role": role})
         await registrar_log(db, username, "LOGIN_SUCCESS", "INFO", detalles="Inicio de sesión perimetral correcto.")
+        
         return {
             "status": "success",
             "access_token": access_token,
@@ -45,7 +57,8 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
         raise HTTPException(status_code=500, detail=f"Error en el proceso de autenticación: {str(e)}")
 
 @router.post("/verify-2fa")
-async def verify_2fa(data: TokenVerifyRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute") # ¡También blindamos el 2FA por si acaso!
+async def verify_2fa(request: Request, data: TokenVerifyRequest, db: Session = Depends(get_db)):
     import pyotp
     try:
         query = text('SELECT two_factor_secret, role FROM usuarios WHERE email = :email')

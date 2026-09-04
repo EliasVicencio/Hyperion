@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { Activity, Shield, AlertTriangle, Server, ShieldCheck, RefreshCw } from 'lucide-react';
 import { apiGet } from '../api';
+import { useWebSocket } from '../context/WebSocketContext'; // ⬅️ IMPORTAMOS EL HOOK
 
 export default function Dashboard() {
+  const { mensajes, conectado } = useWebSocket(); // ⬅️ CONECTAMOS EL COMPONENTE AL SOCKET
   const [loading, setLoading] = useState(true);
   const [metricas, setMetricas] = useState({
     totalLogs: 0,
@@ -22,7 +24,6 @@ export default function Dashboard() {
 
   const sincronizarDashboard = async () => {
     setLoading(true);
-    // Declaramos variables de control de estado de la infraestructura por separado
     let currentGateway = "ONLINE";
     let currentDatabase = "CONNECTED";
 
@@ -31,7 +32,6 @@ export default function Dashboard() {
         const healthResponse = await apiGet('/health/deep');
         if (healthResponse.ok) {
           const healthData = await healthResponse.json();
-          // Mapeamos las respuestas del endpoint del backend (/health/deep)
           currentGateway = healthData.status === "healthy" ? "ONLINE" : "OFFLINE";
           currentDatabase = healthData.database === "connected" ? "CONNECTED" : "DISCONNECTED";
         } else {
@@ -48,7 +48,6 @@ export default function Dashboard() {
       if (!response.ok) throw new Error('Error al conectar con la pasarela.');
       const logs = await response.json();
 
-      // Cálculo de KPIs directos del SGSI
       const criticos = logs.filter(l => l.categoria === 'CRITICAL' || l.nivel === 'CRIT').length;
       const advertencias = logs.filter(l => l.categoria === 'WARN').length;
 
@@ -57,11 +56,9 @@ export default function Dashboard() {
         totalLogs: logs.length,
         criticos: criticos,
         advertencias: advertencias,
-        // 🌟 NUEVO: Asignamos dinámicamente el resultado real del estado de salud de la BD
         estadoInfra: { api_gateway: currentGateway, database: currentDatabase }
       }));
 
-      // Distribución real por rangos de horas basada en los timestamps del backend
       if (logs.length > 0) {
         const rangos = { '00:00': 0, '06:00': 0, '12:00': 0, '18:00': 0 };
         const bloqueosRango = { '00:00': 0, '06:00': 0, '12:00': 0, '18:00': 0 };
@@ -92,7 +89,6 @@ export default function Dashboard() {
       console.error("🚨 Dashboard Sync Error:", error);
       setMetricas(prev => ({
         ...prev,
-        // 🌟 NUEVO: Si falla la petición principal de logs por caída de red, forzamos estados a caídos
         estadoInfra: { api_gateway: "OFFLINE", database: "DISCONNECTED" }
       }));
     } finally {
@@ -100,15 +96,22 @@ export default function Dashboard() {
     }
   };
 
+  // ⬅️ ESTOS SON LOS NUEVOS USEEFFECTS QUE REEMPLAZAN AL SETINTERVAL
+
+  // 1. Carga los datos cuando el usuario entra a la pantalla
   useEffect(() => {
     sincronizarDashboard();
-    const interval = setInterval(sincronizarDashboard, 20000); // Polling cada 20 segundos
-    return () => clearInterval(interval);
   }, []);
+
+  // 2. Si entra un mensaje por WebSocket desde el backend, actualiza los datos
+  useEffect(() => {
+    if (mensajes.length > 0) {
+      sincronizarDashboard();
+    }
+  }, [mensajes]);
 
   return (
     <div className="space-y-6">
-      {/* Encabezado Unificado con Escudo */}
       <header className="flex justify-between items-end flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-950 dark:text-white tracking-tight flex items-center gap-3 transition-colors">
@@ -116,6 +119,8 @@ export default function Dashboard() {
               <Shield size={22} className="fill-white/10" />
             </div>
             Centro de Analíticas
+            {/* ⬅️ INDICADOR VISUAL DE WEBSOCKET (OPCIONAL) */}
+            <span className={`ml-2 w-3 h-3 rounded-full ${conectado ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-red-500 animate-pulse'}`} title={conectado ? 'Socket Conectado' : 'Socket Desconectado'}></span>
           </h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm transition-colors">Monitoreo de telemetría unificada y eventos de cumplimiento normativo</p>
         </div>
@@ -127,9 +132,7 @@ export default function Dashboard() {
         </button>
       </header>
 
-      {/* Grid de KPIs Reactivos */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* 🌟 NUEVO: La tarjeta de Estado del Sistema muta de color (red/emerald), texto (OFFLINE/ONLINE) y animación basándose en la salud real de la Base de Datos */}
         <StatCard 
           title="Estado del Sistema" 
           value={metricas.estadoInfra.database === "CONNECTED" ? "ONLINE" : "OFFLINE"} 
@@ -142,9 +145,7 @@ export default function Dashboard() {
         <StatCard title="Alertas de Riesgo" value={metricas.advertencias} icon={<AlertTriangle className="text-amber-500" />} change="Eventos de advertencia en BD" color="amber" />
       </div>
 
-      {/* Gráficos Avanzados */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Gráfico de Área Principal */}
         <div className="lg:col-span-2 bg-white dark:bg-hyperion-card border border-hyperion-lightBorder dark:border-slate-800/50 p-6 rounded-3xl shadow-sm dark:shadow-2xl transition-colors">
           <h3 className="text-sm font-semibold text-slate-400 mb-4 uppercase tracking-wider font-mono">Tráfico de Red & Ingesta</h3>
           <div className="h-72">
@@ -166,7 +167,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Distribución de Logs de Control */}
         <div className="bg-white dark:bg-hyperion-card border border-hyperion-lightBorder dark:border-slate-800/50 p-6 rounded-3xl shadow-sm dark:shadow-2xl flex flex-col justify-between transition-colors">
           <div>
             <h3 className="text-sm font-semibold text-slate-400 mb-4 uppercase tracking-wider font-mono">Eventos de Riesgo</h3>
@@ -203,7 +203,6 @@ function StatCard({ title, value, icon, change, color }) {
     blue: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
     purple: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
     amber: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
-    // 🌟 NUEVO: Mapeo de color dinámico rojo de contingencia para alertas OFFLINE
     red: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20 animate-pulse'
   };
 

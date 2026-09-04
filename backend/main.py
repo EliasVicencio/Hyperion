@@ -1,8 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import health, auth, operadores, logs, gobernanza, vigilancia, academia, riesgos, threat_intel, tickets
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
+from app.routers.auth import limiter # Importas el limitador que creamos recién
 
 app = FastAPI(title="Hyperion Core Backend", version="2.0.0")
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
