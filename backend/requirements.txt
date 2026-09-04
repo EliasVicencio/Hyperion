@@ -10,3 +10,4 @@ pyotp
 qrcode
 python-jose[cryptography]
 slowapi
+supabase
