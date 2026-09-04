@@ -1,26 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
 
-from app.routers import (
-    academia,
-    auth,
-    gobernanza,
-    health,
-    logs,
-    operadores,
-    riesgos,
-    threat_intel,
-    tickets,
-    vigilancia,
-)
-from app.routers.auth import limiter  # Importas el limitador que creamos recién
+# Routers SOC
+from app.routers import logs, incidents, soar, health, auth
 
-app = FastAPI(title="Hyperion Core Backend", version="2.0.0")
-
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app = FastAPI(title="Hyperion Core - SOC Platform", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -30,13 +14,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Registro de rutas activas del SOC
 app.include_router(health.router)
 app.include_router(auth.router)
-app.include_router(operadores.router)
 app.include_router(logs.router)
-app.include_router(gobernanza.router)
-app.include_router(vigilancia.router)
-app.include_router(academia.router)
-app.include_router(riesgos.router)
-app.include_router(threat_intel.router)
-app.include_router(tickets.router)
+app.include_router(incidents.router)
+app.include_router(soar.router)
+
+@app.get("/")
+def root():
+    return {"status": "ONLINE", "system": "Hyperion SOC Core", "engine": "FastAPI + Supabase"}

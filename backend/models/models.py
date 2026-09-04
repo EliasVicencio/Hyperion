@@ -1,16 +1,30 @@
-import datetime
+from datetime import datetime
+from sqlalchemy import Column, Integer, String, DateTime, Text, Enum
+import enum
+from ..database import Base  # O la ruta donde tengas tu Base
 
-from backend.app.dependencies.database import Base
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
+class IncidentSeverity(str, enum.Enum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
 
+class IncidentStatus(str, enum.Enum):
+    OPEN = "OPEN"
+    INVESTIGATING = "INVESTIGATING"
+    CONTAINED = "CONTAINED"
+    CLOSED = "CLOSED"
 
-class EventoVigilancia(Base):
-    __tablename__ = "eventos_vigilancia"
+class Incident(Base):
+    __tablename__ = "incidents"
 
     id = Column(Integer, primary_key=True, index=True)
-    operador_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
-    accion = Column(String, nullable=False)  # Ej: "LOGIN_FALLIDO", "ACCESO_RECURSO"
-    detalles = Column(String, nullable=True)  # JSON o Texto con info extra
-    ip_origen = Column(String, nullable=True)
-    severidad = Column(String, default="INFO")  # INFO, WARNING, CRITICAL
-    fecha_creacion = Column(DateTime, default=datetime.datetime.utcnow)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    severity = Column(String(20), default=IncidentSeverity.MEDIUM)
+    status = Column(String(20), default=IncidentStatus.OPEN)
+    source_ip = Column(String(50), nullable=True)
+    assigned_to = Column(String(100), default="L1 Analyst")
+    playbook_action = Column(String(100), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
