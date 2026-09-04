@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import { Activity, Shield, AlertTriangle, Server, ShieldCheck, RefreshCw } from 'lucide-react';
 import { apiGet } from '../api';
-import { useWebSocket } from '../context/WebSocketContext'; // ⬅️ IMPORTAMOS EL HOOK
+import { useWebSocket } from '../context/WebSocketContext';
 
 export default function Dashboard() {
-  const { mensajes, conectado } = useWebSocket(); // ⬅️ CONECTAMOS EL COMPONENTE AL SOCKET
+  const { mensajes, conectado } = useWebSocket();
   const [loading, setLoading] = useState(true);
   const [metricas, setMetricas] = useState({
     totalLogs: 0,
@@ -46,7 +46,12 @@ export default function Dashboard() {
 
       const response = await apiGet('/api/v1/logs');
       if (!response.ok) throw new Error('Error al conectar con la pasarela.');
-      const logs = await response.json();
+      const resJson = await response.json();
+
+      // 🛡️ EXTRACCIÓN SEGURA: Garantiza que logs sea SIEMPRE un Array
+      const logs = Array.isArray(resJson) 
+        ? resJson 
+        : (resJson?.data && Array.isArray(resJson.data) ? resJson.data : []);
 
       const criticos = logs.filter(l => l.categoria === 'CRITICAL' || l.nivel === 'CRIT').length;
       const advertencias = logs.filter(l => l.categoria === 'WARN').length;
@@ -96,14 +101,10 @@ export default function Dashboard() {
     }
   };
 
-  // ⬅️ ESTOS SON LOS NUEVOS USEEFFECTS QUE REEMPLAZAN AL SETINTERVAL
-
-  // 1. Carga los datos cuando el usuario entra a la pantalla
   useEffect(() => {
     sincronizarDashboard();
   }, []);
 
-  // 2. Si entra un mensaje por WebSocket desde el backend, actualiza los datos
   useEffect(() => {
     if (mensajes.length > 0) {
       sincronizarDashboard();
@@ -119,7 +120,6 @@ export default function Dashboard() {
               <Shield size={22} className="fill-white/10" />
             </div>
             Centro de Analíticas
-            {/* ⬅️ INDICADOR VISUAL DE WEBSOCKET (OPCIONAL) */}
             <span className={`ml-2 w-3 h-3 rounded-full ${conectado ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-red-500 animate-pulse'}`} title={conectado ? 'Socket Conectado' : 'Socket Desconectado'}></span>
           </h1>
           <p className="text-slate-500 dark:text-slate-400 text-sm transition-colors">Monitoreo de telemetría unificada y eventos de cumplimiento normativo</p>
