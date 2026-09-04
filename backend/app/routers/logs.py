@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 # Importamos el cliente de Supabase desde tus servicios
 from app.services.supabase_client import supabase_client
+
 from ..core import RAW_DB_URL, get_current_user, get_db
 
 router = APIRouter(prefix="/api/v1", tags=["Logs"])
