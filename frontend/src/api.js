@@ -1,4 +1,4 @@
-const API_BASE = '';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://tyunqthoinamdlyhgmuq.supabase.co';
 
 export function getToken() {
   return localStorage.getItem('hyperion_token');
@@ -24,7 +24,9 @@ export async function apiFetch(path, options = {}) {
     headers['Content-Type'] = 'application/json';
   }
 
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  // Asegura que no se dupliquen las barras en la ruta
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const res = await fetch(`${API_BASE}${cleanPath}`, { ...options, headers });
 
   if (res.status === 401) {
     setToken(null);
