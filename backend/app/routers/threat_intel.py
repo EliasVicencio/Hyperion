@@ -1,8 +1,10 @@
 import os
+
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from ..core import get_db, get_current_user, registrar_log
+
+from ..core import get_current_user, get_db, registrar_log
 
 router = APIRouter(prefix="/api/vigilancia", tags=["Threat Intel"])
 
@@ -37,7 +39,9 @@ async def geolocalizar(ip: str, current_user: dict = Depends(get_current_user)):
     async with httpx.AsyncClient(timeout=6.0) as client:
         geo = await _geolocalizar_ip(client, ip)
     if not geo:
-        raise HTTPException(status_code=404, detail=f"No se pudo geolocalizar la IP {ip}.")
+        raise HTTPException(
+            status_code=404, detail=f"No se pudo geolocalizar la IP {ip}."
+        )
     return {"ip": ip, **geo}
 
 
@@ -77,11 +81,17 @@ async def consultar_ip(
                         "as_owner": data.get("as_owner"),
                     }
                 elif r.status_code == 404:
-                    resultado["virustotal"] = {"error": "IP no encontrada en VirusTotal"}
+                    resultado["virustotal"] = {
+                        "error": "IP no encontrada en VirusTotal"
+                    }
                 else:
-                    resultado["virustotal"] = {"error": f"VirusTotal respondió {r.status_code}"}
+                    resultado["virustotal"] = {
+                        "error": f"VirusTotal respondió {r.status_code}"
+                    }
             except httpx.RequestError as e:
-                resultado["virustotal"] = {"error": f"No se pudo contactar VirusTotal: {str(e)}"}
+                resultado["virustotal"] = {
+                    "error": f"No se pudo contactar VirusTotal: {e!s}"
+                }
 
         if ABUSEIPDB_API_KEY:
             try:
@@ -101,15 +111,24 @@ async def consultar_ip(
                         "uso": data.get("usageType"),
                     }
                 else:
-                    resultado["abuseipdb"] = {"error": f"AbuseIPDB respondió {r.status_code}"}
+                    resultado["abuseipdb"] = {
+                        "error": f"AbuseIPDB respondió {r.status_code}"
+                    }
             except httpx.RequestError as e:
-                resultado["abuseipdb"] = {"error": f"No se pudo contactar AbuseIPDB: {str(e)}"}
+                resultado["abuseipdb"] = {
+                    "error": f"No se pudo contactar AbuseIPDB: {e!s}"
+                }
 
-    vt_malicioso = bool(resultado["virustotal"]) and resultado["virustotal"].get("maliciosos", 0) > 0
+    vt_malicioso = (
+        bool(resultado["virustotal"])
+        and resultado["virustotal"].get("maliciosos", 0) > 0
+    )
     abuse_score = (resultado["abuseipdb"] or {}).get("score_abuso") or 0
     severidad = "CRITICAL" if (vt_malicioso or abuse_score >= 50) else "INFO"
 
-    vt_mal = resultado["virustotal"].get("maliciosos") if resultado["virustotal"] else "N/A"
+    vt_mal = (
+        resultado["virustotal"].get("maliciosos") if resultado["virustotal"] else "N/A"
+    )
     await registrar_log(
         db,
         current_user["email"],

@@ -1,0 +1,12 @@
+[lint]
+# Ignoramos las reglas que chocan con FastAPI y el código actual
+ignore = [
+    "B008",    # Permite llamadas a funciones en los argumentos (ej. Depends de FastAPI)
+    "BLE001",  # Permite usar 'except Exception:'
+    "S110",    # Permite 'except Exception: pass'
+    "DTZ003",  # Permite datetime.utcnow()
+    "DTZ005",  # Permite datetime.now() sin zona horaria explícita
+    "RUF013",  # Permite parámetros opcionales implícitos
+    "RUF059",  # Permite variables desempaquetadas sin uso
+    "ASYNC230" # Permite usar open() normal dentro de funciones async (para los scripts)
+]

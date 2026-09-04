@@ -1,5 +1,6 @@
-import os
 import asyncio
+import os
+
 import httpx
 
 SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL")
@@ -21,32 +22,54 @@ _ESTILO = {
 def _slack_payload(titulo, operador, accion, detalles, categoria):
     e = _ESTILO.get(categoria, _ESTILO["INFO"])
     return {
-        "attachments": [{
-            "color": e["slack"],
-            "blocks": [
-                {"type": "section", "text": {"type": "mrkdwn", "text": f"{e['emoji']} *{titulo}*"}},
-                {"type": "section", "fields": [
-                    {"type": "mrkdwn", "text": f"*Operador:*\n{operador}"},
-                    {"type": "mrkdwn", "text": f"*Acción:*\n{accion}"},
-                ]},
-                {"type": "context", "elements": [{"type": "mrkdwn", "text": detalles or "Sin detalles adicionales."}]},
-            ],
-        }]
+        "attachments": [
+            {
+                "color": e["slack"],
+                "blocks": [
+                    {
+                        "type": "section",
+                        "text": {"type": "mrkdwn", "text": f"{e['emoji']} *{titulo}*"},
+                    },
+                    {
+                        "type": "section",
+                        "fields": [
+                            {"type": "mrkdwn", "text": f"*Operador:*\n{operador}"},
+                            {"type": "mrkdwn", "text": f"*Acción:*\n{accion}"},
+                        ],
+                    },
+                    {
+                        "type": "context",
+                        "elements": [
+                            {
+                                "type": "mrkdwn",
+                                "text": detalles or "Sin detalles adicionales.",
+                            }
+                        ],
+                    },
+                ],
+            }
+        ]
     }
 
 
 def _discord_payload(titulo, operador, accion, detalles, categoria):
     e = _ESTILO.get(categoria, _ESTILO["INFO"])
     return {
-        "embeds": [{
-            "title": f"{e['emoji']} {titulo}",
-            "color": e["hex"],
-            "fields": [
-                {"name": "Operador", "value": operador or "—", "inline": True},
-                {"name": "Acción", "value": accion, "inline": True},
-                {"name": "Detalles", "value": detalles or "Sin detalles adicionales.", "inline": False},
-            ],
-        }]
+        "embeds": [
+            {
+                "title": f"{e['emoji']} {titulo}",
+                "color": e["hex"],
+                "fields": [
+                    {"name": "Operador", "value": operador or "—", "inline": True},
+                    {"name": "Acción", "value": accion, "inline": True},
+                    {
+                        "name": "Detalles",
+                        "value": detalles or "Sin detalles adicionales.",
+                        "inline": False,
+                    },
+                ],
+            }
+        ]
     }
 
 
@@ -56,22 +79,35 @@ def _teams_payload(titulo, operador, accion, detalles, categoria):
     e = _ESTILO.get(categoria, _ESTILO["INFO"])
     return {
         "type": "message",
-        "attachments": [{
-            "contentType": "application/vnd.microsoft.card.adaptive",
-            "content": {
-                "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-                "type": "AdaptiveCard",
-                "version": "1.4",
-                "body": [
-                    {"type": "TextBlock", "text": f"{e['emoji']} {titulo}", "size": "Large", "weight": "Bolder"},
-                    {"type": "FactSet", "facts": [
-                        {"title": "Operador", "value": operador or "—"},
-                        {"title": "Acción", "value": accion},
-                        {"title": "Detalles", "value": detalles or "Sin detalles adicionales."},
-                    ]},
-                ],
-            },
-        }],
+        "attachments": [
+            {
+                "contentType": "application/vnd.microsoft.card.adaptive",
+                "content": {
+                    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                    "type": "AdaptiveCard",
+                    "version": "1.4",
+                    "body": [
+                        {
+                            "type": "TextBlock",
+                            "text": f"{e['emoji']} {titulo}",
+                            "size": "Large",
+                            "weight": "Bolder",
+                        },
+                        {
+                            "type": "FactSet",
+                            "facts": [
+                                {"title": "Operador", "value": operador or "—"},
+                                {"title": "Acción", "value": accion},
+                                {
+                                    "title": "Detalles",
+                                    "value": detalles or "Sin detalles adicionales.",
+                                },
+                            ],
+                        },
+                    ],
+                },
+            }
+        ],
     }
 
 
@@ -86,20 +122,59 @@ _PRIORIDAD_ESTILO = {
 def _slack_ticket_payload(ticket: dict) -> dict:
     estilo = _PRIORIDAD_ESTILO.get(ticket.get("prioridad"), _PRIORIDAD_ESTILO["MEDIA"])
     return {
-        "attachments": [{
-            "color": estilo["color"],
-            "blocks": [
-                {"type": "header", "text": {"type": "plain_text", "text": f"🎫 Ticket #{ticket['id']} — {ticket['titulo']}", "emoji": True}},
-                {"type": "section", "fields": [
-                    {"type": "mrkdwn", "text": f"*Prioridad:*\n{estilo['emoji']} {ticket.get('prioridad', 'MEDIA')}"},
-                    {"type": "mrkdwn", "text": f"*Estado:*\n{ticket.get('estado', 'ABIERTO')}"},
-                    {"type": "mrkdwn", "text": f"*Creado por:*\n{ticket.get('creado_por', '—')}"},
-                    {"type": "mrkdwn", "text": f"*Origen:*\n{ticket.get('origen', 'INTERNO')}"},
-                ]},
-                {"type": "section", "text": {"type": "mrkdwn", "text": ticket.get("descripcion") or "_Sin descripción adicional._"}},
-                {"type": "context", "elements": [{"type": "mrkdwn", "text": f"🕐 {ticket.get('created_at', '')}"}]},
-            ],
-        }]
+        "attachments": [
+            {
+                "color": estilo["color"],
+                "blocks": [
+                    {
+                        "type": "header",
+                        "text": {
+                            "type": "plain_text",
+                            "text": f"🎫 Ticket #{ticket['id']} — {ticket['titulo']}",
+                            "emoji": True,
+                        },
+                    },
+                    {
+                        "type": "section",
+                        "fields": [
+                            {
+                                "type": "mrkdwn",
+                                "text": f"*Prioridad:*\n{estilo['emoji']} {ticket.get('prioridad', 'MEDIA')}",
+                            },
+                            {
+                                "type": "mrkdwn",
+                                "text": f"*Estado:*\n{ticket.get('estado', 'ABIERTO')}",
+                            },
+                            {
+                                "type": "mrkdwn",
+                                "text": f"*Creado por:*\n{ticket.get('creado_por', '—')}",
+                            },
+                            {
+                                "type": "mrkdwn",
+                                "text": f"*Origen:*\n{ticket.get('origen', 'INTERNO')}",
+                            },
+                        ],
+                    },
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": ticket.get("descripcion")
+                            or "_Sin descripción adicional._",
+                        },
+                    },
+                    {
+                        "type": "context",
+                        "elements": [
+                            {
+                                "type": "mrkdwn",
+                                "text": f"🕐 {ticket.get('created_at', '')}",
+                            }
+                        ],
+                    },
+                ],
+            }
+        ]
     }
 
 
@@ -107,18 +182,37 @@ def _discord_ticket_payload(ticket: dict) -> dict:
     estilo = _PRIORIDAD_ESTILO.get(ticket.get("prioridad"), _PRIORIDAD_ESTILO["MEDIA"])
     color_hex = int(estilo["color"].lstrip("#"), 16)
     return {
-        "embeds": [{
-            "title": f"🎫 Ticket #{ticket['id']} — {ticket['titulo']}",
-            "description": ticket.get("descripcion") or "_Sin descripción adicional._",
-            "color": color_hex,
-            "fields": [
-                {"name": "Prioridad", "value": f"{estilo['emoji']} {ticket.get('prioridad', 'MEDIA')}", "inline": True},
-                {"name": "Estado", "value": ticket.get("estado", "ABIERTO"), "inline": True},
-                {"name": "Creado por", "value": ticket.get("creado_por", "—"), "inline": True},
-                {"name": "Origen", "value": ticket.get("origen", "INTERNO"), "inline": True},
-            ],
-            "footer": {"text": ticket.get("created_at", "")},
-        }]
+        "embeds": [
+            {
+                "title": f"🎫 Ticket #{ticket['id']} — {ticket['titulo']}",
+                "description": ticket.get("descripcion")
+                or "_Sin descripción adicional._",
+                "color": color_hex,
+                "fields": [
+                    {
+                        "name": "Prioridad",
+                        "value": f"{estilo['emoji']} {ticket.get('prioridad', 'MEDIA')}",
+                        "inline": True,
+                    },
+                    {
+                        "name": "Estado",
+                        "value": ticket.get("estado", "ABIERTO"),
+                        "inline": True,
+                    },
+                    {
+                        "name": "Creado por",
+                        "value": ticket.get("creado_por", "—"),
+                        "inline": True,
+                    },
+                    {
+                        "name": "Origen",
+                        "value": ticket.get("origen", "INTERNO"),
+                        "inline": True,
+                    },
+                ],
+                "footer": {"text": ticket.get("created_at", "")},
+            }
+        ]
     }
 
 
@@ -131,21 +225,31 @@ async def notificar_ticket(ticket: dict):
         async with httpx.AsyncClient(timeout=8.0) as client:
             tareas = []
             if SLACK_WEBHOOK_URL:
-                tareas.append(client.post(SLACK_WEBHOOK_URL, json=_slack_ticket_payload(ticket)))
+                tareas.append(
+                    client.post(SLACK_WEBHOOK_URL, json=_slack_ticket_payload(ticket))
+                )
             if DISCORD_WEBHOOK_URL:
-                tareas.append(client.post(DISCORD_WEBHOOK_URL, json=_discord_ticket_payload(ticket)))
+                tareas.append(
+                    client.post(
+                        DISCORD_WEBHOOK_URL, json=_discord_ticket_payload(ticket)
+                    )
+                )
 
             resultados = await asyncio.gather(*tareas, return_exceptions=True)
             for r in resultados:
                 if isinstance(r, Exception):
                     print(f"⚠️ Notificación de ticket fallida (no crítico): {r}")
                 elif hasattr(r, "status_code") and r.status_code >= 300:
-                    print(f"⚠️ Webhook de ticket respondió {r.status_code}: {r.text[:200]}")
+                    print(
+                        f"⚠️ Webhook de ticket respondió {r.status_code}: {r.text[:200]}"
+                    )
     except Exception as e:
         print(f"⚠️ Error notificando ticket (no crítico): {e}")
 
 
-async def notificar_evento(operador: str, accion: str, categoria: str, detalles: str = None):
+async def notificar_evento(
+    operador: str, accion: str, categoria: str, detalles: str = None
+):
     """Envía el evento a Slack, Discord y Teams (los que estén configurados vía env vars).
     Best-effort: nunca lanza excepciones hacia arriba. Un webhook caído o mal configurado
     no debe romper el flujo normal de auditoría/login/lo que sea que disparó el evento."""
@@ -155,22 +259,49 @@ async def notificar_evento(operador: str, accion: str, categoria: str, detalles:
     if not any([SLACK_WEBHOOK_URL, DISCORD_WEBHOOK_URL, TEAMS_WEBHOOK_URL]):
         return
 
-    titulo = "Alerta de Seguridad Hyperion" if categoria == "CRITICAL" else "Aviso de Hyperion"
+    titulo = (
+        "Alerta de Seguridad Hyperion"
+        if categoria == "CRITICAL"
+        else "Aviso de Hyperion"
+    )
 
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
             tareas = []
             if SLACK_WEBHOOK_URL:
-                tareas.append(client.post(SLACK_WEBHOOK_URL, json=_slack_payload(titulo, operador, accion, detalles, categoria)))
+                tareas.append(
+                    client.post(
+                        SLACK_WEBHOOK_URL,
+                        json=_slack_payload(
+                            titulo, operador, accion, detalles, categoria
+                        ),
+                    )
+                )
             if DISCORD_WEBHOOK_URL:
-                tareas.append(client.post(DISCORD_WEBHOOK_URL, json=_discord_payload(titulo, operador, accion, detalles, categoria)))
+                tareas.append(
+                    client.post(
+                        DISCORD_WEBHOOK_URL,
+                        json=_discord_payload(
+                            titulo, operador, accion, detalles, categoria
+                        ),
+                    )
+                )
             if TEAMS_WEBHOOK_URL:
-                tareas.append(client.post(TEAMS_WEBHOOK_URL, json=_teams_payload(titulo, operador, accion, detalles, categoria)))
+                tareas.append(
+                    client.post(
+                        TEAMS_WEBHOOK_URL,
+                        json=_teams_payload(
+                            titulo, operador, accion, detalles, categoria
+                        ),
+                    )
+                )
 
             resultados = await asyncio.gather(*tareas, return_exceptions=True)
             for r in resultados:
                 if isinstance(r, Exception):
-                    print(f"⚠️ Notificación fallida (no crítico, no interrumpe el flujo): {r}")
+                    print(
+                        f"⚠️ Notificación fallida (no crítico, no interrumpe el flujo): {r}"
+                    )
                 elif hasattr(r, "status_code") and r.status_code >= 300:
                     print(f"⚠️ Webhook respondió {r.status_code}: {r.text[:200]}")
     except Exception as e:
