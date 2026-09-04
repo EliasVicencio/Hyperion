@@ -85,8 +85,8 @@ async def seed_iso_academy():
             )
 
             sql_lessons = text("""
-                INSERT INTO academy_lessons (id, domain_id, title, duration_minutes, mapped_controls, content_markdown, sort_order) 
-                VALUES (:id, :domain_id, :title, :duration_minutes, :mapped_controls, :content_markdown, :sort_order);
+                INSERT INTO academy_lessons (id, domain_id, title, duration_minutes, mapped_controls, content_markdown, sort_order, framework) 
+                VALUES (:id, :domain_id, :title, :duration_minutes, :mapped_controls, :content_markdown, :sort_order, :framework);
             """)
             sql_checkpoints = text("""
                 INSERT INTO academy_checkpoints (id, lesson_id, question, options, correct_option_id) 
@@ -136,6 +136,7 @@ async def seed_iso_academy():
                         "mapped_controls": [iso_label],
                         "content_markdown": content_markdown,
                         "sort_order": sort_order,
+                        "framework": "ISO",
                     },
                 )
 
