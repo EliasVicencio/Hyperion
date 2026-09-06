@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Ticket, Plus, Loader2, AlertCircle, CheckCircle2, Circle } from 'lucide-react';
+import { Ticket, Plus, Loader2, AlertCircle, CheckCircle2, Circle, ExternalLink } from 'lucide-react';
 import { apiGet, apiPost, apiPatch } from '../api';
 
 const PRIORIDAD_ESTILO = {
@@ -45,7 +45,11 @@ export default function Tickets() {
       const response = await apiPost('/api/v1/tickets', { titulo, descripcion, prioridad });
       const data = await response.json();
       if (!response.ok) throw new Error(data.detail || 'No se pudo crear el ticket.');
-      setTickets(prev => [data, ...prev]);
+      
+      // Si el backend responde envuelto o directo con el ticket
+      const ticketCreado = data.ticket || data;
+      setTickets(prev => [ticketCreado, ...prev]);
+      
       setTitulo('');
       setDescripcion('');
       setPrioridad('MEDIA');
@@ -57,7 +61,7 @@ export default function Tickets() {
   };
 
   const alternarEstado = async (ticket) => {
-    const nuevoEstado = ticket.estado === 'ABIERTO' ? 'CERRADO' : 'ABIERTO';
+    const nuevoEstado = ticket.estado === 'CERRADO' ? 'ABIERTO' : 'CERRADO';
     // Optimista: actualizamos en pantalla de inmediato, revertimos si falla
     setTickets(prev => prev.map(t => t.id === ticket.id ? { ...t, estado: nuevoEstado } : t));
     try {
@@ -72,12 +76,14 @@ export default function Tickets() {
     <div className="space-y-6 text-slate-800 dark:text-slate-200">
       <header>
         <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white">
+          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20">
             <Ticket size={22} />
           </div>
           Tickets de Soporte
         </h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Incidentes y solicitudes, con notificación automática a Slack</p>
+        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+          Incidentes y solicitudes con sincronización automática a Jira Service Management y Slack
+        </p>
       </header>
 
       {/* Formulario de creación */}
@@ -111,10 +117,19 @@ export default function Tickets() {
             <button
               type="submit"
               disabled={creando || !titulo.trim()}
-              className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-xl text-sm flex items-center justify-center gap-2 transition-all"
+              className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-xl text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-600/20"
             >
-              {creando ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-              Crear Ticket
+              {creando ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Sincronizando con Jira...
+                </>
+              ) : (
+                <>
+                  <Plus size={16} />
+                  Crear Ticket
+                </>
+              )}
             </button>
           </div>
         </form>
@@ -144,7 +159,7 @@ export default function Tickets() {
                 className={`border rounded-xl p-4 flex items-center justify-between gap-4 transition-colors ${
                   ticket.estado === 'CERRADO'
                     ? 'bg-slate-50/50 dark:bg-slate-950/40 border-slate-100 dark:border-slate-900 opacity-60'
-                    : 'bg-slate-50/50 dark:bg-slate-950/40 border-slate-100 dark:border-slate-900'
+                    : 'bg-slate-50/50 dark:bg-slate-950/40 border-slate-100 dark:border-slate-900 hover:border-slate-300 dark:hover:border-slate-800'
                 }`}
               >
                 <button onClick={() => alternarEstado(ticket)} className="shrink-0" title="Cambiar estado">
@@ -156,17 +171,38 @@ export default function Tickets() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className={`text-sm font-semibold ${ticket.estado === 'CERRADO' ? 'line-through text-slate-400 dark:text-slate-600' : 'text-slate-800 dark:text-slate-200'}`}>
-                      {ticket.titulo}
+                      {ticket.titulo || ticket.title}
                     </p>
                     <span className="text-[10px] text-slate-400 dark:text-slate-600 font-mono">#{ticket.id}</span>
+                    
                     {ticket.origen === 'API_EXTERNA' && (
                       <span className="text-[9px] bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded font-mono">EXTERNO</span>
                     )}
+
+                    {/* Insignia / Badge de Jira con enlace directo */}
+                    {ticket.jira_issue_key && (
+                      <a
+                        href={ticket.jira_issue_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/60 px-2 py-0.5 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
+                        title="Ver en Jira Service Management"
+                      >
+                        <span>Jira: {ticket.jira_issue_key}</span>
+                        <ExternalLink size={10} />
+                      </a>
+                    )}
                   </div>
-                  {ticket.descripcion && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{ticket.descripcion}</p>
+
+                  {(ticket.descripcion || ticket.description) && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      {ticket.descripcion || ticket.description}
+                    </p>
                   )}
-                  <p className="text-[10px] text-slate-400 dark:text-slate-600 mt-1 font-mono">{ticket.creado_por} · {ticket.created_at}</p>
+
+                  <p className="text-[10px] text-slate-400 dark:text-slate-600 mt-1 font-mono">
+                    {ticket.creado_por || 'Sistema'} · {ticket.created_at}
+                  </p>
                 </div>
 
                 <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded border tracking-wide shrink-0 ${PRIORIDAD_ESTILO[ticket.prioridad] || PRIORIDAD_ESTILO.MEDIA}`}>
