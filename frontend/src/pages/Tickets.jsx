@@ -42,14 +42,24 @@ export default function Tickets() {
     setCreando(true);
     setError(null);
     try {
-      const response = await apiPost('/api/v1/tickets', { titulo, descripcion, prioridad });
+      const response = await apiPost('/api/v1/tickets', {
+        titulo,
+        descripcion,
+        prioridad
+      });
+
       const data = await response.json();
-      if (!response.ok) throw new Error(data.detail || 'No se pudo crear el ticket.');
-      
-      // Si el backend responde envuelto o directo con el ticket
+
+      if (!response.ok) {
+        const errorMsg = typeof data.detail === 'object'
+          ? JSON.stringify(data.detail)
+          : (data.detail || 'No se pudo crear el ticket.');
+        throw new Error(errorMsg);
+      }
+
       const ticketCreado = data.ticket || data;
       setTickets(prev => [ticketCreado, ...prev]);
-      
+
       setTitulo('');
       setDescripcion('');
       setPrioridad('MEDIA');
@@ -156,11 +166,10 @@ export default function Tickets() {
             {tickets.map(ticket => (
               <div
                 key={ticket.id}
-                className={`border rounded-xl p-4 flex items-center justify-between gap-4 transition-colors ${
-                  ticket.estado === 'CERRADO'
+                className={`border rounded-xl p-4 flex items-center justify-between gap-4 transition-colors ${ticket.estado === 'CERRADO'
                     ? 'bg-slate-50/50 dark:bg-slate-950/40 border-slate-100 dark:border-slate-900 opacity-60'
                     : 'bg-slate-50/50 dark:bg-slate-950/40 border-slate-100 dark:border-slate-900 hover:border-slate-300 dark:hover:border-slate-800'
-                }`}
+                  }`}
               >
                 <button onClick={() => alternarEstado(ticket)} className="shrink-0" title="Cambiar estado">
                   {ticket.estado === 'CERRADO'
@@ -174,7 +183,7 @@ export default function Tickets() {
                       {ticket.titulo || ticket.title}
                     </p>
                     <span className="text-[10px] text-slate-400 dark:text-slate-600 font-mono">#{ticket.id}</span>
-                    
+
                     {ticket.origen === 'API_EXTERNA' && (
                       <span className="text-[9px] bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded font-mono">EXTERNO</span>
                     )}

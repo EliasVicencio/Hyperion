@@ -3,7 +3,7 @@ import os
 import psycopg2
 from fastapi import APIRouter, HTTPException
 from psycopg2.extras import RealDictCursor
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.services.jira_service import create_jira_issue
 
@@ -20,9 +20,32 @@ def get_db_connection():
 
 
 class TicketCreate(BaseModel):
-    title: str
+    title: str | None = None
+    titulo: str | None = None
     description: str | None = None
-    priority: str | None = "Media"
+    descripcion: str | None = None
+    priority: str | None = "MEDIA"
+    prioridad: str | None = None
+
+    @property
+    def clean_title(self) -> str:
+        return self.title or self.titulo or ""
+
+    @property
+    def clean_description(self) -> str:
+        return self.description or self.descripcion or ""
+
+    @property
+    def clean_priority(self) -> str:
+        return self.prioridad or self.priority or "MEDIA"
+
+
+PRIORITY_MAP = {
+    "BAJA": "Low",
+    "MEDIA": "Medium",
+    "ALTA": "High",
+    "CRITICA": "Highest",
+}
 
 
 @router.get("")
@@ -41,14 +64,20 @@ def get_tickets():
 
 @router.post("")
 async def create_ticket(ticket: TicketCreate):
-    if not ticket.title:
+    title = ticket.clean_title
+    description = ticket.clean_description
+    raw_priority = ticket.clean_priority.upper()
+
+    if not title:
         raise HTTPException(
             status_code=400, detail="El título del ticket es requerido."
         )
 
+    jira_priority = PRIORITY_MAP.get(raw_priority, "Medium")
+
     # 1. Crear el ticket en Jira de forma asíncrona
     jira_data = await create_jira_issue(
-        title=ticket.title, description=ticket.description, priority=ticket.priority
+        title=title, description=description, priority=jira_priority
     )
 
     jira_key = jira_data.get("key") if jira_data else None
@@ -67,9 +96,9 @@ async def create_ticket(ticket: TicketCreate):
         cursor.execute(
             query,
             (
-                ticket.title,
-                ticket.description,
-                ticket.priority,
+                title,
+                description,
+                raw_priority,
                 "Abierto",
                 jira_key,
                 jira_url,
