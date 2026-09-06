@@ -1,4 +1,6 @@
 import os
+
+import httpx
 import psycopg2
 from fastapi import APIRouter, HTTPException
 from psycopg2.extras import RealDictCursor
