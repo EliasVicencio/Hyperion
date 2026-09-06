@@ -3,7 +3,7 @@ import os
 import psycopg2
 from fastapi import APIRouter, HTTPException
 from psycopg2.extras import RealDictCursor
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from app.services.jira_service import create_jira_issue
 
