@@ -83,13 +83,13 @@ async def create_ticket(ticket: TicketCreate):
     jira_key = jira_data.get("key") if jira_data else None
     jira_url = jira_data.get("url") if jira_data else None
 
-    # 2. Insertar en la base de datos Supabase
+    # 2. Insertar en la base de datos Supabase usando los nombres de columna correctos
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         query = """
             INSERT INTO public.tickets 
-            (title, description, priority, status, jira_issue_key, jira_issue_url)
+            (titulo, descripcion, prioridad, estado, jira_issue_key, jira_issue_url)
             VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING *;
         """
@@ -99,7 +99,7 @@ async def create_ticket(ticket: TicketCreate):
                 title,
                 description,
                 raw_priority,
-                "Abierto",
+                "ABIERTO",
                 jira_key,
                 jira_url,
             ),
