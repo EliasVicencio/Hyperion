@@ -1,91 +1,63 @@
 import os
 
-import psycopg2
-from fastapi import APIRouter, HTTPException
-from psycopg2.extras import RealDictCursor
-from pydantic import BaseModel
+import httpx
 
-from app.services.jira_service import create_jira_issue
-
-router = APIRouter(prefix="/api/v1/tickets", tags=["Tickets"])
-
-DATABASE_URL = os.getenv("DATABASE_URL")
+JIRA_DOMAIN = os.getenv("JIRA_DOMAIN")
+JIRA_EMAIL = os.getenv("JIRA_EMAIL")
+JIRA_API_TOKEN = os.getenv("JIRA_API_TOKEN")
+JIRA_PROJECT_KEY = os.getenv("JIRA_PROJECT_KEY", "HYP")
 
 
-def get_db_connection():
-    if not DATABASE_URL:
-        raise HTTPException(status_code=500, detail="DATABASE_URL no está configurada")
-    url = DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
-    return psycopg2.connect(url, cursor_factory=RealDictCursor)
+async def create_jira_issue(
+    title: str, description: str | None = None, priority: str = "Medium"
+) -> dict[str, str] | None:
+    """Crea un ticket en Jira Service Management / Jira Software vía API REST v3."""
+    if not all([JIRA_DOMAIN, JIRA_EMAIL, JIRA_API_TOKEN]):
+        print("⚠️ [JIRA] Faltan variables de entorno para Jira. Se omitirá la sincronización externa.")
+        return None
 
+    clean_domain = JIRA_DOMAIN.replace("https://", "").replace("http://", "").strip("/")
+    url = f"https://{clean_domain}/rest/api/3/issue"
+    auth = (JIRA_EMAIL, JIRA_API_TOKEN)
 
-class TicketCreate(BaseModel):
-    title: str
-    description: str | None = None
-    priority: str | None = "Media"
-
-
-@router.get("")
-def get_tickets():
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM public.tickets ORDER BY created_at DESC;")
-        tickets = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        return tickets
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al obtener tickets: {e!s}")
-
-
-@router.post("")
-async def create_ticket(ticket: TicketCreate):
-    if not ticket.title:
-        raise HTTPException(
-            status_code=400, detail="El título del ticket es requerido."
-        )
-
-    # 1. Crear el ticket en Jira de forma asíncrona
-    jira_data = await create_jira_issue(
-        title=ticket.title, description=ticket.description, priority=ticket.priority
-    )
-
-    jira_key = jira_data.get("key") if jira_data else None
-    jira_url = jira_data.get("url") if jira_data else None
-
-    # 2. Insertar en la base de datos Supabase
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        query = """
-            INSERT INTO public.tickets 
-            (title, description, priority, status, jira_issue_key, jira_issue_url)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING *;
-        """
-        cursor.execute(
-            query,
-            (
-                ticket.title,
-                ticket.description,
-                ticket.priority,
-                "Abierto",
-                jira_key,
-                jira_url,
-            ),
-        )
-        new_ticket = cursor.fetchone()
-        conn.commit()
-        cursor.close()
-        conn.close()
-
-        return {
-            "status": "success",
-            "message": "Ticket registrado exitosamente",
-            "ticket": new_ticket,
+    payload = {
+        "fields": {
+            "project": {"key": JIRA_PROJECT_KEY},
+            "summary": f"[Hyperion] {title}",
+            "description": {
+                "type": "doc",
+                "version": 1,
+                "content": [
+                    {
+                        "type": "paragraph",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": description if description else "Sin descripción adicional provista desde Hyperion.",
+                            }
+                        ],
+                    }
+                ],
+            },
+            "issuetype": {"name": "Task"},
         }
+    }
+
+    headers = {"Accept": "application/json", "Content-Type": "application/json"}
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(url, json=payload, auth=auth, headers=headers)
+
+            if response.status_code == 201:
+                data = response.json()
+                issue_key = data.get("key")
+                issue_url = f"https://{clean_domain}/browse/{issue_key}"
+                print(f"✅ [JIRA] Ticket creado exitosamente: {issue_key}")
+                return {"key": issue_key, "url": issue_url}
+            else:
+                print(f"❌ [JIRA] Error al crear ticket ({response.status_code}): {response.text}")
+                return None
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error al guardar ticket en BD: {e!s}"
-        )
+        print(f"❌ [JIRA] Excepción durante la llamada HTTP: {e!s}")
+        return None
