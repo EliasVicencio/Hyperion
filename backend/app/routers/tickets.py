@@ -1,9 +1,9 @@
 import os
 import psycopg2
+from fastapi import APIRouter, HTTPException
 from psycopg2.extras import RealDictCursor
-from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from typing import Optional, List
+
 from app.services.jira_service import create_jira_issue
 
 router = APIRouter(prefix="/api/v1/tickets", tags=["Tickets"])
@@ -18,8 +18,8 @@ def get_db_connection():
 
 class TicketCreate(BaseModel):
     title: str
-    description: Optional[str] = None
-    priority: Optional[str] = "Media"
+    description: str | None = None
+    priority: str | None = "Media"
 
 @router.get("")
 def get_tickets():
@@ -32,7 +32,7 @@ def get_tickets():
         conn.close()
         return tickets
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al obtener tickets: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al obtener tickets: {e!s}")
 
 @router.post("")
 async def create_ticket(ticket: TicketCreate):
@@ -74,4 +74,4 @@ async def create_ticket(ticket: TicketCreate):
             "ticket": new_ticket
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al guardar ticket en BD: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al guardar ticket en BD: {e!s}")
