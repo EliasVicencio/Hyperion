@@ -1,7 +1,7 @@
 import os
 
 import psycopg2
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from psycopg2.extras import RealDictCursor
 from pydantic import BaseModel
 
@@ -14,7 +14,9 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 def get_db_connection():
     if not DATABASE_URL:
-        raise HTTPException(status_code=500, detail="DATABASE_URL no está configurada")
+        raise HTTPException(
+            status_code=500, detail="DATABASE_URL no está configurada"
+        )
     url = DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
     return psycopg2.connect(url, cursor_factory=RealDictCursor)
 
@@ -47,6 +49,26 @@ PRIORITY_MAP = {
     "CRITICA": "Highest",
 }
 
+# Mapeo de estados de Jira (Español e Inglés) a formato Hyperion
+JIRA_STATUS_MAP = {
+    # Finalizados
+    "DONE": "CERRADO",
+    "RESOLVED": "CERRADO",
+    "CLOSED": "CERRADO",
+    "LISTO": "CERRADO",
+    "RESUELTO": "CERRADO",
+    "CERRADO": "CERRADO",
+    # En Progreso
+    "IN PROGRESS": "EN PROCESO",
+    "EN CURSO": "EN PROCESO",
+    "EN PROCESO": "EN PROCESO",
+    # Abiertos
+    "TO DO": "ABIERTO",
+    "OPEN": "ABIERTO",
+    "POR HACER": "ABIERTO",
+    "PENDIENTE": "ABIERTO",
+}
+
 
 @router.get("")
 def get_tickets():
@@ -59,7 +81,9 @@ def get_tickets():
         conn.close()
         return tickets
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al obtener tickets: {e!s}")
+        raise HTTPException(
+            status_code=500, detail=f"Error al obtener tickets: {e!s}"
+        )
 
 
 @router.post("")
@@ -83,7 +107,7 @@ async def create_ticket(ticket: TicketCreate):
     jira_key = jira_data.get("key") if jira_data else None
     jira_url = jira_data.get("url") if jira_data else None
 
-    # 2. Insertar en la base de datos Supabase usando los nombres de columna correctos
+    # 2. Insertar en la base de datos Supabase
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -117,4 +141,56 @@ async def create_ticket(ticket: TicketCreate):
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error al guardar ticket en BD: {e!s}"
+        )
+
+
+@router.post("/webhook/jira")
+async def jira_webhook(request: Request):
+    try:
+        payload = await request.json()
+
+        # Validar evento de actualización de issue
+        issue = payload.get("issue", {})
+        jira_key = issue.get("key")
+
+        if not jira_key:
+            return {"status": "ignored", "reason": "No issue key found"}
+
+        # Extraer el nuevo estado de Jira
+        fields = issue.get("fields", {})
+        status_name = fields.get("status", {}).get("name", "").upper()
+
+        # Determinar el estado equivalente en Hyperion
+        nuevo_estado = JIRA_STATUS_MAP.get(status_name, "ABIERTO")
+
+        # Actualizar en Supabase basado en jira_issue_key
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        query = """
+            UPDATE public.tickets 
+            SET estado = %s 
+            WHERE jira_issue_key = %s
+            RETURNING *;
+        """
+        cursor.execute(query, (nuevo_estado, jira_key))
+        updated_ticket = cursor.fetchone()
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        if updated_ticket:
+            return {
+                "status": "success",
+                "jira_key": jira_key,
+                "nuevo_estado": nuevo_estado,
+            }
+
+        return {
+            "status": "not_found",
+            "message": f"No ticket found for key {jira_key}",
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error procesando webhook Jira: {e!s}"
         )
