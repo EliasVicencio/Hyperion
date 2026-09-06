@@ -89,12 +89,11 @@ async def create_log_auditoria(
     """Crea un log de auditoría y notifica en tiempo real vía Supabase Realtime."""
     try:
         # 1. Tu lógica habitual para guardar el log en PostgreSQL...
-        
+
         # 2. Notificamos al frontend vía Supabase Realtime (si está configurado)
         if supabase_client:
             supabase_client.realtime.channel("hyperion-events").send_broadcast(
-                event="telemetry",
-                payload=log_data
+                event="telemetry", payload=log_data
             )
 
         return {"status": "success", "data": log_data}

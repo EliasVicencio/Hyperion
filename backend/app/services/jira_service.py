@@ -1,6 +1,5 @@
 import os
 
-import httpx
 import psycopg2
 from fastapi import APIRouter, HTTPException
 from psycopg2.extras import RealDictCursor
@@ -12,16 +11,19 @@ router = APIRouter(prefix="/api/v1/tickets", tags=["Tickets"])
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+
 def get_db_connection():
     if not DATABASE_URL:
         raise HTTPException(status_code=500, detail="DATABASE_URL no está configurada")
     url = DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
     return psycopg2.connect(url, cursor_factory=RealDictCursor)
 
+
 class TicketCreate(BaseModel):
     title: str
     description: str | None = None
     priority: str | None = "Media"
+
 
 @router.get("")
 def get_tickets():
@@ -36,16 +38,17 @@ def get_tickets():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al obtener tickets: {e!s}")
 
+
 @router.post("")
 async def create_ticket(ticket: TicketCreate):
     if not ticket.title:
-        raise HTTPException(status_code=400, detail="El título del ticket es requerido.")
+        raise HTTPException(
+            status_code=400, detail="El título del ticket es requerido."
+        )
 
     # 1. Crear el ticket en Jira de forma asíncrona
     jira_data = await create_jira_issue(
-        title=ticket.title,
-        description=ticket.description,
-        priority=ticket.priority
+        title=ticket.title, description=ticket.description, priority=ticket.priority
     )
 
     jira_key = jira_data.get("key") if jira_data else None
@@ -62,8 +65,15 @@ async def create_ticket(ticket: TicketCreate):
             RETURNING *;
         """
         cursor.execute(
-            query, 
-            (ticket.title, ticket.description, ticket.priority, "Abierto", jira_key, jira_url)
+            query,
+            (
+                ticket.title,
+                ticket.description,
+                ticket.priority,
+                "Abierto",
+                jira_key,
+                jira_url,
+            ),
         )
         new_ticket = cursor.fetchone()
         conn.commit()
@@ -73,7 +83,9 @@ async def create_ticket(ticket: TicketCreate):
         return {
             "status": "success",
             "message": "Ticket registrado exitosamente",
-            "ticket": new_ticket
+            "ticket": new_ticket,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al guardar ticket en BD: {e!s}")
+        raise HTTPException(
+            status_code=500, detail=f"Error al guardar ticket en BD: {e!s}"
+        )
