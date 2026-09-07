@@ -1,16 +1,17 @@
-from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
-from typing import Optional
 import os
+from typing import Optional
+
+from fastapi import APIRouter, HTTPException, Request
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from pydantic import BaseModel
 
 # Asegúrate de importar tu servicio de Jira desde jira_service.py
 from app.services.jira_service import create_jira_issue
 
 router = APIRouter(prefix="/tickets", tags=["Tickets"])
 
-# --- DICIONARIO AMPLIADO DE ESTADOS (MAPPING JIRA -> HYPERION) ---
+# --- DICCIONARIO AMPLIADO DE ESTADOS (MAPPING JIRA -> HYPERION) ---
 JIRA_STATUS_MAP = {
     # CERRADO / FINALIZADO
     "DONE": "CERRADO",
@@ -104,7 +105,7 @@ async def jira_webhook(request: Request):
     """ Endpoint receptor de Webhooks desde Jira (Inbound Sync) """
     try:
         payload = await request.json()
-        print(f"--- WEBHOOK RECIBIDO DE JIRA ---")
+        print("--- WEBHOOK RECIBIDO DE JIRA ---")
         
         issue = payload.get("issue", {})
         jira_key = issue.get("key")  # Ej: "DEV-2"
@@ -156,4 +157,4 @@ async def jira_webhook(request: Request):
 
     except Exception as e:
         print(f"ERROR CRÍTICO EN WEBHOOK JIRA: {e}")
-        raise HTTPException(status_code=500, detail=f"Internal Webhook Error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal Webhook Error: {e!s}")
