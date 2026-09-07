@@ -6,7 +6,7 @@ const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const BASE_URL = 'https://hyperion-core.vercel.app/api/v1';
+const BASE_URL = 'https://hyperion-core.vercel.app';
 
 export const getToken = () => localStorage.getItem('hyperion_token');
 
