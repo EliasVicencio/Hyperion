@@ -1,16 +1,20 @@
-// URL Base fija apuntando al backend activo en Vercel
+// URL base centralizada apuntando al backend activo en Vercel
 const BASE_URL = 'https://hyperion-core.vercel.app/api/v1';
 
-/**
- * Obtener el token de autenticación desde el almacenamiento local
- */
+// --- GESTIÓN DE TOKENS ---
 export const getToken = () => {
   return localStorage.getItem('hyperion_token');
 };
 
-/**
- * Cliente centralizado para peticiones HTTP
- */
+export const setToken = (token) => {
+  if (token) {
+    localStorage.setItem('hyperion_token', token);
+  } else {
+    localStorage.removeItem('hyperion_token');
+  }
+};
+
+// --- CLIENTE HTTP BASE ---
 export const fetchAPI = async (endpoint, options = {}) => {
   const token = getToken();
   
@@ -20,7 +24,6 @@ export const fetchAPI = async (endpoint, options = {}) => {
     ...options.headers,
   };
 
-  // Previene dobles barras diagonales en la construcción de la URL
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const url = `${BASE_URL}${cleanEndpoint}`;
 
@@ -42,9 +45,30 @@ export const fetchAPI = async (endpoint, options = {}) => {
   }
 };
 
-/**
- * Endpoints del módulo de Tickets
- */
+// --- MÉTODOS GENÉRICOS (Requeridos por tus páginas existentes) ---
+export const apiGet = async (endpoint) => {
+  return fetchAPI(endpoint, { method: 'GET' });
+};
+
+export const apiPost = async (endpoint, data) => {
+  return fetchAPI(endpoint, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const apiPut = async (endpoint, data) => {
+  return fetchAPI(endpoint, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+};
+
+export const apiDelete = async (endpoint) => {
+  return fetchAPI(endpoint, { method: 'DELETE' });
+};
+
+// --- MÓDULO DE TICKETS ---
 export const getTickets = async () => {
   return fetchAPI('/tickets');
 };
