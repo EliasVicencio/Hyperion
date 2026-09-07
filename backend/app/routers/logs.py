@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Query, status, HTTPException
-from typing import List, Optional
 from datetime import datetime, timezone
+
+from fastapi import APIRouter, HTTPException, Query, status
 
 router = APIRouter(
     prefix="/logs",
@@ -31,7 +31,7 @@ MOCK_LOGS = [
 @router.get("/", status_code=status.HTTP_200_OK)
 async def get_logs(
     limit: int = Query(default=50, ge=1, le=500),
-    level: Optional[str] = Query(default=None, description="Filtro por nivel: INFO, WARNING, ERROR")
+    level: str | None = Query(default=None, description="Filtro por nivel: INFO, WARNING, ERROR")
 ):
     """
     Obtiene la lista de logs del sistema Hyperion.
@@ -45,5 +45,5 @@ async def get_logs(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error al recuperar los logs: {str(e)}"
+            detail=f"Error al recuperar los logs: {e!s}"
         )

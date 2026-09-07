@@ -1,5 +1,6 @@
-from fastapi import APIRouter, status
 import datetime
+
+from fastapi import APIRouter, status
 
 router = APIRouter(
     prefix="/health",

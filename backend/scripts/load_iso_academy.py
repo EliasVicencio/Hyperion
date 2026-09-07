@@ -45,7 +45,7 @@ async def seed_iso_academy():
         print(f"⚠️ No se encontró el archivo: {iso_json_path}")
         return
 
-    with open(iso_json_path, "r", encoding="utf-8") as f:
+    with open(iso_json_path, encoding="utf-8") as f:
         iso_data = json.load(f)
 
     all_controls = iso_data.get("controls", [])
