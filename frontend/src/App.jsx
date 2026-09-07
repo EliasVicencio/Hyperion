@@ -4,7 +4,7 @@ import Login from './pages/Login';
 import ConfiguracionFlotante from './components/ConfiguracionFlotante';
 import { AnimatePresence, motion } from 'framer-motion';
 import { getToken } from './api';
-import { WebSocketProvider } from './context/WebSocketContext'; // ⬅️ IMPORTAMOS EL CONTEXTO
+import { WebSocketProvider } from './context/WebSocketContext';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Operadores = lazy(() => import('./pages/Operadores'));
@@ -23,12 +23,17 @@ export default function App() {
   const [page, setPage] = useState('Analiticas');
   const [isConfigOpen, setIsConfigOpen] = useState(false);
 
+  // Parseo seguro de hyperion_user para evitar errores de JSON.parse("undefined")
   const [currentUser, setCurrentUser] = useState(() => {
-    const saved = localStorage.getItem('hyperion_user');
     try {
-      return saved ? JSON.parse(saved) : null;
+      const saved = localStorage.getItem('hyperion_user');
+      if (!saved || saved === 'undefined' || saved === 'null') {
+        return null;
+      }
+      return JSON.parse(saved);
     } catch (e) {
       console.error("Error leyendo hyperion_user:", e);
+      localStorage.removeItem('hyperion_user');
       return null;
     }
   });
@@ -97,7 +102,6 @@ export default function App() {
     .replace(/[\u0300-\u036f]/g, "")
     .trim();
 
-  // ⬅️ ENVOLVEMOS TODO EL RETURN DENTRO DE <WebSocketProvider>
   return (
     <WebSocketProvider>
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 flex font-sans selection:bg-blue-500/30 transition-colors duration-300">
