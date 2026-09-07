@@ -4,7 +4,7 @@ const SUPABASE_URL = 'https://tyunqthoinamdlyhgmuq.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR5dW5xdGhvaW5hbWRseWhnbXVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5NjYzOTUsImV4cCI6MjA5NjU0MjM5NX0.22fGimuHwUPsVNL8WjtbCDj703Dx6ojuRAmbDr-9y30';
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const BASE_URL = 'https://hyperion-core.vercel.app/api/v1';
+const BASE_URL = 'https://hyperion-core.vercel.app';
 
 export const getToken = () => localStorage.getItem('hyperion_token');
 
@@ -25,12 +25,8 @@ export const fetchAPI = async (endpoint, options = {}) => {
     ...options.headers,
   };
 
-  let cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  if (cleanEndpoint.startsWith('/api/v1')) {
-    cleanEndpoint = cleanEndpoint.replace('/api/v1', '');
-  }
-
-  const url = `${BASE_URL}${cleanEndpoint}`;
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const url = `${BASE_URL.replace(/\/$/, '')}${cleanEndpoint}`;
 
   try {
     const response = await fetch(url, { ...options, headers });
