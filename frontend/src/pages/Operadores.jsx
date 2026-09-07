@@ -16,9 +16,7 @@ export default function Operadores() {
         setLoading(true);
         setError(null);
         try {
-            const response = await apiGet('/api/v1/operadores');
-            if (!response.ok) throw new Error('Error al conectar con la base de datos de operadores');
-            const data = await response.json();
+            const data = await apiGet('/api/v1/operadores');
             setUsuarios(data);
         } catch (err) {
             console.error(err);
@@ -49,13 +47,7 @@ export default function Operadores() {
         setEliminandoId(userId);
 
         try {
-            const response = await apiDelete(`/api/v1/operadores/${userId}`);
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.detail || 'No se pudo eliminar el operador del perímetro.');
-            }
-
+            await apiDelete(`/api/v1/operadores/${userId}`);
             await cargarUsuarios();
         } catch (err) {
             console.error(err);

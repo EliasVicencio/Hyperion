@@ -39,11 +39,7 @@ export default function Vigilancia() {
     setTiError(null);
     setTiResult(null);
     try {
-      const response = await apiGet(`/api/vigilancia/threat-intel/ip/${encodeURIComponent(tiQuery.trim())}`);
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.detail || 'No se pudo consultar la IP.');
-      }
+      const data = await apiGet(`/api/vigilancia/threat-intel/ip/${encodeURIComponent(tiQuery.trim())}`);
       setTiResult(data);
     } catch (err) {
       setTiError(err.message);
@@ -66,9 +62,7 @@ export default function Vigilancia() {
 
   const geolocalizarYAgregar = async (id, ip, severidad, label) => {
     try {
-      const response = await apiGet(`/api/vigilancia/geolocate/${encodeURIComponent(ip)}`);
-      if (!response.ok) return;
-      const geo = await response.json();
+      const geo = await apiGet(`/api/vigilancia/geolocate/${encodeURIComponent(ip)}`);
       agregarPuntoAlMapa(id, geo.lat, geo.lon, severidad, label || ip);
     } catch {
       // Geolocalización best-effort: si falla, simplemente no aparece ese punto en el mapa

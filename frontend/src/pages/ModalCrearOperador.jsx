@@ -29,18 +29,12 @@ export default function ModalCrearOperador({ isOpen, onClose, onUserCreated }) {
     setLoading(true);
 
     try {
-      const response = await apiPost('/api/v1/register', {
+      const data = await apiPost('/api/v1/register', {
         email: formData.email,
         password: formData.password,
         nombre: formData.fullName,
         role: formData.role
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.detail || 'Error al dar de alta al operador en el perímetro.');
-      }
 
       // Notificar al componente padre para que refresque la tabla de usuarios
       if (onUserCreated) onUserCreated(data);

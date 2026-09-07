@@ -10,9 +10,7 @@ export default function ActivosRiesgos() {
 
   const cargarDatos = async () => {
     try {
-      const res = await apiGet('/api/v1/riesgos/dashboard');
-      if (!res.ok) throw new Error("Error de conexión con la API Gateway");
-      const data = await res.json();
+      const data = await apiGet('/api/v1/riesgos/dashboard');
       const listaActivos = data.activos || [];
       const listaRiesgos = data.matriz_riesgos || [];
 

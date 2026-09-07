@@ -22,8 +22,7 @@ export default function Gobernanza() {
     }
 
     try {
-      const response = await apiGet('/api/v1/gobernanza/verificar-cadena');
-      const data = await response.json();
+      const data = await apiGet('/api/v1/gobernanza/verificar-cadena');
       
       const logsSeguros = data.logs || [];
 
@@ -65,8 +64,7 @@ export default function Gobernanza() {
   useEffect(() => {
     const init = async () => {
       try {
-        const response = await apiGet('/api/v1/gobernanza/verificar-cadena');
-        const data = await response.json();
+        const data = await apiGet('/api/v1/gobernanza/verificar-cadena');
         const logsSeguros = data.logs || [];
         setLogs(logsSeguros);
         const detectadoAtaque = logsSeguros.some(l => l.detalles && l.detalles.includes("ATAQUE"));
@@ -97,9 +95,7 @@ export default function Gobernanza() {
 
   const simularInyeccionMaliciosa = async () => {
     try {
-      const response = await apiPost('/api/v1/gobernanza/simular-ataque', {});
-      if (!response.ok) throw new Error("Error al lanzar ataque");
-      const data = await response.json();
+      const data = await apiPost('/api/v1/gobernanza/simular-ataque', {});
       
       setAuditStatus("COMPROMISED");
       alert(`🚨 Simulación ejecutada: Registro ID #${data.target_id} manipulado directamente en la base de datos. Ejecuta el test ISO para comprobar la ruptura de hashes.`);
@@ -114,8 +110,7 @@ export default function Gobernanza() {
   const ejecutarContramedidaDefensiva = async () => {
     setIsDefending(true);
     try {
-      const response = await apiPost('/api/v1/gobernanza/restaurar-cadena', {});
-      if (!response.ok) throw new Error("Error al mitigar el ataque");
+      await apiPost('/api/v1/gobernanza/restaurar-cadena', {});
       
       alert(`🛡️ CONTRAMEDIDA COMPLETADA: Algoritmo de autocuración ISO ejecutado. Se han recalculado y purgado los hashes mutados.`);
       setAuditStatus("CORRECTO");
