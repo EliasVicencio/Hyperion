@@ -1,227 +1,273 @@
-import React, { useState, useEffect } from 'react';
-import { Ticket, Plus, Loader2, AlertCircle, CheckCircle2, Circle, ExternalLink } from 'lucide-react';
-import { apiGet, apiPost, apiPatch } from '../api';
-
-const PRIORIDAD_ESTILO = {
-  CRITICA: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900/30',
-  ALTA: 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 border-orange-200 dark:border-orange-900/30',
-  MEDIA: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/30',
-  BAJA: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900/30',
-};
+import React, { useState, useEffect, useCallback } from 'react';
+import { Ticket, Plus, Search, CheckCircle2, Clock, AlertCircle, Trash2, Loader2, RefreshCw } from 'lucide-react';
+import { getTickets, createTicket, updateTicket, deleteTicket } from '../api';
 
 export default function Tickets() {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [busqueda, setBusqueda] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState('ALL');
 
-  const [titulo, setTitulo] = useState('');
-  const [descripcion, setDescripcion] = useState('');
-  const [prioridad, setPrioridad] = useState('MEDIA');
-  const [creando, setCreando] = useState(false);
+  // Modal para nuevo ticket
+  const [mostrarModal, setMostrarModal] = useState(false);
+  const [nuevoTicket, setNuevoTicket] = useState({ titulo: '', descripcion: '', prioridad: 'MEDIA' });
+  const [guardando, setGuardando] = useState(false);
 
-  const cargarTickets = async () => {
+  const cargarTickets = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await apiGet('/api/v1/tickets');
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.detail || 'No se pudieron cargar los tickets.');
-      setTickets(data);
+      const data = await getTickets();
+      // Sanitización de datos por si la API devuelve [] u { data: [] }
+      const lista = Array.isArray(data) ? data : (data?.data || data?.items || []);
+      setTickets(lista);
     } catch (err) {
-      setError(err.message);
+      console.error("🚨 Error al cargar tickets:", err);
+      setError(err.message || 'Error al conectar con el servicio de tickets.');
+      setTickets([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { cargarTickets(); }, []);
+  useEffect(() => {
+    cargarTickets();
+  }, [cargarTickets]);
 
-  const crearTicket = async (e) => {
+  const handleCrearTicket = async (e) => {
     e.preventDefault();
-    if (!titulo.trim()) return;
-    setCreando(true);
-    setError(null);
+    if (!nuevoTicket.titulo.trim()) return;
+
+    setGuardando(true);
     try {
-      const response = await apiPost('/api/v1/tickets', {
-        titulo,
-        descripcion,
-        prioridad
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        const errorMsg = typeof data.detail === 'object'
-          ? JSON.stringify(data.detail)
-          : (data.detail || 'No se pudo crear el ticket.');
-        throw new Error(errorMsg);
-      }
-
-      const ticketCreado = data.ticket || data;
-      setTickets(prev => [ticketCreado, ...prev]);
-
-      setTitulo('');
-      setDescripcion('');
-      setPrioridad('MEDIA');
+      await createTicket(nuevoTicket);
+      setNuevoTicket({ titulo: '', descripcion: '', prioridad: 'MEDIA' });
+      setMostrarModal(false);
+      await cargarTickets();
     } catch (err) {
-      setError(err.message);
+      alert("Error al crear ticket: " + err.message);
     } finally {
-      setCreando(false);
+      setGuardando(false);
     }
   };
 
-  const alternarEstado = async (ticket) => {
-    const nuevoEstado = ticket.estado === 'CERRADO' ? 'ABIERTO' : 'CERRADO';
-    // Optimista: actualizamos en pantalla de inmediato, revertimos si falla
-    setTickets(prev => prev.map(t => t.id === ticket.id ? { ...t, estado: nuevoEstado } : t));
+  const handleCambiarEstado = async (id, estadoActual) => {
+    const nuevoEstado = estadoActual === 'RESUELTO' ? 'ABIERTO' : 'RESUELTO';
     try {
-      const response = await apiPatch(`/api/v1/tickets/${ticket.id}`, { estado: nuevoEstado });
-      if (!response.ok) throw new Error();
-    } catch {
-      setTickets(prev => prev.map(t => t.id === ticket.id ? { ...t, estado: ticket.estado } : t));
+      await updateTicket(id, { estado: nuevoEstado });
+      cargarTickets();
+    } catch (err) {
+      console.error("Error actualizando ticket:", err);
     }
   };
+
+  const handleEliminarTicket = async (id) => {
+    if (!window.confirm("¿Confirmas eliminar este ticket?")) return;
+    try {
+      await deleteTicket(id);
+      cargarTickets();
+    } catch (err) {
+      console.error("Error eliminando ticket:", err);
+    }
+  };
+
+  // Filtrado de tickets
+  const ticketsFiltrados = tickets.filter(t => {
+    const coincideTexto = (t.titulo || '').toLowerCase().includes(busqueda.toLowerCase()) ||
+                          (t.descripcion || '').toLowerCase().includes(busqueda.toLowerCase());
+    const coincideEstado = filtroEstado === 'ALL' || t.estado === filtroEstado;
+    return coincideTexto && coincideEstado;
+  });
 
   return (
-    <div className="space-y-6 text-slate-800 dark:text-slate-200">
-      <header>
-        <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20">
-            <Ticket size={22} />
-          </div>
-          Tickets de Soporte
-        </h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-          Incidentes y solicitudes con sincronización automática a Jira Service Management y Slack
-        </p>
+    <div className="space-y-6">
+      {/* Encabezado */}
+      <header className="flex justify-between items-end flex-wrap gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-950 dark:text-white tracking-tight flex items-center gap-3">
+            <Ticket className="text-blue-500" size={28} /> Gestión de Tickets
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm">Mesa de ayuda e incidentes operativos de Hyperion</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={cargarTickets} 
+            className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-50 transition-all"
+          >
+            <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
+          </button>
+          <button 
+            onClick={() => setMostrarModal(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all shadow-lg shadow-blue-500/20"
+          >
+            <Plus size={18} /> Nuevo Ticket
+          </button>
+        </div>
       </header>
 
-      {/* Formulario de creación */}
-      <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-900 p-6 rounded-2xl shadow-sm dark:shadow-xl">
-        <form onSubmit={crearTicket} className="space-y-3">
-          <input
-            type="text"
-            value={titulo}
-            onChange={(e) => setTitulo(e.target.value)}
-            placeholder="Título del ticket"
-            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50"
-          />
-          <textarea
-            value={descripcion}
-            onChange={(e) => setDescripcion(e.target.value)}
-            placeholder="Descripción (opcional)"
-            rows={2}
-            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 resize-none"
-          />
-          <div className="flex gap-3">
-            <select
-              value={prioridad}
-              onChange={(e) => setPrioridad(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500/50"
-            >
-              <option value="BAJA">Baja</option>
-              <option value="MEDIA">Media</option>
-              <option value="ALTA">Alta</option>
-              <option value="CRITICA">Crítica</option>
-            </select>
-            <button
-              type="submit"
-              disabled={creando || !titulo.trim()}
-              className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-xl text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-600/20"
-            >
-              {creando ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  Sincronizando con Jira...
-                </>
-              ) : (
-                <>
-                  <Plus size={16} />
-                  Crear Ticket
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
-
+      {/* Alerta de error si falla la API */}
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 p-3 rounded-xl text-red-500 dark:text-red-400 text-xs flex items-center gap-2">
-          <AlertCircle size={16} /> {error}
+        <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-2xl flex items-center justify-between text-red-600 dark:text-red-400 text-sm">
+          <div className="flex items-center gap-3">
+            <AlertCircle size={20} />
+            <span><strong>Endpoint no encontrado:</strong> {error}</span>
+          </div>
+          <button onClick={cargarTickets} className="underline text-xs font-mono">Reintentar</button>
         </div>
       )}
 
-      {/* Lista de tickets */}
-      <div className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-900 p-6 rounded-2xl shadow-sm dark:shadow-xl">
-        <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-4 uppercase tracking-wider">
-          Tickets ({tickets.length})
-        </h3>
+      {/* Filtros */}
+      <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-white dark:bg-[#0b111e] border border-slate-200 dark:border-slate-800/50 p-4 rounded-2xl">
+        <div className="flex gap-2 w-full md:w-auto">
+          {['ALL', 'ABIERTO', 'EN_PROCESO', 'RESUELTO'].map((st) => (
+            <button
+              key={st}
+              onClick={() => setFiltroEstado(st)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold font-mono transition-all ${
+                filtroEstado === st 
+                  ? 'bg-blue-600 text-white shadow-sm' 
+                  : 'bg-slate-100 dark:bg-slate-900 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              {st === 'ALL' ? 'TODOS' : st}
+            </button>
+          ))}
+        </div>
 
+        <div className="relative w-full md:w-72">
+          <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
+          <input
+            type="text"
+            placeholder="Buscar por título o contenido..."
+            className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl py-2 pl-9 pr-4 w-full text-xs text-slate-800 dark:text-slate-200 focus:border-blue-500 outline-none"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Lista / Tabla de Tickets */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm">
         {loading ? (
-          <div className="text-center py-8 text-slate-400 dark:text-slate-600 text-sm">Cargando...</div>
-        ) : tickets.length === 0 ? (
-          <div className="text-center py-8 text-slate-400 dark:text-slate-600 text-sm">Sin tickets todavía.</div>
-        ) : (
-          <div className="space-y-3">
-            {tickets.map(ticket => (
-              <div
-                key={ticket.id}
-                className={`border rounded-xl p-4 flex items-center justify-between gap-4 transition-colors ${ticket.estado === 'CERRADO'
-                    ? 'bg-slate-50/50 dark:bg-slate-950/40 border-slate-100 dark:border-slate-900 opacity-60'
-                    : 'bg-slate-50/50 dark:bg-slate-950/40 border-slate-100 dark:border-slate-900 hover:border-slate-300 dark:hover:border-slate-800'
-                  }`}
-              >
-                <button onClick={() => alternarEstado(ticket)} className="shrink-0" title="Cambiar estado">
-                  {ticket.estado === 'CERRADO'
-                    ? <CheckCircle2 size={20} className="text-emerald-500" />
-                    : <Circle size={20} className="text-slate-300 dark:text-slate-700 hover:text-blue-500 transition-colors" />}
-                </button>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className={`text-sm font-semibold ${ticket.estado === 'CERRADO' ? 'line-through text-slate-400 dark:text-slate-600' : 'text-slate-800 dark:text-slate-200'}`}>
-                      {ticket.titulo || ticket.title}
-                    </p>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-600 font-mono">#{ticket.id}</span>
-
-                    {ticket.origen === 'API_EXTERNA' && (
-                      <span className="text-[9px] bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded font-mono">EXTERNO</span>
-                    )}
-
-                    {/* Insignia / Badge de Jira con enlace directo */}
-                    {ticket.jira_issue_key && (
-                      <a
-                        href={ticket.jira_issue_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/60 px-2 py-0.5 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
-                        title="Ver en Jira Service Management"
-                      >
-                        <span>Jira: {ticket.jira_issue_key}</span>
-                        <ExternalLink size={10} />
-                      </a>
-                    )}
+          <div className="p-12 text-center text-slate-400 flex flex-col items-center gap-3 font-mono text-xs">
+            <Loader2 className="animate-spin text-blue-500" size={24} />
+            Cargando tickets desde el servidor...
+          </div>
+        ) : ticketsFiltrados.length > 0 ? (
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            {ticketsFiltrados.map((ticket) => (
+              <div key={ticket.id} className="p-5 flex items-center justify-between hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                <div className="space-y-1 max-w-xl">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-mono font-bold text-slate-400">#{ticket.id}</span>
+                    <h3 className="font-semibold text-slate-900 dark:text-white text-base">{ticket.titulo}</h3>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
+                      ticket.prioridad === 'ALTA' ? 'bg-red-500/10 text-red-500 border border-red-500/20' :
+                      ticket.prioridad === 'MEDIA' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
+                      'bg-slate-500/10 text-slate-500'
+                    }`}>
+                      {ticket.prioridad || 'NORMAL'}
+                    </span>
                   </div>
-
-                  {(ticket.descripcion || ticket.description) && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                      {ticket.descripcion || ticket.description}
-                    </p>
-                  )}
-
-                  <p className="text-[10px] text-slate-400 dark:text-slate-600 mt-1 font-mono">
-                    {ticket.creado_por || 'Sistema'} · {ticket.created_at}
-                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1">{ticket.descripcion || 'Sin descripción.'}</p>
                 </div>
 
-                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded border tracking-wide shrink-0 ${PRIORIDAD_ESTILO[ticket.prioridad] || PRIORIDAD_ESTILO.MEDIA}`}>
-                  {ticket.prioridad}
-                </span>
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => handleCambiarEstado(ticket.id, ticket.estado)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
+                      ticket.estado === 'RESUELTO'
+                        ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
+                        : 'bg-amber-500/10 text-amber-500 border-amber-500/30'
+                    }`}
+                  >
+                    {ticket.estado === 'RESUELTO' ? <CheckCircle2 size={14} /> : <Clock size={14} />}
+                    {ticket.estado || 'ABIERTO'}
+                  </button>
+
+                  <button
+                    onClick={() => handleEliminarTicket(ticket.id)}
+                    className="p-2 text-slate-400 hover:text-red-500 transition-colors rounded-lg hover:bg-red-500/10"
+                    title="Eliminar Ticket"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
+        ) : (
+          <div className="p-12 text-center text-slate-400 italic">
+            No hay tickets registrados que coincidan con la búsqueda.
+          </div>
         )}
       </div>
+
+      {/* Modal para Crear Ticket */}
+      {mostrarModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Crear Nuevo Ticket</h2>
+            <form onSubmit={handleCrearTicket} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Título</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej: Fallo en autenticación JWT"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-sm outline-none focus:border-blue-500 text-slate-900 dark:text-white"
+                  value={nuevoTicket.titulo}
+                  onChange={(e) => setNuevoTicket({ ...nuevoTicket, titulo: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Descripción</label>
+                <textarea
+                  rows="3"
+                  placeholder="Detalles del problema..."
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-sm outline-none focus:border-blue-500 text-slate-900 dark:text-white resize-none"
+                  value={nuevoTicket.descripcion}
+                  onChange={(e) => setNuevoTicket({ ...nuevoTicket, descripcion: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Prioridad</label>
+                <select
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-sm outline-none focus:border-blue-500 text-slate-900 dark:text-white"
+                  value={nuevoTicket.prioridad}
+                  onChange={(e) => setNuevoTicket({ ...nuevoTicket, prioridad: e.target.value })}
+                >
+                  <option value="BAJA">Baja</option>
+                  <option value="MEDIA">Media</option>
+                  <option value="ALTA">Alta</option>
+                  <option value="CRITICA">Crítica</option>
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setMostrarModal(false)}
+                  className="px-4 py-2 rounded-xl text-sm font-medium text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={guardando}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2"
+                >
+                  {guardando && <Loader2 className="animate-spin" size={16} />}
+                  Guardar Ticket
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

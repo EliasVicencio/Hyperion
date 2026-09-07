@@ -15,7 +15,7 @@ from app.routers import (
     tickets,
     vigilancia,
 )
-from app.routers.auth import limiter  # Importas el limitador que creamos recién
+from app.routers.auth import limiter
 
 app = FastAPI(title="Hyperion Core Backend", version="2.0.0")
 
@@ -30,13 +30,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(health.router)
-app.include_router(auth.router)
-app.include_router(operadores.router)
-app.include_router(logs.router)
-app.include_router(gobernanza.router)
-app.include_router(vigilancia.router)
-app.include_router(academia.router)
-app.include_router(riesgos.router)
-app.include_router(threat_intel.router)
-app.include_router(tickets.router)
+# --- Agregamos el prefijo /api/v1 globalmente a los routers ---
+API_PREFIX = "/api/v1"
+
+app.include_router(health.router)  # Mantiene /health si lo necesitas en raíz
+app.include_router(health.router, prefix=API_PREFIX) # Y también /api/v1/health
+
+app.include_router(auth.router, prefix=API_PREFIX)
+app.include_router(operadores.router, prefix=API_PREFIX)
+app.include_router(logs.router, prefix=API_PREFIX)
+app.include_router(gobernanza.router, prefix=API_PREFIX)
+app.include_router(vigilancia.router, prefix=API_PREFIX)
+app.include_router(academia.router, prefix=API_PREFIX)
+app.include_router(riesgos.router, prefix=API_PREFIX)
+app.include_router(threat_intel.router, prefix=API_PREFIX)
+app.include_router(tickets.router, prefix=API_PREFIX)
