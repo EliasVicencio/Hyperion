@@ -1,61 +1,57 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'https://tyunqthoinamdlyhgmuq.supabase.co';
+// URL Base fija apuntando al backend activo en Vercel
+const BASE_URL = 'https://hyperion-core.vercel.app/api/v1';
 
-export function getToken() {
+/**
+ * Obtener el token de autenticación desde el almacenamiento local
+ */
+export const getToken = () => {
   return localStorage.getItem('hyperion_token');
-}
+};
 
-export function setToken(token) {
-  if (token) {
-    localStorage.setItem('hyperion_token', token);
-  } else {
-    localStorage.removeItem('hyperion_token');
-  }
-}
-
-export async function apiFetch(path, options = {}) {
+/**
+ * Cliente centralizado para peticiones HTTP
+ */
+export const fetchAPI = async (endpoint, options = {}) => {
   const token = getToken();
-  const headers = { ...options.headers };
+  
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...options.headers,
+  };
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  // Previene dobles barras diagonales en la construcción de la URL
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const url = `${BASE_URL}${cleanEndpoint}`;
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `Error HTTP: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error(`Error en petición API (${endpoint}):`, error);
+    throw error;
   }
+};
 
-  if (!headers['Content-Type'] && !(options.body instanceof FormData)) {
-    headers['Content-Type'] = 'application/json';
-  }
+/**
+ * Endpoints del módulo de Tickets
+ */
+export const getTickets = async () => {
+  return fetchAPI('/tickets');
+};
 
-  // Asegura que no se dupliquen las barras en la ruta
-  const cleanPath = path.startsWith('/') ? path : `/${path}`;
-  const res = await fetch(`${API_BASE}${cleanPath}`, { ...options, headers });
-
-  if (res.status === 401) {
-    setToken(null);
-    localStorage.removeItem('hyperion_auth');
-    window.location.href = '/';
-    throw new Error('Sesión expirada');
-  }
-
-  return res;
-}
-
-export function apiGet(path) {
-  return apiFetch(path);
-}
-
-export function apiPost(path, body) {
-  return apiFetch(path, {
+export const createTicket = async (ticketData) => {
+  return fetchAPI('/tickets', {
     method: 'POST',
-    body: JSON.stringify(body),
+    body: JSON.stringify(ticketData),
   });
-}
-
-export function apiPatch(path, body) {
-  return apiFetch(path, {
-    method: 'PATCH',
-    body: JSON.stringify(body),
-  });
-}
-
-export function apiDelete(path) {
-  return apiFetch(path, { method: 'DELETE' });
-}
+};
