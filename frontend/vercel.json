@@ -6,7 +6,7 @@
     },
     {
       "source": "/auth/:path*",
-      "destination": "https://hyperion-pi-nine.vercel.app/auth/:path*"
+      "destination": "https://hyperion-pi-nine.vercel.app/api/v1/auth/:path*"
     },
     {
       "source": "/health/:path*",
