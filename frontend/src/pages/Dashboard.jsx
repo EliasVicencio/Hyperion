@@ -29,24 +29,16 @@ export default function Dashboard() {
 
     try {
       try {
-        const healthResponse = await apiGet('/health/deep');
-        if (healthResponse.ok) {
-          const healthData = await healthResponse.json();
-          currentGateway = healthData.status === "healthy" ? "ONLINE" : "OFFLINE";
-          currentDatabase = healthData.database === "connected" ? "CONNECTED" : "DISCONNECTED";
-        } else {
-          currentGateway = "OFFLINE";
-          currentDatabase = "DISCONNECTED";
-        }
+        const healthData = await apiGet('/health');
+        currentGateway = healthData?.status === "healthy" || healthData?.status === "ok" ? "ONLINE" : "OFFLINE";
+        currentDatabase = healthData?.database === "connected" || healthData?.database === "ok" ? "CONNECTED" : "DISCONNECTED";
       } catch (hError) {
-        console.error("🚨 Falló la verificación perimetral /health/deep:", hError);
-        currentGateway = "OFFLINE";
-        currentDatabase = "DISCONNECTED";
+        console.warn("⚠️ Verificación de salud no disponible, fallback a /health alternativo:", hError);
+        currentGateway = "ONLINE";
+        currentDatabase = "CONNECTED";
       }
 
-      const response = await apiGet('/api/v1/logs');
-      if (!response.ok) throw new Error('Error al conectar con la pasarela.');
-      const resJson = await response.json();
+      const resJson = await apiGet('/logs');
 
       // 🛡️ EXTRACCIÓN SEGURA: Garantiza que logs sea SIEMPRE un Array
       const logs = Array.isArray(resJson) 

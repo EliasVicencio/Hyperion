@@ -12,9 +12,9 @@ export default function Logs() {
   const cargarLogs = useCallback(async () => {
     setLoading(true);
     try {
-      const url = filtro === 'ALL' ? '/api/v1/logs' : `/api/v1/logs?categoria=${filtro}`;
-      const response = await apiGet(url);
-      const data = await response.json();
+      const url = filtro === 'ALL' ? '/logs' : `/logs?categoria=${filtro}`;
+      // apiGet ya retorna la data JSON parseada
+      const data = await apiGet(url);
       
       // Sanitización: Extracción segura independientemente de si la API devuelve [] u { items: [] }
       const logsArray = Array.isArray(data) 
