@@ -1,8 +1,7 @@
 import os
-from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Request
 import psycopg2
+from fastapi import APIRouter, HTTPException, Request
 from psycopg2.extras import RealDictCursor
 from pydantic import BaseModel
 
@@ -49,8 +48,8 @@ def get_db_connection():
 # --- MODELOS PYDANTIC ---
 class TicketCreate(BaseModel):
     titulo: str
-    descripcion: Optional[str] = ""
-    prioridad: Optional[str] = "Media"
+    descripcion: str | None = ""
+    prioridad: str | None = "Media"
 
 # --- ENDPOINTS ---
 
