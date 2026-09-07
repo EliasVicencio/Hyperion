@@ -45,7 +45,7 @@ export const fetchAPI = async (endpoint, options = {}) => {
   }
 };
 
-// --- MÉTODOS GENÉRICOS (Requeridos por tus páginas existentes) ---
+// --- MÉTODOS GENÉRICOS (Requeridos por tus componentes React) ---
 export const apiGet = async (endpoint) => {
   return fetchAPI(endpoint, { method: 'GET' });
 };
@@ -60,6 +60,13 @@ export const apiPost = async (endpoint, data) => {
 export const apiPut = async (endpoint, data) => {
   return fetchAPI(endpoint, {
     method: 'PUT',
+    body: JSON.stringify(data),
+  });
+};
+
+export const apiPatch = async (endpoint, data) => {
+  return fetchAPI(endpoint, {
+    method: 'PATCH',
     body: JSON.stringify(data),
   });
 };
