@@ -1,4 +1,11 @@
-// URL base centralizada apuntando al backend activo en Vercel
+import { createClient } from '@supabase/supabase-js';
+
+// Configuración de Supabase Client (si lo necesitas de manera global)
+const SUPABASE_URL = 'https://YOUR_SUPABASE_PROJECT_ID.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// URL base centralizada
 const BASE_URL = 'https://hyperion-core.vercel.app/api/v1';
 
 // --- GESTIÓN DE TOKENS ---
@@ -17,14 +24,19 @@ export const setToken = (token) => {
 // --- CLIENTE HTTP BASE ---
 export const fetchAPI = async (endpoint, options = {}) => {
   const token = getToken();
-  
+
   const headers = {
     'Content-Type': 'application/json',
     ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     ...options.headers,
   };
 
-  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  // Prevenir '/api/v1/api/v1/...' cuando el componente envía el prefijo
+  let cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  if (cleanEndpoint.startsWith('/api/v1')) {
+    cleanEndpoint = cleanEndpoint.replace('/api/v1', '');
+  }
+
   const url = `${BASE_URL}${cleanEndpoint}`;
 
   try {
@@ -40,12 +52,12 @@ export const fetchAPI = async (endpoint, options = {}) => {
 
     return await response.json();
   } catch (error) {
-    console.error(`Error en petición API (${endpoint}):`, error);
+    console.error(`Error en petición API (${cleanEndpoint}):`, error);
     throw error;
   }
 };
 
-// --- MÉTODOS GENÉRICOS (Requeridos por tus componentes React) ---
+// --- MÉTODOS HTTP GENÉRICOS ---
 export const apiGet = async (endpoint) => {
   return fetchAPI(endpoint, { method: 'GET' });
 };
@@ -75,7 +87,7 @@ export const apiDelete = async (endpoint) => {
   return fetchAPI(endpoint, { method: 'DELETE' });
 };
 
-// --- MÓDULO DE TICKETS ---
+// --- MÓDULOS ESPECÍFICOS ---
 export const getTickets = async () => {
   return fetchAPI('/tickets');
 };
@@ -85,4 +97,25 @@ export const createTicket = async (ticketData) => {
     method: 'POST',
     body: JSON.stringify(ticketData),
   });
+};
+
+export const updateTicket = async (ticketId, ticketData) => {
+  return fetchAPI(`/tickets/${ticketId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(ticketData),
+  });
+};
+
+export const deleteTicket = async (ticketId) => {
+  return fetchAPI(`/tickets/${ticketId}`, {
+    method: 'DELETE',
+  });
+};
+
+export const getLogs = async () => {
+  return fetchAPI('/logs');
+};
+
+export const checkHealth = async () => {
+  return fetchAPI('/health');
 };
