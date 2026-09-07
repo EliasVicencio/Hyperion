@@ -27,11 +27,13 @@ export const fetchAPI = async (endpoint, options = {}) => {
     ...options.headers,
   };
 
-  // Sanitización de ruta: asegura prefijos limpios
+  // Sanitización de ruta: normaliza cualquier variante a exactamente
+  // un prefijo /api/v1, sin importar si el caller ya lo incluyó o no.
+  // (El backend monta casi todos los routers SOLO bajo /api/v1;
+  // solo /health también vive en la raíz).
   let path = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  if (path.startsWith('/api/v1')) {
-    path = path.replace('/api/v1', '');
-  }
+  path = path.replace(/^\/api\/v1/, '');
+  path = `/api/v1${path}`;
 
   const url = `${BASE_URL}${path}`;
 
