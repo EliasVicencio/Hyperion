@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..core import get_current_user, get_db
 
-router = APIRouter(prefix="/api/v1/gobernanza", tags=["Gobernanza"])
+router = APIRouter(prefix="/gobernanza", tags=["Gobernanza"])
 
 
 @router.get("/verificar-cadena")

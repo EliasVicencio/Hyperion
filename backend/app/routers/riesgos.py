@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from ..core import get_db
 
-router = APIRouter(prefix="/api/v1", tags=["Riesgos"])
+router = APIRouter(tags=["Riesgos"])
 
 
 @router.get("/riesgos/dashboard")

@@ -16,7 +16,7 @@ from ..core import (
     require_roles,
 )
 
-router = APIRouter(prefix="/api/v1", tags=["Operadores"])
+router = APIRouter(tags=["Operadores"])
 
 
 async def _crear_operador_en_bd(payload: NuevoOperador, db: Session):

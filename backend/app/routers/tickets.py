@@ -57,6 +57,7 @@ class TicketCreate(BaseModel):
 # --- ENDPOINTS ---
 
 @router.get("")
+@router.get("/")
 async def get_tickets():
     """Obtiene todos los tickets de Supabase."""
     try:
@@ -73,6 +74,7 @@ async def get_tickets():
 
 
 @router.post("")
+@router.post("/")
 async def create_ticket(ticket: TicketCreate):
     """Crea un ticket en Supabase y lo envía a Jira (Outbound)."""
     try:
