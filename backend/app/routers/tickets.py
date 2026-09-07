@@ -53,6 +53,7 @@ class TicketCreate(BaseModel):
 
 # --- ENDPOINTS ---
 
+@router.get("/")
 @router.get("")
 async def get_tickets():
     """ Obtiene todos los tickets registrados en la base de datos """
@@ -68,6 +69,7 @@ async def get_tickets():
         print(f"Error al obtener tickets: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/")
 @router.post("")
 async def create_ticket(ticket: TicketCreate):
     """ Crea un ticket localmente y lo sincroniza en Jira (Outbound) """
