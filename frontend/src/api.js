@@ -69,11 +69,12 @@ export const apiPatch = async (endpoint, data) => fetchAPI(endpoint, { method: '
 export const apiDelete = async (endpoint) => fetchAPI(endpoint, { method: 'DELETE' });
 
 // --- ENDPOINTS ESPECÍFICOS DEL SISTEMA ---
-// Nota: Se agrega '/' al final para garantizar compatibilidad con FastAPI en Vercel
-export const getTickets = async () => fetchAPI('/tickets/');
-export const createTicket = async (ticketData) => fetchAPI('/tickets/', { method: 'POST', body: JSON.stringify(ticketData) });
-export const updateTicket = async (ticketId, ticketData) => fetchAPI(`/tickets/${ticketId}/`, { method: 'PATCH', body: JSON.stringify(ticketData) });
-export const deleteTicket = async (ticketId) => fetchAPI(`/tickets/${ticketId}/`, { method: 'DELETE' });
+// Nota: sin '/' final — el backend acepta ambas formas, y el slash final
+// se detectó como causa del 404 específico en el rewrite de Vercel.
+export const getTickets = async () => fetchAPI('/tickets');
+export const createTicket = async (ticketData) => fetchAPI('/tickets', { method: 'POST', body: JSON.stringify(ticketData) });
+export const updateTicket = async (ticketId, ticketData) => fetchAPI(`/tickets/${ticketId}`, { method: 'PATCH', body: JSON.stringify(ticketData) });
+export const deleteTicket = async (ticketId) => fetchAPI(`/tickets/${ticketId}`, { method: 'DELETE' });
 
 export const getLogs = async () => fetchAPI('/logs/');
 export const checkHealth = async () => fetchAPI('/health/');
