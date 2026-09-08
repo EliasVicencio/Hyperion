@@ -6,7 +6,11 @@ from psycopg2.extras import RealDictCursor
 from pydantic import BaseModel
 
 # Importa las funciones y el mapeo de estados de tu servicio de Jira
-from app.services.jira_service import JIRA_STATUS_MAP, create_jira_issue, transition_jira_issue
+from app.services.jira_service import (
+    JIRA_STATUS_MAP,
+    create_jira_issue,
+    transition_jira_issue,
+)
 
 router = APIRouter(prefix="/tickets", tags=["Tickets"])
 
