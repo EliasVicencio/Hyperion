@@ -1,99 +1,124 @@
-import React, { useEffect, useState } from 'react';
-import { connectThreatStream, fetchThreatEvents } from '../services/threatHuntingApi';
+import React, { useState, useEffect } from 'react';
+import { fetchThreatEvents, connectThreatStream } from '../services/threatHuntingApi';
 
-export const ThreatHuntingView = () => {
+export default function ThreatHuntingView() {
   const [events, setEvents] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Carga inicial de eventos históricos
-    fetchThreatEvents()
-      .then((data) => setEvents(data))
-      .catch((err) => console.error(err));
+    let streamHandler = null;
 
-    // Conexión al flujo en tiempo real
-    const socket = connectThreatStream(
+    // Carga inicial de datos
+    fetchThreatEvents()
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setEvents(data);
+        }
+      })
+      .catch((err) => console.error('Error al cargar eventos iniciales:', err))
+      .finally(() => setLoading(false));
+
+    // Conexión en tiempo real con fallback automático
+    streamHandler = connectThreatStream(
       (newEvent) => {
-        setEvents((prevEvents) => [newEvent, ...prevEvents]);
+        setIsConnected(true);
+        setEvents((prevEvents) => {
+          // Evita eventos duplicados por ID
+          const exists = prevEvents.some((e) => e.event_id === newEvent.event_id);
+          if (exists) return prevEvents;
+          return [newEvent, ...prevEvents];
+        });
       },
-      () => setIsConnected(false)
+      () => {
+        // En caso de usar el fallback por HTTP polling
+        setIsConnected(true);
+      }
     );
 
-    setIsConnected(true);
-
     return () => {
-      socket.close();
+      if (streamHandler && typeof streamHandler.close === 'function') {
+        streamHandler.close();
+      }
     };
   }, []);
 
-  const getSeverityBadge = (severity) => {
-    const colors = {
-      CRITICAL: 'bg-red-500/20 text-red-400 border-red-500/50',
-      HIGH: 'bg-orange-500/20 text-orange-400 border-orange-500/50',
-      MEDIUM: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50',
-      LOW: 'bg-blue-500/20 text-blue-400 border-blue-500/50',
-    };
-    return colors[severity] || colors.LOW;
-  };
-
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Threat Hunting Live Monitor</h1>
-          <p className="text-gray-400 text-sm">
+          <p className="text-sm text-slate-400">
             Ingesta en tiempo real desde Splunk & Microsoft Sentinel
           </p>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-2">
           <span
             className={`h-3 w-3 rounded-full ${
-              isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+              isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
             }`}
           />
-          <span className="text-sm font-medium text-gray-300">
-            {isConnected ? 'STREAM ACTIVO' : 'DESCONECTADO'}
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+            {isConnected ? 'EN VIVO' : 'DESCONECTADO'}
           </span>
         </div>
       </div>
 
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-        <table className="w-full text-left text-sm text-gray-300">
-          <thead className="bg-gray-800/50 text-gray-400 uppercase text-xs">
+      <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900/50 shadow-xl backdrop-blur">
+        <table className="w-full text-left text-sm text-slate-300">
+          <thead className="bg-slate-950/80 text-xs uppercase text-slate-400">
             <tr>
-              <th className="px-4 py-3">SIEM</th>
-              <th className="px-4 py-3">Regla / Regla de Alerta</th>
-              <th className="px-4 py-3">Severidad</th>
-              <th className="px-4 py-3">IP Origen</th>
-              <th className="px-4 py-3">IP Destino</th>
-              <th className="px-4 py-3">Timestamp</th>
+              <th className="px-6 py-4">SIEM</th>
+              <th className="px-6 py-4">REGLA / REGLA DE ALERTA</th>
+              <th className="px-6 py-4">SEVERIDAD</th>
+              <th className="px-6 py-4">IP ORIGEN</th>
+              <th className="px-6 py-4">IP DESTINO</th>
+              <th className="px-6 py-4">TIMESTAMP</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-800">
-            {events.length === 0 ? (
+          <tbody className="divide-y divide-slate-800">
+            {loading ? (
               <tr>
-                <td colSpan="6" className="text-center py-8 text-gray-500">
+                <td colSpan="6" className="px-6 py-8 text-center text-slate-500">
+                  Cargando eventos de seguridad...
+                </td>
+              </tr>
+            ) : events.length === 0 ? (
+              <tr>
+                <td colSpan="6" className="px-6 py-8 text-center text-slate-500">
                   Esperando eventos en tiempo real...
                 </td>
               </tr>
             ) : (
               events.map((event) => (
-                <tr key={event.event_id} className="hover:bg-gray-800/30 transition-colors">
-                  <td className="px-4 py-3 font-semibold text-white">{event.provider}</td>
-                  <td className="px-4 py-3">{event.rule_name}</td>
-                  <td className="px-4 py-3">
+                <tr key={event.event_id} className="hover:bg-slate-800/40 transition-colors">
+                  <td className="px-6 py-4 font-semibold text-slate-200">
+                    {event.provider}
+                  </td>
+                  <td className="px-6 py-4 font-medium text-slate-100">
+                    {event.rule_name}
+                  </td>
+                  <td className="px-6 py-4">
                     <span
-                      className={`px-2 py-1 text-xs rounded-full border ${getSeverityBadge(
-                        event.severity
-                      )}`}
+                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        event.severity === 'CRITICAL' || event.severity === 'HIGH'
+                          ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                          : event.severity === 'MEDIUM'
+                          ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                          : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                      }`}
                     >
                       {event.severity}
                     </span>
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs">{event.source_ip}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{event.destination_ip}</td>
-                  <td className="px-4 py-3 text-xs text-gray-400">
-                    {new Date(event.timestamp).toLocaleTimeString()}
+                  <td className="px-6 py-4 font-mono text-xs text-slate-400">
+                    {event.source_ip || '0.0.0.0'}
+                  </td>
+                  <td className="px-6 py-4 font-mono text-xs text-slate-400">
+                    {event.destination_ip || '0.0.0.0'}
+                  </td>
+                  <td className="px-6 py-4 text-xs text-slate-400">
+                    {event.timestamp}
                   </td>
                 </tr>
               ))
@@ -103,5 +128,4 @@ export const ThreatHuntingView = () => {
       </div>
     </div>
   );
-};
-export default ThreatHuntingView;
+}
