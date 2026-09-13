@@ -1,12 +1,6 @@
-import api from '../api';
-
-// Obtiene la URL base desde las variables de entorno o la instancia de Axios
 const getBaseUrl = () => {
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL;
-  }
-  if (api?.defaults?.baseURL) {
-    return api.defaults.baseURL;
   }
   return 'https://hyperion-core.vercel.app/api/v1';
 };
