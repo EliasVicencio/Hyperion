@@ -1,4 +1,4 @@
-import { BASE_URL } from './api';
+import { BASE_URL } from "../api";
 
 // Genera la URL del WebSocket adaptando http -> ws y https -> wss
 const getWebSocketUrl = () => {
