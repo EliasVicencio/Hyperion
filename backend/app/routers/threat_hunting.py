@@ -1,5 +1,13 @@
 import uuid
-from fastapi import APIRouter, BackgroundTasks, HTTPException, WebSocket, WebSocketDisconnect, status
+
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 
 from app.schemas.threat_hunting import (
     NormalizedThreatEvent,

@@ -1,8 +1,18 @@
-import { BASE_URL } from "../api";
+import api from '../api';
 
-// Genera la URL del WebSocket adaptando http -> ws y https -> wss
+// Obtiene la URL base desde las variables de entorno o la instancia de Axios
+const getBaseUrl = () => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  if (api?.defaults?.baseURL) {
+    return api.defaults.baseURL;
+  }
+  return 'https://hyperion-core.vercel.app/api/v1';
+};
+
 const getWebSocketUrl = () => {
-  const cleanBase = BASE_URL.replace(/\/$/, '');
+  const cleanBase = getBaseUrl().replace(/\/$/, '');
   const wsProtocol = cleanBase.startsWith('https') ? 'wss' : 'ws';
   const hostPath = cleanBase.replace(/^https?:\/\//, '');
   return `${wsProtocol}://${hostPath}/threat-hunting/ws/live`;
@@ -38,7 +48,8 @@ export const connectThreatStream = (onEventReceived, onError) => {
 };
 
 export const fetchThreatEvents = async () => {
-  const response = await fetch(`${BASE_URL}/threat-hunting/events`);
+  const baseUrl = getBaseUrl().replace(/\/$/, '');
+  const response = await fetch(`${baseUrl}/threat-hunting/events`);
   if (!response.ok) {
     throw new Error('Error al recuperar eventos de amenazas');
   }
