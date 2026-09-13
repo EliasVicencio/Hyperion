@@ -14,6 +14,8 @@ const ActivosRiesgos = lazy(() => import('./pages/ActivosRiesgos'));
 const Logs = lazy(() => import('./pages/Logs'));
 const Tickets = lazy(() => import('./pages/Tickets'));
 const Academia = lazy(() => import('./pages/Academia'));
+// ⬇️ NUEVO MÓDULO LAZY
+const ThreatHunting = lazy(() => import('./components/ThreatHuntingView'));
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -23,7 +25,6 @@ export default function App() {
   const [page, setPage] = useState('Analiticas');
   const [isConfigOpen, setIsConfigOpen] = useState(false);
 
-  // Parseo seguro de hyperion_user para evitar errores de JSON.parse("undefined")
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const saved = localStorage.getItem('hyperion_user');
@@ -76,6 +77,8 @@ export default function App() {
       'analiticas': <Dashboard />,
       'dashboard': <Dashboard />,
       'vigilancia': <Vigilancia />,
+      'threat hunting': <ThreatHunting />, // ⬅️ VISTA REGISTRADA
+      'threathunting': <ThreatHunting />,   // ⬅️ ALIAS SIN ESPACIOS
       'operadores': <Operadores />,
       'gestion de usuarios': <Operadores />,
       'gobernanza': <Gobernanza />,

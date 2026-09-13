@@ -1,13 +1,26 @@
 import React from 'react';
-import { LayoutDashboard, Shield, ShieldAlert, FileText, Settings, LogOut, Zap, BookOpen, Layers, Ticket } from 'lucide-react';
+import { 
+  LayoutDashboard, 
+  Shield, 
+  ShieldAlert, 
+  FileText, 
+  Settings, 
+  LogOut, 
+  Zap, 
+  BookOpen, 
+  Layers, 
+  Ticket,
+  Crosshair // ⬅️ ÍCONO NUEVO
+} from 'lucide-react';
 
 export default function Sidebar({ currentPage, setPage, onLogout, onOpenConfig, isConfigOpen }) {
   const menu = [
     { id: 'Analiticas', label: 'Analíticas', icon: <LayoutDashboard size={18} /> },
     { id: 'Vigilancia', label: 'Vigilancia', icon: <ShieldAlert size={18} /> },
+    { id: 'ThreatHunting', label: 'Threat Hunting', icon: <Crosshair size={18} /> }, // ⬅️ AGREGADO AL MENÚ
     { id: 'Operadores', label: 'Gestión de Usuarios', icon: <Shield size={18} /> },
     { id: 'Gobernanza', label: 'Gobernanza', icon: <Zap size={18} /> },
-    { id: 'ActivosRiesgos', label: 'Activos y Riesgos', icon: <Layers size={18} /> }, // ⬅️ INYECTADO EN MENÚ INTERNO
+    { id: 'ActivosRiesgos', label: 'Activos y Riesgos', icon: <Layers size={18} /> },
     { id: 'Logs', label: 'Logs de Auditoría', icon: <FileText size={18} /> },
     { id: 'Tickets', label: 'Tickets de Soporte', icon: <Ticket size={18} /> },
     { id: 'Academia', label: 'Academia Compliance', icon: <BookOpen size={18} /> },
@@ -54,7 +67,6 @@ export default function Sidebar({ currentPage, setPage, onLogout, onOpenConfig, 
       {/* Sección Inferior: Ajustes y Cierre de Sesión */}
       <div className="mt-auto p-6 border-t border-slate-900/60 space-y-3.5">
         
-        {/* Botón de Configuración Flotante */}
         <button
           onClick={onOpenConfig}
           className={`w-full flex items-center justify-between px-4 py-3 rounded-xl text-xs sm:text-sm font-medium transition-all border ${
@@ -76,7 +88,6 @@ export default function Sidebar({ currentPage, setPage, onLogout, onOpenConfig, 
           </span>
         </button>
 
-        {/* Botón Desconexión */}
         <button
           onClick={onLogout}
           className="flex items-center gap-3 text-slate-500 hover:text-red-400 text-xs sm:text-sm font-medium w-full px-4 py-2 transition-colors group"

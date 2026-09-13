@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -11,6 +11,7 @@ from app.routers import (
     logs,
     operadores,
     riesgos,
+    threat_hunting,
     threat_intel,
     tickets,
     vigilancia,
@@ -30,18 +31,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Agregamos el prefijo /api/v1 globalmente a los routers ---
-API_PREFIX = "/api/v1"
+# --- Router Central v1 ---
+api_v1_router = APIRouter(prefix="/api/v1")
 
-app.include_router(health.router)  # Mantiene /health si lo necesitas en raíz
-app.include_router(health.router, prefix=API_PREFIX) # Y también /api/v1/health
+# Se incluyen los sub-routers dentro de /api/v1
+api_v1_router.include_router(health.router)
+api_v1_router.include_router(auth.router)
+api_v1_router.include_router(operadores.router)
+api_v1_router.include_router(logs.router)
+api_v1_router.include_router(gobernanza.router)
+api_v1_router.include_router(vigilancia.router)
+api_v1_router.include_router(academia.router)
+api_v1_router.include_router(riesgos.router)
+api_v1_router.include_router(threat_intel.router)
+api_v1_router.include_router(tickets.router)
+api_v1_router.include_router(threat_hunting.router)
 
-app.include_router(auth.router, prefix=API_PREFIX)
-app.include_router(operadores.router, prefix=API_PREFIX)
-app.include_router(logs.router, prefix=API_PREFIX)
-app.include_router(gobernanza.router, prefix=API_PREFIX)
-app.include_router(vigilancia.router, prefix=API_PREFIX)
-app.include_router(academia.router, prefix=API_PREFIX)
-app.include_router(riesgos.router, prefix=API_PREFIX)
-app.include_router(threat_intel.router, prefix=API_PREFIX)
-app.include_router(tickets.router, prefix=API_PREFIX)
+# Montamos el router unificado en la app
+app.include_router(api_v1_router)
+
+# Endpoint de verificación directo en raíz (opcional)
+app.include_router(health.router)
