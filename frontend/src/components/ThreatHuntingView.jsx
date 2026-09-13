@@ -104,3 +104,4 @@ export const ThreatHuntingView = () => {
     </div>
   );
 };
+export default ThreatHuntingView;
