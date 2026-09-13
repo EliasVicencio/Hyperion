@@ -1,17 +1,8 @@
-// Apunta a la URL real de tu API backend
-const getBaseUrl = () => {
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
-  // Cambia esto por la URL correcta donde corre tu API (ej: Render, Railway, Fly.io, etc.)
-  return 'https://hyperion-core.vercel.app'; 
-};
+import { fetchAPI } from '../api';
 
 const getWebSocketUrl = () => {
-  const cleanBase = getBaseUrl().replace(/\/$/, '');
-  const wsProtocol = cleanBase.startsWith('https') ? 'wss' : 'ws';
-  const hostPath = cleanBase.replace(/^https?:\/\/(api\.)?/, '');
-  return `${wsProtocol}://${hostPath}/threat-hunting/ws/live`;
+  const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+  return `${wsProtocol}://${window.location.host}/api/v1/threat-hunting/ws/live`;
 };
 
 export const connectThreatStream = (onEventReceived, onError) => {
@@ -35,7 +26,7 @@ export const connectThreatStream = (onEventReceived, onError) => {
     };
 
     socket.onerror = (error) => {
-      console.warn('Conexión WebSocket fallida (Vercel no soporta WS nativo). Fallback a HTTP.');
+      console.warn('Conexión WebSocket no disponible en Vercel Serverless. Usando HTTP.');
       if (onError) onError(error);
     };
 
@@ -50,10 +41,6 @@ export const connectThreatStream = (onEventReceived, onError) => {
 };
 
 export const fetchThreatEvents = async () => {
-  const baseUrl = getBaseUrl().replace(/\/$/, '');
-  const response = await fetch(`${baseUrl}/threat-hunting/events`);
-  if (!response.ok) {
-    throw new Error('Error al recuperar eventos de amenazas');
-  }
-  return await response.json();
+  // fetchAPI agrega automáticamente el prefijo /api/v1 y los headers necesarios
+  return await fetchAPI('/threat-hunting/events');
 };
